@@ -1,11 +1,12 @@
 from multiprocessing.sharedctypes import Value
+import queue
 import re
 from typing import List
 
 from icecream import ic
 
 from compiler.token import Token
-from compiler.errors import CompilerError, UnexpectedCharacterError, UnmatchableTokenError, DanglingMultiLineCommentError
+from compiler.errors import CompilerError, UnexpectedCharacterError, UnmatchableTokenError, DanglingMultiLineCommentError, LonelyQuoteError
 
 
 class Scanner:
@@ -101,10 +102,13 @@ class Scanner:
             # wrong characters in a row, e.g. `0a`. Can we combine exceptions in that
             # case?
             # TODO: Use proper Exceptions here
-            if match.lastgroup in ("ERROR", "COMMENT_OPEN", "COMMENT_CLOSE"):
-                UnexpectedCharacterError(line, line_no, match).queue()
-
-            # TODO: Handle QUOTE_ERROR
+            match match.lastgroup:
+                case "ERROR":
+                    UnexpectedCharacterError(line, line_no, match).queue()
+                case ("COMMENT_OPEN" | "COMMENT_CLOSE"):
+                    DanglingMultiLineCommentError(line, line_no, match).queue()
+                case "QUOTE_ERROR":
+                    LonelyQuoteError(line, line_no, match).queue()
 
             tokens.append(Token(match[0], match.lastgroup, line_no))
         return tokens

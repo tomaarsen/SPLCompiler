@@ -71,12 +71,24 @@ class UnmatchableTokenError(QueueableError):
 class DanglingMultiLineCommentError(QueueableError):
     line: str
     line_no: int
-    start_char: int
+    match: re.Match
 
     def __str__(self) -> str:
         return (
             f"Found dangling multiline comment on line: {self.line_no}.\n"
-            f"  {self.line_no}. {self.line[:self.start_char]}{Colors.RED}{self.line[self.start_char:self.start_char+2]}{Colors.ENDC}{self.line[self.start_char+2:]}"
+            f"  {self.line_no}. {self.line[:self.match.start()]}{Colors.RED}{self.line[self.match.start():self.match.end()]}{Colors.ENDC}{self.line[self.match.end():]}"
+        )
+
+@dataclass
+class LonelyQuoteError(QueueableError):
+    line: str
+    line_no: int
+    match: re.Match
+
+    def __str__(self) -> str:
+        return (
+            f"Found lonely quote on line: {self.line_no}.\n"
+            f"  {self.line_no}. {self.line[:self.match.start()]}{Colors.RED}{self.line[self.match.start():self.match.end()]}{Colors.ENDC}{self.line[self.match.end():]}"
         )
 
 if __name__ == "__main__":
