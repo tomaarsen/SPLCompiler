@@ -71,10 +71,8 @@ class Scanner:
         )
 
     def scan(self, program: str):
-        # Scan each line individually
-        # TODO: Remove comments first
+        # Remove comments first
         program = self.remove_comments(program)
-        CompilerError.raise_all()
 
         # TODO: Verify that removing the \n with splitlines() doesn't cause issues
         lines = program.splitlines()
