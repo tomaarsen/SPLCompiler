@@ -78,6 +78,8 @@ class Scanner:
         # TODO: Verify that removing the \n with split() doesn't cause issues
         lines = program.split("\n")
 
+        print(len(lines))
+
         tokens = [
             token
             for line_no, line in enumerate(lines, start=1)
@@ -141,6 +143,11 @@ class Scanner:
             raise Exception()
 
         for start, end in comment_spans[::-1]:
-            program = program[:start] + "\n" * program[start:end].count("\n") + " " + program[end:]
+            separator = "\n" * program[start:end].count("\n")
+            program = (
+                program[:start] +
+                (separator if separator else " ") + 
+                program[end:]
+            )
 
         return program
