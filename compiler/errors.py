@@ -20,10 +20,12 @@ class CompilerError:
 
     @staticmethod
     def raise_all():
-        errors = "".join(["\n\n" + str(error) for error in CompilerError.ERRORS])
+        errors = "".join(["\n\n" + str(error) for error in CompilerError.ERRORS[:10]])
 
         if errors:
             sys.tracebacklimit = -1
+            if len(CompilerError.ERRORS) > 10:
+                errors += f"\n\nShowing 10 errors, omitting {len(CompilerError.ERRORS)-10} error(s)..."
             raise Exception(errors)
 
 
