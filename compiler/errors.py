@@ -42,7 +42,7 @@ class CompilerError:
         if errors:
             sys.tracebacklimit = -1
             if len(CompilerError.ERRORS) > 10:
-                errors += f"\n\nShowing 10 errors, omitting {len(CompilerError.ERRORS)-10} error(s)..."
+                errors += f"\n\nShowing 10 errors, omitting {len(CompilerError.ERRORS)-10} error{'s' if len(CompilerError.ERRORS) > 11 else ''}..."
             CompilerError.ERRORS.clear()
             raise Exception(errors)
 
