@@ -4,6 +4,7 @@ from typing import List
 from icecream import ic
 
 from compiler.token import Token
+from compiler.exceptions import CompilerError, UnknownCharacterError
 
 
 class Scanner:
@@ -52,36 +53,38 @@ class Scanner:
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
                 (?P<SPACE>[\ \r\t\f\v\n])|
-                (?P<ERROR>.+)
+                (?P<ERROR>.)
             """,
             flags=re.X,
         )
 
     def scan(self, lines: List[str]):
-        tokens = []
-        errors = []
-        for line_no, line in enumerate(lines, start=1):
-            line_tokens, line_errors = self.scan_line(line, line_no)
-            tokens.extend(line_tokens)
-            errors.extend(line_errors)
-        if errors:
-            raise Exception("\n".join(errors))
+        # Scan each line individually
+        tokens = [
+            token
+            for line_no, line in enumerate(lines, start=1)
+            for token in self.scan_line(line, line_no)
+        ]
+        # Raise all errors, if any, that may have accumulated during `scan_line`.
+        CompilerError.raise_all()
         return tokens
 
     def scan_line(self, line: str, line_no) -> List[Token]:
         tokens = []
-        errors = []
         matches = self.pattern.finditer(line)
         for match in matches:
             if match is None or match.lastgroup is None:
+                # TODO: Perhaps create a QueueableError subclass for this
                 raise Exception(f"Unexpected lack of token match on line {line_no}.")
-            
+
             if match.lastgroup == "SPACE":
                 continue
 
+            # TODO: Errors can only be one character long. What if there are multiple
+            # wrong characters in a row, e.g. `0a`. Can we combine exceptions in that
+            # case?
             if match.lastgroup == "ERROR":
-                # TODO: Make better Exception class
-                exc = "\n" + line.replace('\t', ' ') + f"{' ' * match.start()}{'^' * (match.end() - match.start())}\nThere was an error with token {match[0]!r} on line {line_no}."
-                errors.append(exc)
+                UnknownCharacterError(line, line_no, match).queue()
+
             tokens.append(Token(match[0], match.lastgroup, line_no))
-        return tokens, errors
+        return tokens
