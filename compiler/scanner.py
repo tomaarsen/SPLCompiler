@@ -133,7 +133,14 @@ class Scanner:
                         line_comment = False
                         comment_spans.append((start, match.start()))
 
+        if line_comment:
+            comment_spans.append((start, len(program)))
+
+        if star_comment:
+            # TODO: Make fancy exception saying that the /* was never ended!
+            raise Exception()
+
         for start, end in comment_spans[::-1]:
-            program = program[:start] + "\n" * program[start:end].count("\n") + program[end:]
+            program = program[:start] + "\n" * program[start:end].count("\n") + " " + program[end:]
 
         return program
