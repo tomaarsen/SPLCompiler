@@ -1,10 +1,11 @@
+from multiprocessing.sharedctypes import Value
 import re
 from typing import List
 
 from icecream import ic
 
 from compiler.token import Token
-from compiler.exceptions import CompilerError, UnexpectedCharacterError, UnmatchableTokenError
+from compiler.errors import CompilerError, UnexpectedCharacterError, UnmatchableTokenError, DanglingMultiLineCommentError
 
 
 class Scanner:
@@ -73,8 +74,8 @@ class Scanner:
         # TODO: Remove comments first
         program = self.remove_comments(program)
 
-        # TODO: Verify that removing the \n with split() doesn't cause issues
-        lines = program.split("\n")
+        # TODO: Verify that removing the \n with splitlines() doesn't cause issues
+        lines = program.splitlines()
 
         tokens = [
             token
@@ -112,6 +113,7 @@ class Scanner:
         line_comment = False
         star_comment = False
         start = 0
+        line_no = 1
         for match in poi_pattern.finditer(program):
             match match.group(0):
                 case "//":
@@ -127,6 +129,7 @@ class Scanner:
                         star_comment = False
                         comment_spans.append((start, match.end()))
                 case "\n":
+                    line_no += 1
                     if line_comment:
                         line_comment = False
                         comment_spans.append((start, match.start()))
@@ -135,8 +138,13 @@ class Scanner:
             comment_spans.append((start, len(program)))
 
         if star_comment:
-            # TODO: Make fancy exception saying that the /* was never ended!
-            raise Exception()
+            # TODO: Test whether this fancy exception saying that the /* was never ended works
+            try:
+                column = program.rindex('\n', 0, start)
+            except ValueError:
+                column = start
+            DanglingMultiLineCommentError(program.splitlines()[line_no-1], line_no, column)
+
 
         for start, end in comment_spans[::-1]:
             separator = "\n" * program[start:end].count("\n")

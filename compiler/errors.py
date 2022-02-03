@@ -46,7 +46,7 @@ class UnexpectedCharacterError(QueueableError):
 
 
 @dataclass
-class ForgetSemicolonError(QueueableError):
+class MissingSemicolonError(QueueableError):
     line: str
     line_no: int
 
@@ -63,16 +63,27 @@ class UnmatchableTokenError(QueueableError):
 
     def __str__(self) -> str:
         return (
-            f"Unexpected lack of token match on line: {self.line_no}."
+            f"Unexpected lack of token match on line: {self.line_no}.\n"
             f"  {self.line_no}. {self.line}"
         )
 
+@dataclass
+class DanglingMultiLineCommentError(QueueableError):
+    line: str
+    line_no: int
+    start_char: int
+
+    def __str__(self) -> str:
+        return (
+            f"Found dangling multiline comment on line: {self.line_no}.\n"
+            f"  {self.line_no}. {self.line[:self.start_char]}{Colors.RED}{self.line[self.start_char:self.start_char+1]}{Colors.ENDC}{self.line[self.start_char+1:]}"
+        )
 
 if __name__ == "__main__":
     # Example usage:
-    ForgetSemicolonError("  var head = prog.hd", 95).queue()
+    MissingSemicolonError("  var head = prog.hd", 95).queue()
     UnexpectedCharacterError("        depth = depth - 1;", 58, None).queue()
-    ForgetSemicolonError("    current = get_current();", 100).queue()
+    MissingSemicolonError("    current = get_current();", 100).queue()
     UnexpectedCharacterError("    program_pos = pro.gram_pos + 1;", 64, None).queue()
-    ForgetSemicolonError("        current.hd = (current.hd - 1) % 256;", 106).queue()
+    MissingSemicolonError("        current.hd = (current.hd - 1) % 256;", 106).queue()
     CompilerError.raise_all()
