@@ -10,8 +10,6 @@ from compiler.exceptions import CompilerError, UnexpectedCharacterError, Unmatch
 class Scanner:
     def __init__(self) -> None:
         # TODO:
-        # Comments must be removed first!
-        # 'var'
         # Potential extension: " for characters too
 
         self.pattern = re.compile(
@@ -45,7 +43,7 @@ class Scanner:
                 (?P<OR>\|\|)|
                 (?P<COLON>\:)|
                 (?P<NOT>\!)|
-                (?P<QUOTE>\'.\')|
+                (?P<QUOTE>\'\\?.\')|
                 # Dot only occurs with hd, tl, fst or snd:
                 (?P<HD>\.hd)| # Head
                 (?P<TL>\.tl)| # Tail
@@ -77,8 +75,6 @@ class Scanner:
 
         # TODO: Verify that removing the \n with split() doesn't cause issues
         lines = program.split("\n")
-
-        print(len(lines))
 
         tokens = [
             token
