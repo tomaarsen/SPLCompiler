@@ -95,14 +95,12 @@ class Scanner:
             if match is None or match.lastgroup is None:
                 UnmatchableTokenError(line, line_no).queue()
 
-            if match.lastgroup == "SPACE":
-                continue
-
             # TODO: Errors can only be one character long. What if there are multiple
             # wrong characters in a row, e.g. `0a`. Can we combine exceptions in that
             # case?
-            # TODO: Use proper Exceptions here
             match match.lastgroup:
+                case "SPACE":
+                    continue
                 case "ERROR":
                     UnexpectedCharacterError(line, line_no, match).queue()
                 case ("COMMENT_OPEN" | "COMMENT_CLOSE"):
