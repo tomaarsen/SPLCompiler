@@ -8,8 +8,8 @@ class Type(Enum):
     LSB = auto()
     RSB = auto()
     # COMMENT = auto()
-    # COMMENT_OPEN = auto()
-    # COMMENT_CLOSE = auto()
+    COMMENT_OPEN = auto()
+    COMMENT_CLOSE = auto()
     SEMICOLON = auto()
     DOUBLE_COLON = auto()
     ARROW = auto()
@@ -31,6 +31,7 @@ class Type(Enum):
     COLON = auto()
     NOT = auto()
     QUOTE = auto()
+    QUOTE_ERROR = auto()
     HD = auto()
     TL = auto()
     FST = auto()
@@ -48,7 +49,6 @@ class Type(Enum):
     ID = auto()
     DIGIT = auto()
     SPACE = auto()
-    QUOTE_ERROR = auto()
     ERROR = auto()
 
     def to_type(type_str: str):

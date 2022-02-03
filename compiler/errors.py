@@ -76,7 +76,7 @@ class DanglingMultiLineCommentError(QueueableError):
     def __str__(self) -> str:
         return (
             f"Found dangling multiline comment on line: {self.line_no}.\n"
-            f"  {self.line_no}. {self.line[:self.start_char]}{Colors.RED}{self.line[self.start_char:self.start_char+1]}{Colors.ENDC}{self.line[self.start_char+1:]}"
+            f"  {self.line_no}. {self.line[:self.start_char]}{Colors.RED}{self.line[self.start_char:self.start_char+2]}{Colors.ENDC}{self.line[self.start_char+2:]}"
         )
 
 if __name__ == "__main__":

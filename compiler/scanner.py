@@ -22,8 +22,8 @@ class Scanner:
                 (?P<LSB>\[)| # lsb = Left Square Bracket
                 (?P<RSB>\])| # rsb = Right Square Bracket
                 # (?P<COMMENT>\/\/)|
-                # (?P<COMMENT_OPEN>\/\*)|
-                # (?P<COMMENT_CLOSE>\*\/)|
+                (?P<COMMENT_OPEN>\/\*)|
+                (?P<COMMENT_CLOSE>\*\/)|
                 (?P<SEMICOLON>\;)|
                 (?P<DOUBLE_COLON>\:\:)|
                 (?P<ARROW>\-\>)|
@@ -45,6 +45,7 @@ class Scanner:
                 (?P<COLON>\:)|
                 (?P<NOT>\!)|
                 (?P<QUOTE>\'\\?.\')|
+                (?P<QUOTE_ERROR>\')|
                 # Dot only occurs with hd, tl, fst or snd:
                 (?P<HD>\.hd)| # Head
                 (?P<TL>\.tl)| # Tail
@@ -63,7 +64,6 @@ class Scanner:
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
                 (?P<SPACE>[\ \r\t\f\v\n])|
-                (?P<QUOTE_ERROR>\')|
                 (?P<ERROR>.)
             """,
             flags=re.X,
@@ -73,6 +73,7 @@ class Scanner:
         # Scan each line individually
         # TODO: Remove comments first
         program = self.remove_comments(program)
+        CompilerError.raise_all()
 
         # TODO: Verify that removing the \n with splitlines() doesn't cause issues
         lines = program.splitlines()
@@ -99,7 +100,8 @@ class Scanner:
             # TODO: Errors can only be one character long. What if there are multiple
             # wrong characters in a row, e.g. `0a`. Can we combine exceptions in that
             # case?
-            if match.lastgroup == "ERROR":
+            # TODO: Use proper Exceptions here
+            if match.lastgroup in ("ERROR", "COMMENT_OPEN", "COMMENT_CLOSE"):
                 UnexpectedCharacterError(line, line_no, match).queue()
 
             # TODO: Handle QUOTE_ERROR
@@ -110,41 +112,30 @@ class Scanner:
     def remove_comments(self, program: str):
         poi_pattern = re.compile(r"//|/\*|\*/|\n")
         comment_spans = []
-        line_comment = False
-        star_comment = False
-        start = 0
-        line_no = 1
+        start_line = -1
+        start_star = -1
         for match in poi_pattern.finditer(program):
             match match.group(0):
                 case "//":
-                    if not star_comment:
-                        line_comment = True
-                        start = match.start()
+                    if start_line == start_star == -1:
+                        start_line = match.start()
+
                 case "/*":
-                    if not line_comment:
-                        star_comment = True
-                        start = match.start()
+                    if start_line == start_star == -1:
+                        start_star = match.start()
+
                 case "*/":
-                    if star_comment:
-                        star_comment = False
-                        comment_spans.append((start, match.end()))
+                    if start_star >= 0:
+                        comment_spans.append((start_star, match.end()))
+                        start_star = -1
+
                 case "\n":
-                    line_no += 1
-                    if line_comment:
-                        line_comment = False
-                        comment_spans.append((start, match.start()))
+                    if start_line >= 0:
+                        comment_spans.append((start_line, match.start()))
+                        start_line = -1
 
-        if line_comment:
-            comment_spans.append((start, len(program)))
-
-        if star_comment:
-            # TODO: Test whether this fancy exception saying that the /* was never ended works
-            try:
-                column = program.rindex('\n', 0, start)
-            except ValueError:
-                column = start
-            DanglingMultiLineCommentError(program.splitlines()[line_no-1], line_no, column)
-
+        if start_line >= 0:
+            comment_spans.append((start_line, len(program)))
 
         for start, end in comment_spans[::-1]:
             separator = "\n" * program[start:end].count("\n")
