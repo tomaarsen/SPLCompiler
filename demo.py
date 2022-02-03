@@ -1,5 +1,5 @@
 
-
+from pprint import pprint
 from compiler import Scanner
 
 with open("data/bool.spl", "r", encoding="utf8") as f:
@@ -7,8 +7,4 @@ with open("data/bool.spl", "r", encoding="utf8") as f:
 
 scanner = Scanner()
 tokens = scanner.scan(lines=lines)
-print(tokens)
-
-# from compiler import Type
-
-# print(Type.to_type("ID"))
+pprint(tokens)
