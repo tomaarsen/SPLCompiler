@@ -1,5 +1,4 @@
 from enum import Enum, auto
-import enum
 
 class Type(Enum):
     LRB = auto()
@@ -8,6 +7,9 @@ class Type(Enum):
     RCB = auto()
     LSB = auto()
     RSB = auto()
+    # COMMENT = auto()
+    # COMMENT_OPEN = auto()
+    # COMMENT_CLOSE = auto()
     SEMICOLON = auto()
     DOUBLE_COLON = auto()
     ARROW = auto()
@@ -23,10 +25,12 @@ class Type(Enum):
     LEQ = auto()
     GEQ = auto()
     NEQ = auto()
+    EQ = auto()
     AND = auto()
     OR = auto()
     COLON = auto()
     NOT = auto()
+    QUOTE = auto()
     HD = auto()
     TL = auto()
     FST = auto()
@@ -40,9 +44,11 @@ class Type(Enum):
     CHAR = auto()
     FALSE = auto()
     TRUE = auto()
+    VAR = auto()
     ID = auto()
     DIGIT = auto()
     SPACE = auto()
+    QUOTE_ERROR = auto()
     ERROR = auto()
 
     def to_type(type_str: str):

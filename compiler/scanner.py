@@ -4,11 +4,16 @@ from typing import List
 from icecream import ic
 
 from compiler.token import Token
-from compiler.exceptions import CompilerError, UnknownCharacterError
+from compiler.exceptions import CompilerError, UnexpectedCharacterError
 
 
 class Scanner:
     def __init__(self) -> None:
+        # TODO:
+        # Comments must be removed first!
+        # 'var'
+        # Potential extension: " for characters too
+
         self.pattern = re.compile(
             r"""
                 (?P<LRB>\()| # lb = Left Right Bracket
@@ -17,6 +22,9 @@ class Scanner:
                 (?P<RCB>\})| # rcb = Right Curly Bracket
                 (?P<LSB>\[)| # lsb = Left Square Bracket
                 (?P<RSB>\])| # rsb = Right Square Bracket
+                # (?P<COMMENT>\/\/)|
+                # (?P<COMMENT_OPEN>\/\*)|
+                # (?P<COMMENT_CLOSE>\*\/)|
                 (?P<SEMICOLON>\;)|
                 (?P<DOUBLE_COLON>\:\:)|
                 (?P<ARROW>\-\>)|
@@ -32,10 +40,12 @@ class Scanner:
                 (?P<LEQ>\<\=)|
                 (?P<GEQ>\>\=)|
                 (?P<NEQ>\!\=)|
+                (?P<EQ>\=)|
                 (?P<AND>\&\&)|
                 (?P<OR>\|\|)|
                 (?P<COLON>\:)|
                 (?P<NOT>\!)|
+                (?P<QUOTE>\'.\')|
                 # Dot only occurs with hd, tl, fst or snd:
                 (?P<HD>\.hd)| # Head
                 (?P<TL>\.tl)| # Tail
@@ -50,9 +60,11 @@ class Scanner:
                 (?P<CHAR>\bChar\b)|
                 (?P<FALSE>\bFalse\b)|
                 (?P<TRUE>\bTrue\b)|
+                (?P<VAR>\bvar\b)|
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
                 (?P<SPACE>[\ \r\t\f\v\n])|
+                (?P<QUOTE_ERROR>\')|
                 (?P<ERROR>.)
             """,
             flags=re.X,
@@ -60,6 +72,9 @@ class Scanner:
 
     def scan(self, lines: List[str]):
         # Scan each line individually
+        # TODO: Remove comments first
+        lines = self.remove_comments(lines)
+
         tokens = [
             token
             for line_no, line in enumerate(lines, start=1)
@@ -84,7 +99,12 @@ class Scanner:
             # wrong characters in a row, e.g. `0a`. Can we combine exceptions in that
             # case?
             if match.lastgroup == "ERROR":
-                UnknownCharacterError(line, line_no, match).queue()
+                UnexpectedCharacterError(line, line_no, match).queue()
+
+            # TODO: Handle QUOTE_ERROR
 
             tokens.append(Token(match[0], match.lastgroup, line_no))
         return tokens
+
+    def remove_comments(self, lines: List[str]):
+        return lines

@@ -28,7 +28,7 @@ class QueueableError:
 
 
 @dataclass
-class UnknownCharacterError(QueueableError):
+class UnexpectedCharacterError(QueueableError):
     line: str
     line_no: int
     match: re.Match
@@ -51,8 +51,8 @@ class ForgetSemicolonError(QueueableError):
 if __name__ == "__main__":
     # Example usage:
     ForgetSemicolonError("  var head = prog.hd", 95).queue()
-    UnknownCharacterError("        depth = depth - 1;", 58, None).queue()
+    UnexpectedCharacterError("        depth = depth - 1;", 58, None).queue()
     ForgetSemicolonError("    current = get_current();", 100).queue()
-    UnknownCharacterError("    program_pos = pro.gram_pos + 1;", 64, None).queue()
+    UnexpectedCharacterError("    program_pos = pro.gram_pos + 1;", 64, None).queue()
     ForgetSemicolonError("        current.hd = (current.hd - 1) % 256;", 106).queue()
     CompilerError.raise_all()
