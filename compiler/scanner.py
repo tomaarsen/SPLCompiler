@@ -70,10 +70,13 @@ class Scanner:
             flags=re.X,
         )
 
-    def scan(self, lines: List[str]):
+    def scan(self, program: str):
         # Scan each line individually
         # TODO: Remove comments first
-        lines = self.remove_comments(lines)
+        program = self.remove_comments(program)
+
+        # TODO: Verify that removing the \n with split() doesn't cause issues
+        lines = program.split("\n")
 
         tokens = [
             token
@@ -106,5 +109,32 @@ class Scanner:
             tokens.append(Token(match[0], match.lastgroup, line_no))
         return tokens
 
-    def remove_comments(self, lines: List[str]):
-        return lines
+    def remove_comments(self, program: str):
+        poi_pattern = re.compile(r"//|/\*|\*/|\n")
+        comment_spans = []
+        line_comment = False
+        star_comment = False
+        start = 0
+        for match in poi_pattern.finditer(program):
+            match match.group(0):
+                case "//":
+                    if not star_comment:
+                        line_comment = True
+                        start = match.start()
+                case "/*":
+                    if not line_comment:
+                        star_comment = True
+                        start = match.start()
+                case "*/":
+                    if star_comment:
+                        star_comment = False
+                        comment_spans.append((start, match.end()))
+                case "\n":
+                    if line_comment:
+                        line_comment = False
+                        comment_spans.append((start, match.start()))
+
+        for start, end in comment_spans[::-1]:
+            program = program[:start] + "\n" * program[start:end].count("\n") + program[end:]
+
+        return program

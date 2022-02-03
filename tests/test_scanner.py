@@ -2,9 +2,9 @@
 from typing import List
 from compiler import Scanner, Token, Type
 
-def test_scan(bool_lines: List[str]):
+def test_scan(bool_program: str):
     scanner = Scanner()
-    tokens = scanner.scan(lines=bool_lines)
+    tokens = scanner.scan(bool_program)
     
     expected = [
         Token("xor", Type.ID, 1),
@@ -16,9 +16,9 @@ def test_scan(bool_lines: List[str]):
 
     assert tokens[:5] == expected
 
-def test_empty(empty_lines: List[str]):
+def test_empty():
     scanner = Scanner()
-    tokens = scanner.scan(lines=empty_lines)
+    tokens = scanner.scan("")
     assert tokens == []
 
 # aa, a0, 00 should work
