@@ -49,10 +49,10 @@ class Scanner:
                 (?P<CHAR>\bChar\b)|
                 (?P<FALSE>\bFalse\b)|
                 (?P<TRUE>\bTrue\b)|
-                (?P<ID>[a-zA-Z]\w*)|
-                (?P<DIGIT>\d+)|
+                (?P<ID>\b[a-zA-Z]\w*)|
+                (?P<DIGIT>\d+\b)|
                 (?P<SPACE>[\ \r\t\f\v\n])|
-                (?P<ERROR>.)
+                (?P<ERROR>.+)
             """,
             flags=re.X,
         )

@@ -20,3 +20,6 @@ def test_empty(empty_lines: List[str]):
     scanner = Scanner()
     tokens = scanner.scan(lines=empty_lines)
     assert tokens == []
+
+# aa, a0, 00 should work
+# 0a should error
