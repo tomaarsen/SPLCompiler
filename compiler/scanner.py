@@ -100,7 +100,7 @@ class Scanner:
                 case "SPACE":
                     continue
                 case "ERROR":
-                    UnexpectedCharacterError(line, line_no, match).queue()
+                    UnexpectedCharacterError(line, line_no, match.span()).queue()
                 case ("COMMENT_OPEN" | "COMMENT_CLOSE"):
                     DanglingMultiLineCommentError(line, line_no, match).queue()
                 case "QUOTE_ERROR":
