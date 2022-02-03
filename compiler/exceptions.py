@@ -3,22 +3,27 @@ import sys
 
 from dataclasses import dataclass
 
-# TODO: Consider printing lines with color rather than using ^^ on a line below
-#       Then we could also print lines before and after?
+# TODO: Print lines before and after?
 
-class CompilerError(Exception):
+
+class Colors:
+    RED = "\033[31m"
+    ENDC = "\033[m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+
+
+class CompilerError:
 
     ERRORS = []
-
-    def __init__(self) -> None:
-        super().__init__()
-        sys.tracebacklimit = -1
 
     @staticmethod
     def raise_all():
         errors = "".join(["\n\n" + str(error) for error in CompilerError.ERRORS])
 
         if errors:
+            sys.tracebacklimit = -1
             raise Exception(errors)
 
 
@@ -34,8 +39,10 @@ class UnexpectedCharacterError(QueueableError):
     match: re.Match
 
     def __str__(self) -> str:
-        # TODO: Improve this, use line and ^^
-        return f"Unknown character {self.match.group(0) if self.match else '?'!r} on line: {self.line_no}."
+        return (
+            f"Unknown character {self.match.group(0)!r} on line {self.line_no}.\n"
+            f"  {self.line_no}. {self.line[:self.match.start()]}{Colors.RED}{self.line[self.match.start():self.match.end()]}{Colors.ENDC}{self.line[self.match.end():]}"
+        )
 
 
 @dataclass
@@ -44,8 +51,21 @@ class ForgetSemicolonError(QueueableError):
     line_no: int
 
     def __str__(self) -> str:
-        # TODO: Improve this, use line and ^^
-        return f"Seems like you forgot a semicolon on line: {self.line_no}."
+        return (
+            f"Missing a semicolon on line: {self.line_no}."
+            f"  {self.line_no}. {self.line}"
+        )
+
+@dataclass
+class UnmatchableTokenError(QueueableError):
+    line: str
+    line_no: int
+
+    def __str__(self) -> str:
+        return (
+            f"Unexpected lack of token match on line: {self.line_no}."
+            f"  {self.line_no}. {self.line}"
+        )
 
 
 if __name__ == "__main__":

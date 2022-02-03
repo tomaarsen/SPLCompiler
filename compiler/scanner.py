@@ -4,7 +4,7 @@ from typing import List
 from icecream import ic
 
 from compiler.token import Token
-from compiler.exceptions import CompilerError, UnexpectedCharacterError
+from compiler.exceptions import CompilerError, UnexpectedCharacterError, UnmatchableTokenError
 
 
 class Scanner:
@@ -89,8 +89,7 @@ class Scanner:
         matches = self.pattern.finditer(line)
         for match in matches:
             if match is None or match.lastgroup is None:
-                # TODO: Perhaps create a QueueableError subclass for this
-                raise Exception(f"Unexpected lack of token match on line {line_no}.")
+                UnmatchableTokenError(line, line_no).queue()
 
             if match.lastgroup == "SPACE":
                 continue
