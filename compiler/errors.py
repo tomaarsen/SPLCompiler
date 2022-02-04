@@ -66,7 +66,14 @@ class ErrorRaiser:
             raise Exception(errors)
 
 
+@dataclass
 class CompilerError:
+    program: str
+    line_no: int
+    error: str = field(init=False)
+    n_before: int = field(init=False, default=1)
+    n_after: int = field(init=False, default=1)
+
     # Call __post_init__ from dataclass, to automatically add errors to the queue
     def __post_init__(self):
         ErrorRaiser.ERRORS.append(self)
@@ -75,12 +82,6 @@ class CompilerError:
 # TODO: Check that LineErrors work
 @dataclass
 class LineError(CompilerError):
-    program: str
-    line_no: int
-    error: str = field(init=False)
-    n_before: int = 1
-    n_after: int = 1
-
     def __str__(self) -> str:
         lines = self.program.splitlines()
         error_lines = lines[
@@ -97,12 +98,7 @@ class LineError(CompilerError):
 
 @dataclass
 class RangeError(CompilerError):
-    program: str
-    line_no: int
     span: Tuple[int, int]
-    error: str = field(init=False)
-    n_before: int = 1
-    n_after: int = 1
 
     def __str__(self) -> str:
         lines = self.program.splitlines()
@@ -152,6 +148,7 @@ class LonelyQuoteError(RangeError):
     def __post_init__(self):
         super().__post_init__()
         self.error = f"Found lonely quote on line: {self.line_no}."
+
 
 class EmptyQuoteError(RangeError):
     def __post_init__(self):
