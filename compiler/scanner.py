@@ -91,7 +91,7 @@ class Scanner:
         matches = self.pattern.finditer(line)
         for match in matches:
             if match is None or match.lastgroup is None:
-                UnmatchableTokenError(line, line_no).queue()
+                UnmatchableTokenError(line, line_no)
 
             # TODO: Errors can only be one character long. What if there are multiple
             # wrong characters in a row, e.g. `0a`. Can we combine exceptions in that
@@ -100,11 +100,11 @@ class Scanner:
                 case "SPACE":
                     continue
                 case "ERROR":
-                    UnexpectedCharacterError(line, line_no, match.span()).queue()
+                    UnexpectedCharacterError(line, line_no, match.span())
                 case ("COMMENT_OPEN" | "COMMENT_CLOSE"):
-                    DanglingMultiLineCommentError(line, line_no, match.span()).queue()
+                    DanglingMultiLineCommentError(line, line_no, match.span())
                 case "QUOTE_ERROR":
-                    LonelyQuoteError(line, line_no, match.span()).queue()
+                    LonelyQuoteError(line, line_no, match.span())
 
             tokens.append(Token(match[0], match.lastgroup, line_no))
         return tokens

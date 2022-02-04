@@ -18,7 +18,6 @@ class CompilerError:
 
     ERRORS = []
 
-    # TODO: Properly concat similar errors
     @staticmethod
     def __combine_errors():
         # Check if we have any consecutive UnexpectedCharacterError
@@ -33,19 +32,19 @@ class CompilerError:
         length = len(CompilerError.ERRORS)
         i = 0
         while i < length - 1:
+            # Ensure that consecutive objects are the (1) same error, have (2) same line_no and (3) are next to eachothers
             if (
                 isinstance(CompilerError.ERRORS[i], UnexpectedCharacterError)
                 and isinstance(CompilerError.ERRORS[i + 1], UnexpectedCharacterError)
+                and CompilerError.ERRORS[i].line_no
+                == CompilerError.ERRORS[i + 1].line_no
                 and CompilerError.ERRORS[i].span[1]
                 == CompilerError.ERRORS[i + 1].span[0]
             ):
-                CompilerError.ERRORS[i + 1] = UnexpectedCharacterError(
-                    CompilerError.ERRORS[i].line,
-                    CompilerError.ERRORS[i].line_no,
-                    (
-                        CompilerError.ERRORS[i].span[0],
-                        CompilerError.ERRORS[i + 1].span[1],
-                    ),
+                # Reuse CompilerError.ERRORS[i] to prevent additional call to __post_init__ on object creation
+                CompilerError.ERRORS[i + 1].span = (
+                    CompilerError.ERRORS[i].span[0],
+                    CompilerError.ERRORS[i + 1].span[1],
                 )
                 del CompilerError.ERRORS[i]
                 length -= 1
@@ -67,7 +66,8 @@ class CompilerError:
 
 
 class QueueableError:
-    def queue(self):
+    # Call __post_init__ from dataclass, to automatically add errors to the queue
+    def __post_init__(self):
         CompilerError.ERRORS.append(self)
 
 
