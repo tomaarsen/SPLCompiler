@@ -6,13 +6,21 @@ from typing import List
 from icecream import ic
 
 from compiler.token import Token
-from compiler.errors import CompilerError, UnexpectedCharacterError, UnmatchableTokenError, DanglingMultiLineCommentError, LonelyQuoteError
+from compiler.errors import (
+    CompilerError,
+    UnexpectedCharacterError,
+    UnmatchableTokenError,
+    DanglingMultiLineCommentError,
+    LonelyQuoteError,
+)
 
 
 class Scanner:
-    def __init__(self) -> None:
-        # TODO:
-        # Potential extension: " for characters too
+    def __init__(self, program: str) -> None:
+        # TODO: Potential extension: " for characters too
+
+        self.og_program = program
+        self.preprocessed = None
 
         self.pattern = re.compile(
             r"""
@@ -70,18 +78,19 @@ class Scanner:
             flags=re.X,
         )
 
-    def scan(self, program: str):
+    def scan(self):
         # Remove comments first
-        program = self.remove_comments(program)
+        self.preprocessed = self.remove_comments(self.og_program)
 
         # TODO: Verify that removing the \n with splitlines() doesn't cause issues
-        lines = program.splitlines()
+        lines = self.preprocessed.splitlines()
 
         tokens = [
             token
             for line_no, line in enumerate(lines, start=1)
             for token in self.scan_line(line, line_no)
         ]
+
         # Raise all errors, if any, that may have accumulated during `scan_line`.
         CompilerError.raise_all()
         return tokens
@@ -91,22 +100,21 @@ class Scanner:
         matches = self.pattern.finditer(line)
         for match in matches:
             if match is None or match.lastgroup is None:
-                UnmatchableTokenError(line, line_no)
+                UnmatchableTokenError(self.og_program, line_no)
 
-            # TODO: Errors can only be one character long. What if there are multiple
-            # wrong characters in a row, e.g. `0a`. Can we combine exceptions in that
-            # case?
             match match.lastgroup:
                 case "SPACE":
                     continue
                 case "ERROR":
-                    UnexpectedCharacterError(line, line_no, match.span())
+                    UnexpectedCharacterError(self.og_program, line_no, match.span())
                 case ("COMMENT_OPEN" | "COMMENT_CLOSE"):
-                    DanglingMultiLineCommentError(line, line_no, match.span())
+                    DanglingMultiLineCommentError(
+                        self.og_program, line_no, match.span()
+                    )
                 case "QUOTE_ERROR":
-                    LonelyQuoteError(line, line_no, match.span())
+                    LonelyQuoteError(self.og_program, line_no, match.span())
 
-            tokens.append(Token(match[0], match.lastgroup, line_no))
+            tokens.append(Token(match[0], match.lastgroup, line_no, match.span()))
         return tokens
 
     def remove_comments(self, program: str):
@@ -138,11 +146,7 @@ class Scanner:
             comment_spans.append((start_line, len(program)))
 
         for start, end in comment_spans[::-1]:
-            separator = "\n" * program[start:end].count("\n")
-            program = (
-                program[:start] +
-                (separator if separator else " ") + 
-                program[end:]
-            )
+            separator = re.sub("[^\r\n]", " ", program[start:end])
+            program = program[:start] + separator + program[end:]
 
         return program

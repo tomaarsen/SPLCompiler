@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 from compiler.type import Type
 
@@ -9,12 +9,8 @@ class Token:
     text: str
     type: Type
     line_no: int
+    span: Tuple[int, int]
 
-    def __init__(self, text: str, tok_type: Type, line_no: int) -> None:
-        self.text = text
-        self.line_no = line_no
-
-        if isinstance(tok_type, Type):
-            self.type = tok_type
-        else:
-            self.type = Type.to_type(tok_type)
+    def __post_init__(self):
+        if not isinstance(self.type, Type):
+            self.type = Type.to_type(self.type)
