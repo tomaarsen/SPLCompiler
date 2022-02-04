@@ -153,6 +153,11 @@ class LonelyQuoteError(RangeError):
         super().__post_init__()
         self.error = f"Found lonely quote on line: {self.line_no}."
 
+class EmptyQuoteError(RangeError):
+    def __post_init__(self):
+        super().__post_init__()
+        self.error = f"Found empty quote on line: {self.line_no}."
+
 
 if __name__ == "__main__":
     # Example usage:

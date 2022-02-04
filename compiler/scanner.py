@@ -12,6 +12,7 @@ from compiler.errors import (
     UnmatchableTokenError,
     DanglingMultiLineCommentError,
     LonelyQuoteError,
+    EmptyQuoteError,
 )
 
 
@@ -54,7 +55,8 @@ class Scanner:
                 (?P<COLON>\:)|
                 (?P<NOT>\!)|
                 (?P<QUOTE>\'\\?.\')|
-                (?P<QUOTE_ERROR>\')|
+                (?P<QUOTE_EMPTY_ERROR>\'\')| # TODO: Verify this
+                (?P<QUOTE_LONELY_ERROR>\')|
                 # Dot only occurs with hd, tl, fst or snd:
                 (?P<HD>\.hd)| # Head
                 (?P<TL>\.tl)| # Tail
@@ -111,8 +113,10 @@ class Scanner:
                     DanglingMultiLineCommentError(
                         self.og_program, line_no, match.span()
                     )
-                case "QUOTE_ERROR":
+                case "QUOTE_LONELY_ERROR":
                     LonelyQuoteError(self.og_program, line_no, match.span())
+                case "QUOTE_EMPTY_ERROR":
+                    EmptyQuoteError(self.og_program, line_no, match.span())
 
             tokens.append(Token(match[0], match.lastgroup, line_no, match.span()))
         return tokens
