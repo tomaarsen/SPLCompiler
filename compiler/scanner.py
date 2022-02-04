@@ -7,7 +7,7 @@ from icecream import ic
 
 from compiler.token import Token
 from compiler.errors import (
-    CompilerError,
+    ErrorRaiser,
     UnexpectedCharacterError,
     UnmatchableTokenError,
     DanglingMultiLineCommentError,
@@ -92,7 +92,7 @@ class Scanner:
         ]
 
         # Raise all errors, if any, that may have accumulated during `scan_line`.
-        CompilerError.raise_all()
+        ErrorRaiser.raise_all()
         return tokens
 
     def scan_line(self, line: str, line_no) -> List[Token]:
