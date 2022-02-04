@@ -19,7 +19,7 @@ class ErrorRaiser:
     ERRORS = []
 
     @staticmethod
-    def __combine_errors():
+    def __combine_errors__():
         # Check if we have any consecutive UnexpectedCharacterError
         # First sort on line_no, and then on start of the error (span[0]) in line
         # If error object has no span attribute, then sort it on top
@@ -49,12 +49,12 @@ class ErrorRaiser:
                 )
                 del ErrorRaiser.ERRORS[i]
                 length -= 1
-                i -= 1
-            i += 1
+            else:
+                i += 1
 
     @staticmethod
     def raise_all():
-        ErrorRaiser.__combine_errors()
+        ErrorRaiser.__combine_errors__()
         errors = "".join(["\n\n" + str(error) for error in ErrorRaiser.ERRORS[:10]])
 
         if errors:
