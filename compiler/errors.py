@@ -1,4 +1,3 @@
-import re
 import sys
 
 from dataclasses import dataclass
@@ -114,12 +113,12 @@ class UnmatchableTokenError(QueueableError):
 class DanglingMultiLineCommentError(QueueableError):
     line: str
     line_no: int
-    match: re.Match
+    span: Tuple[int, int]
 
     def __str__(self) -> str:
         return (
             f"Found dangling multiline comment on line: {self.line_no}.\n"
-            f"  {self.line_no}. {self.line[:self.match.start()]}{Colors.RED}{self.line[self.match.start():self.match.end()]}{Colors.ENDC}{self.line[self.match.end():]}"
+            f"  {self.line_no}. {self.line[:self.span[0]]}{Colors.RED}{self.line[self.span[0]:self.span[1]]}{Colors.ENDC}{self.line[self..span[1]:]}"
         )
 
 
@@ -127,12 +126,12 @@ class DanglingMultiLineCommentError(QueueableError):
 class LonelyQuoteError(QueueableError):
     line: str
     line_no: int
-    match: re.Match
+    span: Tuple[int, int]
 
     def __str__(self) -> str:
         return (
             f"Found lonely quote on line: {self.line_no}.\n"
-            f"  {self.line_no}. {self.line[:self.match.start()]}{Colors.RED}{self.line[self.match.start():self.match.end()]}{Colors.ENDC}{self.line[self.match.end():]}"
+            f"  {self.line_no}. {self.line[:self.span[0]]}{Colors.RED}{self.line[self.span[0]:self.span[1]]}{Colors.ENDC}{self.line[self.span[1]:]}"
         )
 
 

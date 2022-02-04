@@ -102,9 +102,9 @@ class Scanner:
                 case "ERROR":
                     UnexpectedCharacterError(line, line_no, match.span()).queue()
                 case ("COMMENT_OPEN" | "COMMENT_CLOSE"):
-                    DanglingMultiLineCommentError(line, line_no, match).queue()
+                    DanglingMultiLineCommentError(line, line_no, match.span()).queue()
                 case "QUOTE_ERROR":
-                    LonelyQuoteError(line, line_no, match).queue()
+                    LonelyQuoteError(line, line_no, match.span()).queue()
 
             tokens.append(Token(match[0], match.lastgroup, line_no))
         return tokens
