@@ -1,5 +1,6 @@
 from enum import Enum, auto
 
+
 class Type(Enum):
     LRB = auto()
     RRB = auto()
@@ -55,3 +56,20 @@ class Type(Enum):
     def to_type(type_str: str):
         return Type[type_str]
 
+    # TODO: insert typ hint
+    def __str__(self):
+        match self.name:
+            case "LRB":
+                return "left round bracket"
+            case "RRB":
+                return "right round bracket"
+            case "LCB":
+                return "left curly bracket"
+            case "RCB":
+                return "right curly bracket"
+            case "LSB":
+                return "left square bracket"
+            case "RSB":
+                return "right square bracket"
+            case _:
+                return self.name

@@ -1,4 +1,3 @@
-
 from pprint import pprint
 from compiler import Scanner, Parser
 
@@ -10,5 +9,5 @@ scanner = Scanner(program)
 tokens = scanner.scan()
 # pprint(tokens)
 
-parser = Parser()
+parser = Parser(program)
 parser.parse(tokens)

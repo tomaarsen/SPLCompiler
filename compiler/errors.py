@@ -3,6 +3,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import Tuple
 
+from compiler.type import Type
+
 # TODO: Print lines before and after?
 
 
@@ -154,6 +156,17 @@ class EmptyQuoteError(RangeError):
     def __post_init__(self):
         super().__post_init__()
         self.error = f"Found empty quote on line: {self.line_no}."
+
+
+@dataclass
+class BracketMissMatchError(RangeError):
+    bracket: Type
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.error = (
+            f"Bracket miss-match with {str(self.bracket)} on line: {self.line_no}"
+        )
 
 
 if __name__ == "__main__":
