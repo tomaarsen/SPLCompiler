@@ -60,7 +60,11 @@ class Parser:
                 case _:
                     queue[-1].add_child(token)
 
-        # TODO: If bracket_queue.values() queues not empty, then there's an opening bracket
+        # TODO: If queue queues not empty, then there's an opening bracket that we did not close
+        if len(queue) > 1:
+            for bt in queue[1:]:
+                open_bracket = bt.open
+                # throw error here
         # without a closing one
         pprint(root)
         return root
