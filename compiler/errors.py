@@ -118,7 +118,7 @@ class DanglingMultiLineCommentError(QueueableError):
     def __str__(self) -> str:
         return (
             f"Found dangling multiline comment on line: {self.line_no}.\n"
-            f"  {self.line_no}. {self.line[:self.span[0]]}{Colors.RED}{self.line[self.span[0]:self.span[1]]}{Colors.ENDC}{self.line[self..span[1]:]}"
+            f"  {self.line_no}. {self.line[:self.span[0]]}{Colors.RED}{self.line[self.span[0]:self.span[1]]}{Colors.ENDC}{self.line[self.span[1]:]}"
         )
 
 
