@@ -39,6 +39,9 @@ class ErrorRaiser:
                 and ErrorRaiser.ERRORS[i].line_no == ErrorRaiser.ERRORS[i + 1].line_no
                 and ErrorRaiser.ERRORS[i].span[1] == ErrorRaiser.ERRORS[i + 1].span[0]
             ):
+                # TODO: Multi char errors only give Unexpected character '~' instead of Unexpected characterS '~~'
+                # Bug is introduced by only setting self.error during initialization of error object
+
                 # Reuse CompilerError.ERRORS[i] to prevent additional call to __post_init__ on object creation
                 ErrorRaiser.ERRORS[i + 1].span = (
                     ErrorRaiser.ERRORS[i].span[0],
@@ -85,7 +88,9 @@ class LineError(CompilerError):
         ]
         error_lines = [
             f"  {i}. {line}"
-            for i, line in enumerate(error_lines, start=max(1,self.line_no - self.n_before))
+            for i, line in enumerate(
+                error_lines, start=max(1, self.line_no - self.n_before)
+            )
         ]
         return self.error + "\n" f"  {self.line_no}. {self.program}"
 
@@ -110,14 +115,11 @@ class RangeError(CompilerError):
             f"{line[self.span[1]:]}"
             if self.line_no == i
             else f"   {i}. {line}"
-            for i, line in enumerate(error_lines, start=max(1, self.line_no - self.n_before))
+            for i, line in enumerate(
+                error_lines, start=max(1, self.line_no - self.n_before)
+            )
         ]
-        return (
-            self.error
-            + "\n"
-            +
-            "\n".join(error_lines)
-        )
+        return self.error + "\n" + "\n".join(error_lines)
 
 
 class MissingSemicolonError(LineError):
