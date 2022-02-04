@@ -25,8 +25,8 @@ class Scanner:
 
         self.pattern = re.compile(
             r"""
-                (?P<LRB>\()| # lb = Left Right Bracket
-                (?P<RRB>\))| # rb = Right Right Bracket
+                (?P<LRB>\()| # lb = Left Round Bracket
+                (?P<RRB>\))| # rb = Right Round Bracket
                 (?P<LCB>\{)| # lcb = Left Curly Bracket
                 (?P<RCB>\})| # rcb = Right Curly Bracket
                 (?P<LSB>\[)| # lsb = Left Square Bracket
