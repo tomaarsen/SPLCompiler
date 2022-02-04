@@ -103,7 +103,7 @@ class MissingSemicolonError(LineError):
         self.error = f"Missing a semicolon on line: {self.line_no}."
 
 
-class UnmatchableTokenError(QueueableError):
+class UnmatchableTokenError(LineError):
     def __post_init__(self):
         super().__post_init__()
         self.error = f"Unexpected lack of token match on line: {self.line_no}."
