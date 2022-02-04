@@ -1,6 +1,6 @@
 import sys
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple
 
 # TODO: Print lines before and after?
@@ -72,67 +72,60 @@ class QueueableError:
 
 
 @dataclass
-class UnexpectedCharacterError(QueueableError):
+class LineError(QueueableError):
+    line: str
+    line_no: int
+    error: str = field(init=False)
+
+    def __str__(self) -> str:
+        return self.error + "\n" f"  {self.line_no}. {self.line}"
+
+
+@dataclass
+class RangeError(QueueableError):
     line: str
     line_no: int
     span: Tuple[int, int]
-
-    def __str__(self) -> str:
-        multiple_unexpected_chars = (self.span[1] - self.span[0]) > 1
-        return (
-            f"Unexpected character{'s' if multiple_unexpected_chars else ''} {self.line[self.span[0]:self.span[1]]!r} on line {self.line_no}.\n"
-            f"  {self.line_no}. {self.line[:self.span[0]]}{Colors.RED}{self.line[self.span[0]:self.span[1]]}{Colors.ENDC}{self.line[self.span[1]:]}"
-        )
-
-
-@dataclass
-class MissingSemicolonError(QueueableError):
-    line: str
-    line_no: int
+    error: str = field(init=False)
 
     def __str__(self) -> str:
         return (
-            f"Missing a semicolon on line: {self.line_no}."
-            f"  {self.line_no}. {self.line}"
+            self.error + "\n"
+            f"  {self.line_no}. {self.line[:self.span[0]]}"  # Before
+            f"{Colors.RED}{self.line[self.span[0]:self.span[1]]}{Colors.ENDC}"  # Colored
+            f"{self.line[self.span[1]:]}"  # After
         )
 
 
-@dataclass
+class MissingSemicolonError(LineError):
+    def __post_init__(self):
+        super().__post_init__()
+        self.error = f"Missing a semicolon on line: {self.line_no}."
+
+
 class UnmatchableTokenError(QueueableError):
-    line: str
-    line_no: int
-
-    def __str__(self) -> str:
-        return (
-            f"Unexpected lack of token match on line: {self.line_no}.\n"
-            f"  {self.line_no}. {self.line}"
-        )
+    def __post_init__(self):
+        super().__post_init__()
+        self.error = f"Unexpected lack of token match on line: {self.line_no}."
 
 
-@dataclass
-class DanglingMultiLineCommentError(QueueableError):
-    line: str
-    line_no: int
-    span: Tuple[int, int]
-
-    def __str__(self) -> str:
-        return (
-            f"Found dangling multiline comment on line: {self.line_no}.\n"
-            f"  {self.line_no}. {self.line[:self.span[0]]}{Colors.RED}{self.line[self.span[0]:self.span[1]]}{Colors.ENDC}{self.line[self.span[1]:]}"
-        )
+class UnexpectedCharacterError(RangeError):
+    def __post_init__(self):
+        super().__post_init__()
+        multiple_unexpected_chars = (self.span[1] - self.span[0]) > 1
+        self.error = f"Unexpected character{'s' if multiple_unexpected_chars else ''} {self.line[self.span[0]:self.span[1]]!r} on line {self.line_no}."
 
 
-@dataclass
-class LonelyQuoteError(QueueableError):
-    line: str
-    line_no: int
-    span: Tuple[int, int]
+class DanglingMultiLineCommentError(RangeError):
+    def __post_init__(self):
+        super().__post_init__()
+        self.error = f"Found dangling multiline comment on line: {self.line_no}."
 
-    def __str__(self) -> str:
-        return (
-            f"Found lonely quote on line: {self.line_no}.\n"
-            f"  {self.line_no}. {self.line[:self.span[0]]}{Colors.RED}{self.line[self.span[0]:self.span[1]]}{Colors.ENDC}{self.line[self.span[1]:]}"
-        )
+
+class LonelyQuoteError(RangeError):
+    def __post_init__(self):
+        super().__post_init__()
+        self.error = f"Found lonely quote on line: {self.line_no}."
 
 
 if __name__ == "__main__":
