@@ -5,7 +5,7 @@ from pprint import pprint
 from compiler.token import Token
 from compiler.tree import Tree, BracketTree
 from compiler.type import Type
-from compiler.errors import ErrorRaiser, BracketMissMatchError
+from compiler.error import ErrorRaiser, BracketMissMatchError
 
 
 class Parser:
