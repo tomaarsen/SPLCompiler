@@ -28,7 +28,8 @@ format:
 
 test:
   script:
-    - pip install pytest
+    - pip install -r requirements-dev.txt
+    - python -m pytest --version # For debugging
     - python -m pytest
   rules:
       # Only run tests when commit is made to main
