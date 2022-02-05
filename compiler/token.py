@@ -4,6 +4,7 @@ from compiler.type import Type
 
 from dataclasses import dataclass
 
+
 @dataclass
 class Token:
     text: str
