@@ -1,0 +1,33 @@
+
+# Official language image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/python/tags/
+image: python:latest
+
+# Change pip's cache directory to be inside the project directory since we can
+# only cache local items.
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+# Install packages in a virtualenv, and cache them
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+before_script:
+  - python --version  # For debugging
+  - pip install black virtualenv
+  - virtualenv venv
+  - source venv/bin/activate
+
+format:
+  script:
+    - python -m black --version # For debugging
+    - python -m black . --check --verbose --diff --color --target-version py310
+
+test:
+  script:
+    - python -m pytest
+  rules:
+      # Only run tests when commit is made to main
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
