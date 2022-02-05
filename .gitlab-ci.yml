@@ -16,17 +16,19 @@ cache:
 
 before_script:
   - python --version  # For debugging
-  - pip install black virtualenv
+  - pip install virtualenv
   - virtualenv venv
   - source venv/bin/activate
 
 format:
   script:
+    - pip install black
     - python -m black --version # For debugging
     - python -m black . --check --verbose --diff --color --target-version py310
 
 test:
   script:
+    - pip install pytest
     - python -m pytest
   rules:
       # Only run tests when commit is made to main
