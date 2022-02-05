@@ -32,5 +32,14 @@ test:
     - python -m pytest --version # For debugging
     - python -m pytest
   rules:
-      # Only run tests when commit is made to main
+      # Only run test when commit is made to main branch
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+bandit:
+  script:
+    - pip install bandit
+    - python -m bandit --version # For debugging
+    - python -m bandit . -r --exclude ./tests/
+  rules:
+      # Only run bandit when commit is made to main branch
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
