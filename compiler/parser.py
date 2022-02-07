@@ -22,6 +22,9 @@ class Parser:
         Step 1.1: Verify contents of these groups: Between '[' and ']' may only
                 be nothing or `Type`.
         """
+        # TODO: Surely we can make these Bracket mismatch errors more specific?
+        # E.g. "No corresponding closing bracket for ... on line ...",
+        #      "No corresponding opening bracket for ... on line ..."
 
         right_to_left = {
             Type.RCB: Type.LCB,
