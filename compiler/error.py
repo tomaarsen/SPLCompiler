@@ -13,6 +13,7 @@ class Colors:
     YELLOW = "\033[33m"
     BLUE = "\033[34m"
 
+
 class CompilerException(Exception):
     pass
 

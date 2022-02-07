@@ -60,7 +60,10 @@ class Parser:
                         # for them later. So, we get 3 errors instead of just one.
                         # But, the current behaviour is correct for "{)}" (additional closing).
                         # It's only "broken" for additional opening brackets.
-                        if len(queue) > 2 and queue[-2].open.type == right_to_left[token.type]:
+                        if (
+                            len(queue) > 2
+                            and queue[-2].open.type == right_to_left[token.type]
+                        ):
                             # If the opening bracket before the last one *is* correct,
                             # then we assume that the last open bracket was a mistake.
                             # Note: This only works 1 deep, the issue persists with e.g.
