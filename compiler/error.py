@@ -163,13 +163,3 @@ class BracketMissMatchError(RangeError):
         return super().create_error(
             f"Bracket miss-match with {str(self.bracket)} on line: {self.line_no}"
         )
-
-
-if __name__ == "__main__":
-    # Example usage:
-    MissingSemicolonError("  var head = prog.hd", 95).queue()
-    # UnexpectedCharacterError("        depth = depth - 1;", 58, None).queue()
-    MissingSemicolonError("    current = get_current();", 100).queue()
-    # UnexpectedCharacterError("    program_pos = pro.gram_pos + 1;", 64, None).queue()
-    MissingSemicolonError("        current.hd = (current.hd - 1) % 256;", 106).queue()
-    ErrorRaiser.raise_all()
