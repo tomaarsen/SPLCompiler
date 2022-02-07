@@ -61,6 +61,8 @@ class Parser:
                         # but raises the issue for } (wrong closing bracket).
                         # Then, { and ( *both* remain unclosed in the queue, and an error is thrown
                         # for them later. So, we get 3 errors instead of just one.
+                        # But, the current behaviour is correct for "{)}" (additional closing).
+                        # It's only "broken" for additional opening brackets.
                         BracketMismatchError(
                             self.og_program, token.line_no, token.span, token.type
                         )
