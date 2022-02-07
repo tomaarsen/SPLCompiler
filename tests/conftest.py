@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 def bool_program() -> str:
     return open_file("data/given/valid/bool.spl")
 
+
 @pytest.fixture(scope="session")
 def list_program() -> str:
     return open_file("data/given/valid/list.spl")
