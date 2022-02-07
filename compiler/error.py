@@ -13,6 +13,9 @@ class Colors:
     YELLOW = "\033[33m"
     BLUE = "\033[34m"
 
+class CompilerException(Exception):
+    pass
+
 
 class ErrorRaiser:
 
@@ -66,7 +69,7 @@ class ErrorRaiser:
                 omitting_multiple_errors = len(ErrorRaiser.ERRORS) - 10 > 1
                 errors += f"\n\nShowing 10 errors, omitting {len(ErrorRaiser.ERRORS)-10} error{'s' if omitting_multiple_errors else ''}..."
             ErrorRaiser.ERRORS.clear()
-            raise Exception(errors)
+            raise CompilerException(errors)
 
 
 @dataclass
