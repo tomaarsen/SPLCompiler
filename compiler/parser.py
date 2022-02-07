@@ -22,7 +22,6 @@ class Parser:
         Step 1.1: Verify contents of these groups: Between '[' and ']' may only
                 be nothing or `Type`.
         """
-        # TODO: Store column alongside the current line_no in Token
 
         right_to_left = {
             Type.RCB: Type.LCB,
@@ -47,39 +46,55 @@ class Parser:
                         BracketMismatchError(
                             self.og_program, token.line_no, token.span, token.type
                         )
+                        continue
 
-                    elif queue[-1].open.type == right_to_left[token.type]:
+                    if queue[-1].open.type != right_to_left[token.type]:
+                        # Raise mismatch error: Closing a different type of bracket that was opened
+
+                        # FIXED BUG: In the situation of "{(}", this detects the mismatch between ( and },
+                        # but raises the issue for } (wrong closing bracket).
+                        # Then, { and ( *both* remain unclosed in the queue, and an error is thrown
+                        # for them later. So, we get 3 errors instead of just one.
+                        # But, the current behaviour is correct for "{)}" (additional closing).
+                        # It's only "broken" for additional opening brackets.
+                        if len(queue) > 2 and queue[-2].open.type == right_to_left[token.type]:
+                            # If the opening bracket before the last one *is* correct,
+                            # then we assume that the last open bracket was a mistake.
+                            # Note: This only works 1 deep, the issue persists with e.g.
+                            # "{((}".
+                            wrong_open = queue.pop().open
+                            BracketMismatchError(
+                                self.og_program,
+                                wrong_open.line_no,
+                                wrong_open.span,
+                                wrong_open.type,
+                            )
+                        else:
+                            # Otherwise, report the closing bracket as being false
+                            BracketMismatchError(
+                                self.og_program, token.line_no, token.span, token.type
+                            )
+
+                    if queue[-1].open.type == right_to_left[token.type]:
                         # If all is well, grab the last opened bracket from the queue,
                         # add this token as a closing tag, and add it the BracketTree
                         # as a child to the Tree higher in the queue
                         bt = queue.pop()
                         bt.close = token
                         queue[-1].add_child(bt)
-                    else:
-                        # Raise mismatch error: Closing a different type of bracket that was opened
-                        # BUG: In the situation of "{(}", this detects the mismatch between ( and },
-                        # but raises the issue for } (wrong closing bracket).
-                        # Then, { and ( *both* remain unclosed in the queue, and an error is thrown
-                        # for them later. So, we get 3 errors instead of just one.
-                        # But, the current behaviour is correct for "{)}" (additional closing).
-                        # It's only "broken" for additional opening brackets.
-                        BracketMismatchError(
-                            self.og_program, token.line_no, token.span, token.type
-                        )
 
                 case _:
                     queue[-1].add_child(token)
 
         # If queue is not empty, then there's an opening bracket that we did not close
-        if len(queue) > 1:
-            for bt in queue[1:]:
-                open_bracket = bt.open
-                BracketMismatchError(
-                    self.og_program,
-                    open_bracket.line_no,
-                    open_bracket.span,
-                    open_bracket.type,
-                )
+        for bt in queue[1:]:
+            open_bracket = bt.open
+            BracketMismatchError(
+                self.og_program,
+                open_bracket.line_no,
+                open_bracket.span,
+                open_bracket.type,
+            )
 
         # pprint(root)
 
