@@ -96,6 +96,10 @@ class LineError(CompilerError):
 
 @dataclass
 class RangeError(CompilerError):
+    # TODO: Add `def length() -> int` for the length of the span.
+    #       Useful for subclasses to determine whether to use "character" or "characters"
+    # TODO: Add `def error() -> str` (or something named similarly) to
+    #       get the character(s) that contain the error. Useful for subclasses.
     span: Tuple[int, int]
 
     def create_error(self, error_message: str) -> str:
