@@ -5,7 +5,7 @@ from pprint import pprint
 from compiler.token import Token
 from compiler.tree import Tree, BracketTree
 from compiler.type import Type
-from compiler.error import ErrorRaiser, BracketMissMatchError
+from compiler.error import ErrorRaiser, BracketMismatchError
 
 
 class Parser:
@@ -36,7 +36,6 @@ class Parser:
             match token.type:
 
                 case Type.LCB | Type.LRB | Type.LSB:  # {([
-                    # bracket_queue[token.type].put(token)
                     bt = BracketTree(token, None)
                     queue.append(bt)
 
@@ -44,13 +43,11 @@ class Parser:
                     # Verify that the last opened bracket is the same type of bracket
                     # that we now intend to close
                     if len(queue) == 1:
-                        BracketMissMatchError(
+                        # Raise mismatch error: Closing bracket without open bracket
+                        BracketMismatchError(
                             self.og_program, token.line_no, token.span, token.type
                         )
-                        # TODO: Raise: Closing bracket without open bracket
 
-                    # TODO: @Tom do we mean "elif" instead of "if"?
-                    # Seems to fix: *** AttributeError: 'Tree' object has no attribute 'open'
                     elif queue[-1].open.type == right_to_left[token.type]:
                         # If all is well, grab the last opened bracket from the queue,
                         # add this token as a closing tag, and add it the BracketTree
@@ -59,28 +56,31 @@ class Parser:
                         bt.close = token
                         queue[-1].add_child(bt)
                     else:
-                        BracketMissMatchError(
+                        # Raise mismatch error: Closing a different type of bracket that was opened
+                        # BUG: In the situation of "{(}", this detects the mismatch between ( and },
+                        # but raises the issue for } (wrong closing bracket).
+                        # Then, { and ( *both* remain unclosed in the queue, and an error is thrown
+                        # for them later. So, we get 3 errors instead of just one.
+                        BracketMismatchError(
                             self.og_program, token.line_no, token.span, token.type
                         )
-                        # TODO: Raise mismatch error: Closing a different type of bracket that was opened
 
                 case _:
                     queue[-1].add_child(token)
 
-        # TODO: If queue queues not empty, then there's an opening bracket that we did not close
+        # If queue is not empty, then there's an opening bracket that we did not close
         if len(queue) > 1:
             for bt in queue[1:]:
                 open_bracket = bt.open
-                BracketMissMatchError(
+                BracketMismatchError(
                     self.og_program,
                     open_bracket.line_no,
                     open_bracket.span,
                     open_bracket.type,
                 )
-                # throw error here
-        # without a closing one
-        pprint(root)
-        # Test:
+
+        # pprint(root)
+
         # TODO: Potentially make errors more specific, depended on where in the code the error is raised?
         ErrorRaiser.raise_all()
 

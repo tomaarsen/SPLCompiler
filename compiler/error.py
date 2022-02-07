@@ -165,10 +165,10 @@ class EmptyQuoteError(RangeError):
 
 
 @dataclass
-class BracketMissMatchError(RangeError):
+class BracketMismatchError(RangeError):
     bracket: Type
 
     def __str__(self) -> str:
         return self.create_error(
-            f"Bracket miss-match with {str(self.bracket)} on line: {self.line_no}"
+            f"Bracket mismatch with {str(self.bracket)} on line: {self.line_no}"
         )
