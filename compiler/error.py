@@ -119,12 +119,12 @@ class RangeError(CompilerError):
 
 class MissingSemicolonError(LineError):
     def __str__(self) -> str:
-        return super().create_error(f"Missing a semicolon on line: {self.line_no}.")
+        return self.create_error(f"Missing a semicolon on line: {self.line_no}.")
 
 
 class UnmatchableTokenError(LineError):
     def __str__(self) -> str:
-        return super().create_error(
+        return self.create_error(
             f"Unexpected lack of token match on line: {self.line_no}."
         )
 
@@ -133,26 +133,26 @@ class UnexpectedCharacterError(RangeError):
     def __str__(self) -> str:
         error_line = self.program.splitlines()[self.line_no - 1]
         multiple_unexpected_chars = (self.span[1] - self.span[0]) > 1
-        return super().create_error(
+        return self.create_error(
             f"Unexpected character{'s' if multiple_unexpected_chars else ''} {error_line[self.span[0]:self.span[1]]!r} on line {self.line_no}."
         )
 
 
 class DanglingMultiLineCommentError(RangeError):
     def __str__(self) -> str:
-        return super().create_error(
+        return self.create_error(
             f"Found dangling multiline comment on line: {self.line_no}."
         )
 
 
 class LonelyQuoteError(RangeError):
     def __str__(self) -> str:
-        return super().create_error(f"Found lonely quote on line: {self.line_no}.")
+        return self.create_error(f"Found lonely quote on line: {self.line_no}.")
 
 
 class EmptyQuoteError(RangeError):
     def __str__(self) -> str:
-        return super().create_error(f"Found empty quote on line: {self.line_no}.")
+        return self.create_error(f"Found empty quote on line: {self.line_no}.")
 
 
 @dataclass
@@ -160,6 +160,6 @@ class BracketMissMatchError(RangeError):
     bracket: Type
 
     def __str__(self) -> str:
-        return super().create_error(
+        return self.create_error(
             f"Bracket miss-match with {str(self.bracket)} on line: {self.line_no}"
         )
