@@ -6,7 +6,7 @@ from typing import List
 from icecream import ic
 
 from compiler.token import Token
-from compiler.errors import (
+from compiler.error import (
     ErrorRaiser,
     UnexpectedCharacterError,
     UnmatchableTokenError,

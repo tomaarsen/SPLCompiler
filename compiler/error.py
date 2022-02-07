@@ -5,8 +5,6 @@ from typing import Tuple
 
 from compiler.type import Type
 
-# TODO: Print lines before and after?
-
 
 class Colors:
     RED = "\033[31m"
@@ -41,8 +39,6 @@ class ErrorRaiser:
                 and ErrorRaiser.ERRORS[i].line_no == ErrorRaiser.ERRORS[i + 1].line_no
                 and ErrorRaiser.ERRORS[i].span[1] == ErrorRaiser.ERRORS[i + 1].span[0]
             ):
-                # TODO: Multi char errors only give Unexpected character '~' instead of Unexpected characterS '~~'
-                # Bug is introduced by only setting self.error during initialization of error object
 
                 # Reuse CompilerError.ERRORS[i] to prevent additional call to __post_init__ on object creation
                 ErrorRaiser.ERRORS[i + 1].span = (
@@ -76,7 +72,7 @@ class CompilerError:
     n_before: int = field(init=False, default=1)
     n_after: int = field(init=False, default=1)
 
-    # Call __post_init__ from dataclass, to automatically add errors to the queue
+    # Call __post_init__ using dataclass, to automatically add errors to the list
     def __post_init__(self):
         ErrorRaiser.ERRORS.append(self)
 
@@ -84,28 +80,28 @@ class CompilerError:
 # TODO: Check that LineErrors work
 @dataclass
 class LineError(CompilerError):
-    def __str__(self) -> str:
+    def create_error(self, error_message) -> str:
         lines = self.program.splitlines()
         error_lines = lines[
-            self.line_no - self.n_before - 1 : self.line_no + self.n_after
+            max(0, self.line_no - self.n_before - 1) : self.line_no + self.n_after
         ]
         error_lines = [
-            f"  {i}. {line}"
+            f"-> {i}. {line}" if self.line_no == i else f"   {i}. {line}"
             for i, line in enumerate(
                 error_lines, start=max(1, self.line_no - self.n_before)
             )
         ]
-        return self.error + "\n" f"  {self.line_no}. {self.program}"
+        return error_message + "\n" + "\n".join(error_lines)
 
 
 @dataclass
 class RangeError(CompilerError):
     span: Tuple[int, int]
 
-    def __str__(self) -> str:
+    def create_error(self, error_message: str) -> str:
         lines = self.program.splitlines()
         error_lines = lines[
-            self.line_no - self.n_before - 1 : self.line_no + self.n_after
+            max(0, self.line_no - self.n_before - 1) : self.line_no + self.n_after
         ]
         error_lines = [
             f"-> {i}. {line[:self.span[0]]}"
@@ -117,63 +113,53 @@ class RangeError(CompilerError):
                 error_lines, start=max(1, self.line_no - self.n_before)
             )
         ]
-        return self.error + "\n" + "\n".join(error_lines)
+
+        return error_message + "\n" + "\n".join(error_lines)
 
 
 class MissingSemicolonError(LineError):
-    def __post_init__(self):
-        super().__post_init__()
-        self.error = f"Missing a semicolon on line: {self.line_no}."
+    def __str__(self) -> str:
+        return self.create_error(f"Missing a semicolon on line: {self.line_no}.")
 
 
 class UnmatchableTokenError(LineError):
-    def __post_init__(self):
-        super().__post_init__()
-        self.error = f"Unexpected lack of token match on line: {self.line_no}."
+    def __str__(self) -> str:
+        return self.create_error(
+            f"Unexpected lack of token match on line: {self.line_no}."
+        )
 
 
 class UnexpectedCharacterError(RangeError):
-    def __post_init__(self):
-        super().__post_init__()
+    def __str__(self) -> str:
         error_line = self.program.splitlines()[self.line_no - 1]
         multiple_unexpected_chars = (self.span[1] - self.span[0]) > 1
-        self.error = f"Unexpected character{'s' if multiple_unexpected_chars else ''} {error_line[self.span[0]:self.span[1]]!r} on line {self.line_no}."
+        return self.create_error(
+            f"Unexpected character{'s' if multiple_unexpected_chars else ''} {error_line[self.span[0]:self.span[1]]!r} on line {self.line_no}."
+        )
 
 
 class DanglingMultiLineCommentError(RangeError):
-    def __post_init__(self):
-        super().__post_init__()
-        self.error = f"Found dangling multiline comment on line: {self.line_no}."
+    def __str__(self) -> str:
+        return self.create_error(
+            f"Found dangling multiline comment on line: {self.line_no}."
+        )
 
 
 class LonelyQuoteError(RangeError):
-    def __post_init__(self):
-        super().__post_init__()
-        self.error = f"Found lonely quote on line: {self.line_no}."
+    def __str__(self) -> str:
+        return self.create_error(f"Found lonely quote on line: {self.line_no}.")
 
 
 class EmptyQuoteError(RangeError):
-    def __post_init__(self):
-        super().__post_init__()
-        self.error = f"Found empty quote on line: {self.line_no}."
+    def __str__(self) -> str:
+        return self.create_error(f"Found empty quote on line: {self.line_no}.")
 
 
 @dataclass
 class BracketMissMatchError(RangeError):
     bracket: Type
 
-    def __post_init__(self):
-        super().__post_init__()
-        self.error = (
+    def __str__(self) -> str:
+        return self.create_error(
             f"Bracket miss-match with {str(self.bracket)} on line: {self.line_no}"
         )
-
-
-if __name__ == "__main__":
-    # Example usage:
-    MissingSemicolonError("  var head = prog.hd", 95).queue()
-    # UnexpectedCharacterError("        depth = depth - 1;", 58, None).queue()
-    MissingSemicolonError("    current = get_current();", 100).queue()
-    # UnexpectedCharacterError("    program_pos = pro.gram_pos + 1;", 64, None).queue()
-    MissingSemicolonError("        current.hd = (current.hd - 1) % 256;", 106).queue()
-    ErrorRaiser.raise_all()
