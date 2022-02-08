@@ -2,8 +2,8 @@ from typing import List
 
 from pprint import pprint
 
-from compiler.token import Token
-from compiler.tree import Tree, BracketTree
+from compiler.token import BracketToken, Token
+from compiler.tree import Tree
 from compiler.type import Type
 from compiler.error import ErrorRaiser, BracketMismatchError
 
@@ -25,33 +25,40 @@ class Parser:
         # TODO: Surely we can make these Bracket mismatch errors more specific?
         # E.g. "No corresponding closing bracket for ... on line ...",
         #      "No corresponding opening bracket for ... on line ..."
+        # TODO: Update grammar to add space after "var"
 
+        tokens = self.match_parentheses(tokens)
+        # TODO: Potentially make errors more specific, depended on where in the code the error is raised?
+        # At this stage we should no longer have bracket errors
+        ErrorRaiser.raise_all()
+        pprint(tokens)
+
+        return
+
+    def match_parentheses(self, tokens: List[Token]) -> None:
         right_to_left = {
             Type.RCB: Type.LCB,
             Type.RRB: Type.LRB,
             Type.RSB: Type.LSB,
         }
 
-        root = Tree()
-        queue = [root]
-        for token in tokens:
+        queue = []
+        for i, token in enumerate(tokens):
             match token.type:
-
                 case Type.LCB | Type.LRB | Type.LSB:  # {([
-                    bt = BracketTree(token, None)
-                    queue.append(bt)
+                    queue.append(token)
 
                 case Type.RCB | Type.RRB | Type.RSB:  # })]
                     # Verify that the last opened bracket is the same type of bracket
                     # that we now intend to close
-                    if len(queue) == 1:
+                    if len(queue) == 0:
                         # Raise mismatch error: Closing bracket without open bracket
                         BracketMismatchError(
                             self.og_program, token.line_no, token.span, token.type
                         )
                         continue
 
-                    if queue[-1].open.type != right_to_left[token.type]:
+                    if queue[-1].type != right_to_left[token.type]:
                         # Raise mismatch error: Closing a different type of bracket that was opened
 
                         # FIXED BUG: In the situation of "{(}", this detects the mismatch between ( and },
@@ -61,14 +68,14 @@ class Parser:
                         # But, the current behaviour is correct for "{)}" (additional closing).
                         # It's only "broken" for additional opening brackets.
                         if (
-                            len(queue) > 2
-                            and queue[-2].open.type == right_to_left[token.type]
+                            len(queue) > 1
+                            and queue[-2].type == right_to_left[token.type]
                         ):
                             # If the opening bracket before the last one *is* correct,
                             # then we assume that the last open bracket was a mistake.
                             # Note: This only works 1 deep, the issue persists with e.g.
                             # "{((}".
-                            wrong_open = queue.pop().open
+                            wrong_open = queue.pop()
                             BracketMismatchError(
                                 self.og_program,
                                 wrong_open.line_no,
@@ -81,30 +88,102 @@ class Parser:
                                 self.og_program, token.line_no, token.span, token.type
                             )
 
-                    if queue[-1].open.type == right_to_left[token.type]:
+                    if queue[-1].type == right_to_left[token.type]:
                         # If all is well, grab the last opened bracket from the queue,
                         # add this token as a closing tag, and add it the BracketTree
                         # as a child to the Tree higher in the queue
-                        bt = queue.pop()
-                        bt.close = token
-                        queue[-1].add_child(bt)
+                        open_token = queue.pop()
+                        # Replace `token` with one that knows its Open
+                        # Replace `open_token` with one that knows its Close
+                        open_bracket_token = BracketToken.from_token(open_token)
+                        close_bracket_token = BracketToken.from_token(token)
 
-                case _:
-                    queue[-1].add_child(token)
+                        close_bracket_token.open = open_bracket_token
+                        open_bracket_token.close = close_bracket_token
+
+                        tokens[i] = close_bracket_token
+                        tokens[tokens.index(open_token)] = open_bracket_token
 
         # If queue is not empty, then there's an opening bracket that we did not close
-        for bt in queue[1:]:
-            open_bracket = bt.open
+        for token in queue:
             BracketMismatchError(
                 self.og_program,
-                open_bracket.line_no,
-                open_bracket.span,
-                open_bracket.type,
+                token.line_no,
+                token.span,
+                token.type,
             )
 
-        # pprint(root)
+        return tokens
 
-        # TODO: Potentially make errors more specific, depended on where in the code the error is raised?
-        ErrorRaiser.raise_all()
-
-        return root
+    def parenthesize_expression(self, tokens: List[Token]) -> List[Token]:
+        """Use Knuth's Operator Precedence alternative solution"""
+        # TODO: && and ||
+        # https://en.wikipedia.org/wiki/Order_of_operations#Programming_languages
+        # TODO: Make helper so we don't have to type `Token("(", Type.LRB)`
+        resolved_tokens = [
+            Token("(", Type.LRB),
+            Token("(", Type.LRB),
+            Token("(", Type.LRB),
+            Token("(", Type.LRB),
+        ]
+        for i, token in enumerate(tokens):
+            match token.type:
+                case Type.LRB:
+                    resolved_tokens += [
+                        token,
+                        Token("(", Type.LRB),
+                        Token("(", Type.LRB),
+                        Token("(", Type.LRB),
+                    ]
+                case Type.RRB:
+                    resolved_tokens += [
+                        Token(")", Type.RRB),
+                        Token(")", Type.RRB),
+                        Token(")", Type.RRB),
+                        token,
+                    ]
+                case Type.POWER:
+                    resolved_tokens += [
+                        Token(")", Type.RRB),
+                        token,
+                        Token("(", Type.LRB),
+                    ]
+                case Type.STAR | Type.SLASH | Type.PERCENT:
+                    resolved_tokens += [
+                        Token(")", Type.RRB),
+                        Token(")", Type.RRB),
+                        token,
+                        Token("(", Type.LRB),
+                        Token("(", Type.LRB),
+                    ]
+                case Type.PLUS | Type.MINUS:
+                    # TODO: Figure out if i == 0 helps or hurts
+                    if i == 0 or last_type in (
+                        Type.LRB,
+                        Type.POWER,
+                        Type.STAR,
+                        Type.SLASH,
+                        Type.PLUS,
+                        Type.MINUS,
+                    ):
+                        resolved_tokens.append(token)
+                    else:
+                        resolved_tokens += [
+                            Token(")", Type.RRB),
+                            Token(")", Type.RRB),
+                            Token(")", Type.RRB),
+                            token,
+                            Token("(", Type.LRB),
+                            Token("(", Type.LRB),
+                            Token("(", Type.LRB),
+                        ]
+                case _:
+                    resolved_tokens.append(token)
+            last_type = token.type
+        resolved_tokens += [
+            Token(")", Type.RRB),
+            Token(")", Type.RRB),
+            Token(")", Type.RRB),
+            Token(")", Type.RRB),
+        ]
+        return resolved_tokens

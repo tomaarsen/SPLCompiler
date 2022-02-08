@@ -42,6 +42,7 @@ class Scanner:
                 (?P<MINUS>\-)|
                 (?P<STAR>\*)|
                 (?P<SLASH>\/)|
+                (?P<POWER>\^)|
                 (?P<PERCENT>\%)|
                 (?P<DEQUALS>\=\=)|
                 (?P<LT>\<)|

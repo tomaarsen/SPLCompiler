@@ -19,6 +19,7 @@ class Type(Enum):
     MINUS = auto()
     STAR = auto()
     SLASH = auto()
+    POWER = auto()
     PERCENT = auto()
     DEQUALS = auto()
     LT = auto()
