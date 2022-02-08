@@ -40,6 +40,7 @@ class Type(Enum):
     FST = auto()
     SND = auto()
     IF = auto()
+    ELSE = auto()
     WHILE = auto()
     RETURN = auto()
     VOID = auto()
@@ -57,8 +58,7 @@ class Type(Enum):
     def to_type(type_str: str):
         return Type[type_str]
 
-    # TODO: insert typ hint
-    def __str__(self):
+    def __str__(self) -> str:
         match self.name:
             case "LRB":
                 return "left round bracket"

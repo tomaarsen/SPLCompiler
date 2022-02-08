@@ -19,6 +19,7 @@ from compiler.error import (
 class Scanner:
     def __init__(self, program: str) -> None:
         # TODO: Potential extension: " for characters too
+        # TODO: Potential extension: While else
 
         self.og_program = program
         self.preprocessed = None
@@ -64,6 +65,7 @@ class Scanner:
                 (?P<FST>\.fst)| # First
                 (?P<SND>\.snd)| # Second
                 (?P<IF>\bif\b)|
+                (?P<ELSE>\belse\b)|
                 (?P<WHILE>\bwhile\b)|
                 (?P<RETURN>\breturn\b)|
                 (?P<VOID>\bVoid\b)|
