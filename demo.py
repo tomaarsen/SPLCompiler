@@ -10,16 +10,17 @@ program = """
 // At the moment, the only valid Expression is an integer
 func (a, b) {
     while (a < 5) {
-        a = a + 1
-        b = b + 1;
-        c = b + 1;
-        d = b + 1;
+        a = a + 1;
     }
 
     if (a != b) {
         return b;
     }
 }
+"""
+
+program = """
+var a = 4 / 1 + 2 * 3 == 5 > 3;
 """
 
 

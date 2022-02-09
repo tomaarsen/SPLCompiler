@@ -195,17 +195,44 @@ class ActArgsTree(Tree):
     comma: Optional[Token]
     act_args: Optional[ActArgsTree]
 
-# @dataclass
-# class IDExpTree(Tree):
-#     _id: Token
-#     field: Optional[FieldTree]
-#     exp_prime: None # TODO
-
-# ExprTree = IDExpTree
+@dataclass
+class TupleExpTree(Tree):
+    # '(' Exp ',' Exp ')'
+    left: Token
+    exp_one: ExpTree
+    comma: Token
+    exp_two: ExpTree
+    right: Token
 
 @dataclass
-class TempExpTree(Tree):
-    tokens: List[Token]
+class NestedExpTree(Tree):
+    # '(' Exp ')'
+    left: Token
+    exp: ExpTree
+    right: Token
+
+@dataclass
+class Op1ExpTree(Tree):
+    op: Token
+    exp: ExpTree
+
+@dataclass
+class EmptyListExpTree(Tree):
+    left: Token
+    right: Token
+
+@dataclass
+class IDExpTree(Tree):
+    _id: Token
+    field: Optional[FieldTree]
+
+@dataclass
+class Op2ExpTree(Tree):
+    exp_one: ExpTree
+    op: Token
+    exp_two: ExpTree
+
+ExpTree = TupleExpTree | NestedExpTree | Op1ExpTree | FunCallTree | IntTree | Token | IDExpTree
 
 StmtTree = (
     IfStmtTree

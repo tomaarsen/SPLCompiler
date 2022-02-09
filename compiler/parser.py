@@ -6,6 +6,7 @@ from compiler.token import BracketToken, Token
 from compiler.tree import (
     ActArgsTree,
     AssignmentStmtTree,
+    EmptyListExpTree,
     FArgsTree,
     FTypesTree,
     FieldTree,
@@ -16,12 +17,15 @@ from compiler.tree import (
     IfElseStmtTree,
     IfStmtTree,
     IntTree,
+    NestedExpTree,
+    Op1ExpTree,
+    Op2ExpTree,
     RetTypeTree,
     ReturnStmtTree,
     SPLTree,
-    TempExpTree,
     TokenTree,
     Tree,
+    TupleExpTree,
     TypeSingleTree,
     TypeTupleTree,
     VarDeclTree,
@@ -277,7 +281,7 @@ class ParserMatcher:
     def add(self, value: str) -> True:
         self.suggestions.add(value)
         return True
-    
+
     def remove(self, value: str) -> True:
         self.suggestions.remove(value)
         return True
@@ -548,9 +552,9 @@ class ParserMatcher:
             # 'return' [ Exp ] ';'
             return ReturnStmtTree(return_keyword, exp, semicolon)
 
-        if "WhileExp" in self.suggestions:
-            breakpoint()
-            return Tree()
+        # if "WhileExp" in self.suggestions:
+        #     breakpoint()
+        #     return Tree()
 
         self.reset(initial)
         return None
@@ -614,7 +618,7 @@ class ParserMatcher:
              | '(' Type ',' Type ')'
              | '[' Type ']'
              | id
-        
+
         TODO: Why does Type match 'id'?
         """
         initial = self.i
@@ -687,8 +691,73 @@ class ParserMatcher:
         """
         initial = self.i
 
-        # if (token := self.match(Type.LRB) ...)
+        if (left := self.match(Type.LRB)) and (exp_one := self.match_Exp()):
+            if (
+                (comma := self.match(Type.COMMA))
+                and (exp_two := self.match_Exp())
+                and (right := self.match(Type.RRB))
+            ):
+                # '(' Exp ',' Exp ')'
+                tree = TupleExpTree(left, exp_one, comma, exp_two, right)
+                if exp_prime := self.match_ExpPrime():
+                    exp_prime.exp_one = tree
+                    return exp_prime
+                return tree
 
+            elif right := self.match(Type.RRB):
+                # '(' Exp ')'
+                tree = NestedExpTree(left, exp_one, right)
+                if exp_prime := self.match_ExpPrime():
+                    exp_prime.exp_one = tree
+                    return exp_prime
+                return tree
+
+        if (
+            (op := self.match_Op1()) and (exp := self.match_Exp())
+        ):
+            tree = Op1ExpTree(op, exp)
+            if exp_prime := self.match_ExpPrime():
+                exp_prime.exp_one = tree
+                return exp_prime
+            return tree
+
+        if fun_call := self.match_FunCall():
+            if exp_prime := self.match_ExpPrime():
+                exp_prime.exp_one = fun_call
+                return exp_prime
+            return fun_call
+
+        if int_tree := self.match_int():
+            if exp_prime := self.match_ExpPrime():
+                exp_prime.exp_one = int_tree
+                return exp_prime
+            return int_tree
+
+        if token := self.match(Type.CHAR, Type.FALSE, Type.TRUE):
+            if exp_prime := self.match_ExpPrime():
+                exp_prime.exp_one = token
+                return exp_prime
+            return token
+
+        if (
+            (left := self.match(Type.LSB)) and (right := self.match(Type.RSB))
+        ):
+            tree = EmptyListExpTree(left, right)
+            if exp_prime := self.match_ExpPrime():
+                exp_prime.exp_one = tree
+                return exp_prime
+            return tree
+        
+        if (
+            (_id := self.match_id()) and ((field := self.match_Field()) or True)
+        ):
+            tree = FieldTree(_id, field)
+            if exp_prime := self.match_ExpPrime():
+                exp_prime.exp_one = tree
+                return exp_prime
+            return tree
+
+        """
         tokens = []
         while token := self.match(
             Type.ID,
@@ -725,7 +794,23 @@ class ParserMatcher:
 
         if tokens:
             return TempExpTree(tokens)
+        """
 
+        self.reset(initial)
+        return None
+
+    @log()
+    def match_ExpPrime(self) -> Tree:
+        """
+        Exp' = [ Op2 Exp ]
+        """
+        initial = self.i
+
+        if (
+            (op := self.match_Op2()) and (exp := self.match_Exp())
+        ):
+            return Op2ExpTree(None, op, exp)
+        
         self.reset(initial)
         return None
 
@@ -763,7 +848,7 @@ class ParserMatcher:
         """
         Op1 = '!'  | '-'
         """
-        if (token := self.match(Type.NOT, Type.MINUS)):
+        if token := self.match(Type.NOT, Type.MINUS):
             return TokenTree(token)
         return None
 
