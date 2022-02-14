@@ -62,12 +62,10 @@ class Parser:
 
         pm = ParserMatcher(tokens)
         tree = pm.match_SPL()
-        pprint(tree)
-        print(pm.i, len(tokens))
-        print(pm.suggestions)
-        # breakpoint()
 
-        return
+        pprint(tree)
+
+        return tree
 
     def match_parentheses(self, tokens: List[Token]) -> None:
         right_to_left = {
@@ -129,14 +127,14 @@ class Parser:
                         open_token = queue.pop()
                         # Replace `token` with one that knows its Open
                         # Replace `open_token` with one that knows its Close
-                        open_bracket_token = BracketToken.from_token(open_token)
-                        close_bracket_token = BracketToken.from_token(token)
+                        # open_bracket_token = BracketToken.from_token(open_token)
+                        # close_bracket_token = BracketToken.from_token(token)
 
-                        close_bracket_token.open = open_bracket_token
-                        open_bracket_token.close = close_bracket_token
+                        # close_bracket_token.open = open_bracket_token
+                        # open_bracket_token.close = close_bracket_token
 
-                        tokens[i] = close_bracket_token
-                        tokens[tokens.index(open_token)] = open_bracket_token
+                        # tokens[i] = close_bracket_token
+                        # tokens[tokens.index(open_token)] = open_bracket_token
 
         # If queue is not empty, then there's an opening bracket that we did not close
         for token in queue:
@@ -327,9 +325,9 @@ class ParserMatcher:
             and (var_id := self.match_id())
             and (eq := self.match(Type.EQ))
             and (exp := self.match_Exp())
-            and self.add(f"VarDecl")
+            # and self.add(f"VarDecl")
             and (semi := self.match(Type.SEMICOLON))
-            and self.remove("VarDecl")
+            # and self.remove("VarDecl")
         ):
             return VarDeclTree(var_type, var_id, eq, exp, semi)
 
@@ -452,25 +450,25 @@ class ParserMatcher:
 
         if (
             (if_keyword := self.match(Type.IF))
-            and self.add("IfExp")
+            # and self.add("IfExp")
             and (left_round := self.match(Type.LRB))
             and (exp := self.match_Exp())
             and (right_round := self.match(Type.RRB))
-            and self.remove("IfExp")
-            and self.add("IfStmt")
+            # and self.remove("IfExp")
+            # and self.add("IfStmt")
             and (left_curly_if := self.match(Type.LCB))
             and ((statements_if := self.repeat(self.match_Stmt)) or True)
             and (right_curly_if := self.match(Type.RCB))
-            and self.remove("IfStmt")
+            # and self.remove("IfStmt")
         ):
             # 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ]
             if (
                 (else_keyword := self.match(Type.ELSE))
-                and self.add("IfElseStmt")
+                # and self.add("IfElseStmt")
                 and (left_curly_else := self.match(Type.LCB))
                 and ((statements_else := self.repeat(self.match_Stmt)) or True)
                 and (right_curly_else := self.match(Type.RCB))
-                and self.remove("IfElseStmt")
+                # and self.remove("IfElseStmt")
             ):
                 return IfElseStmtTree(
                     if_keyword,
@@ -499,7 +497,7 @@ class ParserMatcher:
         # print(1, self.current)
         if (
             (while_keyword := self.match(Type.WHILE))
-            and self.add("WhileExp")
+            # and self.add("WhileExp")
             and (left_round := self.match(Type.LRB))
             and (exp := self.match_Exp())
             and (right_round := self.match(Type.RRB))
@@ -511,7 +509,6 @@ class ParserMatcher:
             # and self.remove("WhileStmt")
         ):
             # 'while' '(' Exp ')' '{' Stmt* '}'
-            print("Returning While Statement Tree")
             return WhileStmtTree(
                 while_keyword,
                 left_round,
@@ -528,10 +525,10 @@ class ParserMatcher:
             (var_id := self.match(Type.ID))
             and ((field := self.match_Field()) or True)
             and (eq := self.match(Type.EQ))
-            and self.add("AssignmentExp")
+            # and self.add("AssignmentExp")
             and (exp := self.match_Exp())
             # and self.remove("AssignmentExp")
-            and self.add("AssignmentSemicolon")
+            # and self.add("AssignmentSemicolon")
             and (semicolon := self.match(Type.SEMICOLON))
             # and self.remove("AssignmentSemicolon")
         ):
@@ -585,7 +582,7 @@ class ParserMatcher:
         initial = self.i
 
         if (
-            fun_id := self.match_id()
+            (fun_id := self.match_id())
             and (left_round := self.match(Type.LRB))
             and ((act_args := self.match_ActArgs()) or True)
             and (right_round := self.match(Type.RRB))
@@ -661,6 +658,208 @@ class ParserMatcher:
             return TokenTree(token)
         return None
 
+    def match_Exp(self):
+        """
+        Exp    ::= Eq
+        """
+        return self.match_Eq()
+
+    def match_Eq(self):
+        """
+        Eq     ::= Leq [ Eq' ]
+        """
+        initial = self.i
+
+        if leq := self.match_Leq():
+            if eq_prime := self.match_EqPrime():
+                eq_prime.exp_one = leq
+                return eq_prime
+            return leq
+
+        self.reset(initial)
+        return None
+
+    def match_EqPrime(self):
+        """
+        Eq'    ::= (== | !=) Leq [ Eq' ]
+        """
+        initial = self.i
+
+        if (token := self.match(Type.DEQUALS, Type.NEQ)) and (leq := self.match_Leq()):
+            if eq_prime := self.match_EqPrime():
+                eq_prime.exp_one = leq
+                return eq_prime
+            return Op2ExpTree(None, token, leq)
+
+        self.reset(initial)
+        return None
+
+    def match_Leq(self):
+        """
+        Leq    ::= Sum [ Leq' ]
+        """
+        initial = self.i
+
+        if sum_ := self.match_Sum():
+            if leq_prime := self.match_LeqPrime():
+                leq_prime.exp_one = sum_
+                return leq_prime
+            return sum_
+
+        self.reset(initial)
+        return None
+
+    def match_LeqPrime(self):
+        """
+        Leq'   ::= ( < | > | <= | >= ) Sum [ Leq' ]
+        """
+        initial = self.i
+
+        if (token := self.match(Type.LT, Type.GT, Type.LEQ, Type.GEQ)) and (
+            sum_ := self.match_Sum()
+        ):
+            if leq_prime := self.match_LeqPrime():
+                leq_prime.exp_one = sum_
+                return leq_prime
+            return Op2ExpTree(None, token, sum_)
+
+        self.reset(initial)
+        return None
+
+    def match_Sum(self):
+        """
+        Sum    ::= Fact [ Sum' ]
+        """
+        initial = self.i
+
+        if fact := self.match_Fact():
+            if sum_prime := self.match_SumPrime():
+                sum_prime.exp_one = fact
+                return sum_prime
+            return fact
+
+        self.reset(initial)
+        return None
+
+    def match_SumPrime(self):
+        """
+        Sum'   ::= ( + | - | ||) Fact [ Sum' ]
+        """
+        initial = self.i
+
+        if (token := self.match(Type.PLUS, Type.MINUS, Type.OR)) and (
+            fact := self.match_Fact()
+        ):
+            if sum_prime := self.match_LeqPrime():
+                sum_prime.exp_one = fact
+                return sum_prime
+            return Op2ExpTree(None, token, fact)
+
+        self.reset(initial)
+        return None
+
+    def match_Fact(self):
+        """
+        Fact   ::= Colon [ Fact' ]
+        """
+        initial = self.i
+
+        if colon := self.match_Colon():
+            if fact_prime := self.match_FactPrime():
+                fact_prime.exp_one = colon
+                return fact_prime
+            return colon
+
+        self.reset(initial)
+        return None
+
+    def match_FactPrime(self):
+        """
+        Fact'  ::= ( * | / | % | && ) Colon [ Fact' ]
+        """
+        initial = self.i
+
+        if (token := self.match(Type.STAR, Type.SLASH, Type.PERCENT, Type.AND)) and (
+            colon := self.match_Colon()
+        ):
+            if fact_prime := self.match_FactPrime():
+                fact_prime.exp_one = colon
+                return fact_prime
+            return Op2ExpTree(None, token, colon)
+
+        self.reset(initial)
+        return None
+
+    def match_Colon(self):
+        """
+        Colon  ::= Unary ':' Colon | Unary
+        """
+        initial = self.i
+
+        if unary := self.match_Unary():
+            if (token := self.match(Type.COLON)) and (colon := self.match_Colon()):
+                return Op2ExpTree(unary, token, colon)
+            return unary
+
+        self.reset(initial)
+        return None
+
+    def match_Unary(self):
+        """
+        Unary  ::= ( ! | - ) Unary | Basic
+        """
+        initial = self.i
+
+        if (token := self.match(Type.NOT, Type.MINUS)) and (
+            unary := self.match_Unary()
+        ):
+            return Op1ExpTree(token, unary)
+        
+        if basic := self.match_Basic():
+            return basic
+
+        self.reset(initial)
+        return None
+
+    def match_Basic(self):
+        """
+        Basic  ::= '(' Exp ')' | '(' Exp ',' Exp ')' |
+                   int | char | 'False' | 'True' | FunCall | '[]' | id
+        """
+        initial = self.i
+
+        if (left := self.match(Type.LRB)) and (exp_one := self.match_Exp()):
+            if (
+                (comma := self.match(Type.COMMA))
+                and (exp_two := self.match_Exp())
+                and (right := self.match(Type.RRB))
+            ):
+                # '(' Exp ',' Exp ')'
+                return TupleExpTree(left, exp_one, comma, exp_two, right)
+
+            elif right := self.match(Type.RRB):
+                # '(' Exp ')'
+                return NestedExpTree(left, exp_one, right)
+        
+        if int_ := self.match_int():
+            return int_
+        
+        if token := self.match(Type.QUOTE, Type.FALSE, Type.TRUE):
+            return token
+        
+        if fun_call := self.match_FunCall():
+            return fun_call
+
+        if (left := self.match(Type.LSB)) and (right := self.match(Type.RSB)):
+            return EmptyListExpTree(left, right)
+
+        if (_id := self.match_id()) and ((field := self.match_Field()) or True):
+            return FieldTree(_id, field)
+
+        self.reset(initial)
+        return None
+
+    '''
     @log()
     def match_Exp(self) -> Tree:
         """
@@ -698,103 +897,40 @@ class ParserMatcher:
                 and (right := self.match(Type.RRB))
             ):
                 # '(' Exp ',' Exp ')'
-                tree = TupleExpTree(left, exp_one, comma, exp_two, right)
-                if exp_prime := self.match_ExpPrime():
-                    exp_prime.exp_one = tree
-                    return exp_prime
-                return tree
+                self.match_ExpPrime()
+                return initial
 
             elif right := self.match(Type.RRB):
                 # '(' Exp ')'
-                tree = NestedExpTree(left, exp_one, right)
-                if exp_prime := self.match_ExpPrime():
-                    exp_prime.exp_one = tree
-                    return exp_prime
-                return tree
+                self.match_ExpPrime()
+                return initial
 
-        if (
-            (op := self.match_Op1()) and (exp := self.match_Exp())
-        ):
+        if (op := self.match_Op1()) and (exp := self.match_Exp()):
             tree = Op1ExpTree(op, exp)
-            if exp_prime := self.match_ExpPrime():
-                exp_prime.exp_one = tree
-                return exp_prime
-            return tree
+            self.match_ExpPrime()
+            return initial
 
         if fun_call := self.match_FunCall():
-            if exp_prime := self.match_ExpPrime():
-                exp_prime.exp_one = fun_call
-                return exp_prime
-            return fun_call
+            self.match_ExpPrime()
+            return initial
 
         if int_tree := self.match_int():
-            if exp_prime := self.match_ExpPrime():
-                exp_prime.exp_one = int_tree
-                return exp_prime
-            return int_tree
+            self.match_ExpPrime()
+            return initial
 
         if token := self.match(Type.CHAR, Type.FALSE, Type.TRUE):
-            if exp_prime := self.match_ExpPrime():
-                exp_prime.exp_one = token
-                return exp_prime
-            return token
+            self.match_ExpPrime()
+            return initial
 
-        if (
-            (left := self.match(Type.LSB)) and (right := self.match(Type.RSB))
-        ):
+        if (left := self.match(Type.LSB)) and (right := self.match(Type.RSB)):
             tree = EmptyListExpTree(left, right)
-            if exp_prime := self.match_ExpPrime():
-                exp_prime.exp_one = tree
-                return exp_prime
-            return tree
-        
-        if (
-            (_id := self.match_id()) and ((field := self.match_Field()) or True)
-        ):
+            self.match_ExpPrime()
+            return initial
+
+        if (_id := self.match_id()) and ((field := self.match_Field()) or True):
             tree = FieldTree(_id, field)
-            if exp_prime := self.match_ExpPrime():
-                exp_prime.exp_one = tree
-                return exp_prime
-            return tree
-
-        """
-        tokens = []
-        while token := self.match(
-            Type.ID,
-            Type.HD,
-            Type.FST,
-            Type.SND,
-            Type.TL,
-            Type.NOT,
-            Type.MINUS,
-            Type.PLUS,
-            Type.STAR,
-            Type.SLASH,
-            Type.PERCENT,
-            Type.DEQUALS,
-            Type.LT,
-            Type.GT,
-            Type.LEQ,
-            Type.GEQ,
-            Type.NEQ,
-            Type.AND,
-            Type.OR,
-            Type.COLON,
-            Type.DIGIT,
-            Type.QUOTE,
-            Type.FALSE,
-            Type.TRUE,
-            # Type.LRB,
-            # Type.RRB,
-            Type.COMMA,
-            Type.LSB,
-            Type.RSB,
-        ):
-            tokens.append(token)
-
-        if tokens:
-            return TempExpTree(tokens)
-        """
+            self.match_ExpPrime()
+            return initial
 
         self.reset(initial)
         return None
@@ -806,13 +942,12 @@ class ParserMatcher:
         """
         initial = self.i
 
-        if (
-            (op := self.match_Op2()) and (exp := self.match_Exp())
-        ):
+        if (op := self.match_Op2()) and (exp := self.match_Exp()):
             return Op2ExpTree(None, op, exp)
-        
+
         self.reset(initial)
         return None
+    '''
 
     @log()
     def match_Op2(self) -> Tree:
@@ -874,3 +1009,37 @@ class ParserMatcher:
             # Step 2: Return the corresponding Tree
             return TokenTree(match)
         return None
+
+    '''
+    def parse_exp(self, exp_start: int) -> Tree:
+        if exp_start is None:
+            return None
+        
+        expr = self.tokens[exp_start: self.i]
+
+        print(exp_start, self.i)
+        # print(expr)
+
+        """
+        TODO: Add the other operators:
+        &&  ||  :
+        and literals
+        int, char, False, True, FunCall, [], id Field
+
+        1. We need to look for ( and ) first
+           BUG: FunCall `(func(a, b), b * 2)`
+           ExprTupleTree(left=FunCallTree, ExprTree(b, "*", 2))
+        2. Preprocess to add 0 before unary - (detect unary - by checking if there are tokens before the -)
+        3. Loop over precedence levels:
+            == and !=
+            < and > and <= and >=
+            + and -
+            * and / and %
+            !
+            If a character on that level is found, split into `left`, `op`, `right`, and recurse with `left` and `right`, i.e.:
+        4. Create ExprTree(func(left), op, func(right))
+        """
+
+        # breakpoint()
+        return exp_start
+    '''
