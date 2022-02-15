@@ -1,18 +1,19 @@
-from multiprocessing.sharedctypes import Value
 import queue
 import re
+from multiprocessing.sharedctypes import Value
 from typing import List
 
 from icecream import ic
 
+from compiler.error import EmptyQuoteError
 from compiler.token import Token
-from compiler.error import (
+
+from compiler.error import (  # isort:skip
+    DanglingMultiLineCommentError,
     ErrorRaiser,
+    LonelyQuoteError,
     UnexpectedCharacterError,
     UnmatchableTokenError,
-    DanglingMultiLineCommentError,
-    LonelyQuoteError,
-    EmptyQuoteError,
 )
 
 

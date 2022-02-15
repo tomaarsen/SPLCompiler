@@ -1,5 +1,4 @@
 from compiler import Scanner, Token, Type
-
 from tests.test_util import open_file
 
 

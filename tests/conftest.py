@@ -1,9 +1,9 @@
-from typing import List
-import pytest
-from glob import glob
-
 import os
 import sys
+from glob import glob
+from typing import List
+
+import pytest
 
 from tests.test_util import open_file
 

@@ -1,4 +1,5 @@
 import re
+
 from compiler.error import CompilerException
 from compiler.parser import Parser
 from compiler.scanner import Scanner

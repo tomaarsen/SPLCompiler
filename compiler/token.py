@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import List, Tuple
 
 from compiler.type import Type
-
-from dataclasses import dataclass
 
 
 @dataclass

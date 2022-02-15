@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from compiler.token import Token
 from typing import List, Optional, Union
+
+from compiler.token import Token
 
 
 @dataclass
@@ -195,6 +196,7 @@ class ActArgsTree(Tree):
     comma: Optional[Token]
     act_args: Optional[ActArgsTree]
 
+
 @dataclass
 class TupleExpTree(Tree):
     # '(' Exp ',' Exp ')'
@@ -204,6 +206,7 @@ class TupleExpTree(Tree):
     exp_two: ExpTree
     right: Token
 
+
 @dataclass
 class NestedExpTree(Tree):
     # '(' Exp ')'
@@ -211,20 +214,24 @@ class NestedExpTree(Tree):
     exp: ExpTree
     right: Token
 
+
 @dataclass
 class Op1ExpTree(Tree):
     op: Token
     exp: ExpTree
+
 
 @dataclass
 class EmptyListExpTree(Tree):
     left: Token
     right: Token
 
+
 @dataclass
 class IDExpTree(Tree):
     _id: Token
     field: Optional[FieldTree]
+
 
 @dataclass
 class Op2ExpTree(Tree):
@@ -232,7 +239,16 @@ class Op2ExpTree(Tree):
     op: Token
     exp_two: ExpTree
 
-ExpTree = TupleExpTree | NestedExpTree | Op1ExpTree | FunCallTree | IntTree | Token | IDExpTree
+
+ExpTree = (
+    TupleExpTree
+    | NestedExpTree
+    | Op1ExpTree
+    | FunCallTree
+    | IntTree
+    | Token
+    | IDExpTree
+)
 
 StmtTree = (
     IfStmtTree
