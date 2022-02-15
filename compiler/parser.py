@@ -225,8 +225,8 @@ class Parser:
 # TODO: Clean all this logging up, move it somewhere else
 import logging
 
-logger = logging.basicConfig(level=logging.NOTSET)
-# logger = logging.basicConfig(level=logging.CRITICAL)
+# logger = logging.basicConfig(level=logging.NOTSET)
+logger = logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 
@@ -695,7 +695,7 @@ class ParserMatcher:
         if (token := self.match(Type.DEQUALS, Type.NEQ)) and (leq := self.match_Leq()):
             if eq_prime := self.match_EqPrime():
                 eq_prime.exp_one = leq
-                return eq_prime
+                return Op2ExpTree(None, token, eq_prime)
             return Op2ExpTree(None, token, leq)
 
         self.reset(initial)
@@ -729,7 +729,7 @@ class ParserMatcher:
         ):
             if leq_prime := self.match_LeqPrime():
                 leq_prime.exp_one = sum_
-                return leq_prime
+                return Op2ExpTree(None, token, leq_prime)
             return Op2ExpTree(None, token, sum_)
 
         self.reset(initial)
@@ -763,7 +763,7 @@ class ParserMatcher:
         ):
             if sum_prime := self.match_SumPrime():
                 sum_prime.exp_one = fact
-                return sum_prime
+                return Op2ExpTree(None, token, sum_prime)
             return Op2ExpTree(None, token, fact)
 
         self.reset(initial)
@@ -797,7 +797,7 @@ class ParserMatcher:
         ):
             if fact_prime := self.match_FactPrime():
                 fact_prime.exp_one = colon
-                return fact_prime
+                return Op2ExpTree(None, token, fact_prime)
             return Op2ExpTree(None, token, colon)
 
         self.reset(initial)

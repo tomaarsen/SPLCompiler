@@ -211,14 +211,14 @@ class TupleExpTree(Tree):
 class NestedExpTree(Tree):
     # '(' Exp ')'
     left: Token
-    exp: ExpTree
+    exp_one: ExpTree
     right: Token
 
 
 @dataclass
 class Op1ExpTree(Tree):
     op: Token
-    exp: ExpTree
+    exp_one: ExpTree
 
 
 @dataclass
