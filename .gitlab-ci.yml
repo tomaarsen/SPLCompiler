@@ -39,8 +39,7 @@ bandit:
   script:
     - pip install bandit
     - python -m bandit --version # For debugging
-    - python -m bandit $CI_PROJECT_DIR -r --exclude $CI_PROJECT_DIR/venv/
-    # ./tests/
+    - python -m bandit $CI_PROJECT_DIR -r --exclude $CI_PROJECT_DIR/venv/,$CI_PROJECT_DIR/tests/
   rules:
       # Only run bandit when commit is made to main branch
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
