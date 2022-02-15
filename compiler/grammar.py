@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, List
@@ -41,34 +43,32 @@ class NT(Enum):
 
 
 @dataclass
-class Or:
+class Quantifier:
+    symbols: List[NT | Type | Quantifier]
+
+
+class Or(Quantifier):
     def __init__(self, *argv) -> None:
         self.symbols = list(argv)
 
 
-@dataclass
-class Star:
-    def __init__(self, symbols) -> None:
-        self.symbols = symbols
+class Star(Quantifier):
+    pass
 
 
-@dataclass
-class Plus:
-    def __init__(self, symbols) -> None:
-        self.symbols = symbols
+class Plus(Quantifier):
+    pass
 
 
-@dataclass
-class Optional:
-    def __init__(self, symbols) -> None:
-        self.symbols = symbols
+class Optional(Quantifier):
+    pass
 
 
 # TODO: Clean all this logging up, move it somewhere else
 import logging
 
-logger = logging.basicConfig(level=logging.NOTSET)
-# logger = logging.basicConfig(level=logging.CRITICAL)
+# logger = logging.basicConfig(level=logging.NOTSET)
+logger = logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 
@@ -231,7 +231,7 @@ class NewParserMatcher:
                         Type.RRB,
                     ],
                     [Type.DIGIT],
-                    [Type.CHAR],
+                    [Type.QUOTE],
                     [Type.FALSE],
                     [Type.TRUE],
                     [NT.FunCall],
@@ -332,12 +332,9 @@ class NewParserMatcher:
                         return None
 
                 case NT():
-                    print("Trying", segment)
                     if match := self.parse(self.grammar[segment]):
-                        print(segment, "succeeded!")
                         tree.add_child(match)
                     else:
-                        print(segment, "failed.")
                         self.reset(initial)
                         return None
 
