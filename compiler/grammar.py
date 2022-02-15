@@ -290,7 +290,12 @@ class NewParserMatcher:
 
     # @log()
     def parse(self, production=None):
+        """
+        Goal: (Not yet implemented)
 
+        If `NT.Decl: [Or([NT.VarDecl], [NT.FunDecl])]` fails, then we must retry this rule
+        but with some fixing enabled.
+        """
         initial = self.i
 
         if production is None:
@@ -313,8 +318,7 @@ class NewParserMatcher:
                     tree.add_children(self.repeat(lambda: self.parse(segment.symbols)))
 
                 case Plus():
-                    trees = self.repeat(lambda: self.parse(segment.symbols))
-                    if trees:
+                    if trees := self.repeat(lambda: self.parse(segment.symbols)):
                         tree.add_children(trees)
                     else:
                         self.reset(initial)
@@ -328,6 +332,30 @@ class NewParserMatcher:
                     if match := self.match_type(segment):
                         tree.add_child(match)
                     else:
+                        """
+                        Alternative 1:
+                            Grammar: a b c d e f
+                            Program: a b e f
+                            Solution: Insert tokens in program.
+
+                            We can look-ahead to see if the current token matches an upcoming production segment.
+                            (But we can only look inside of this production, and not outside of it)
+                            Technically, as easy as not returning `return None`, and just continuing as if
+                            the production segment was matched.
+
+                            To match: Exp
+                            Program: `+4;`
+                            Not a single token can be matched.
+
+                        Alternative 2:
+                            Grammar: a b e f
+                            Program: a b c d e f
+                            Solution: Delete tokens in program.
+
+                            We can look-ahead to see if the current production segment matches an upcoming program token.
+                            Technically, as easy as incrementing the pointer `self.i` by some number and retrying `self.match_type(segment)`.
+                            Probably less common in practice, and thus less important.
+                        """
                         self.reset(initial)
                         return None
 
