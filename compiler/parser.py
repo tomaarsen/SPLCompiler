@@ -2,6 +2,7 @@ from pprint import pprint
 from typing import Callable, List
 
 from compiler.error import BracketMismatchError, ErrorRaiser
+from compiler.grammar import NewParserMatcher
 from compiler.token import BracketToken, Token
 from compiler.tree import EmptyListExpTree
 from compiler.type import Type
@@ -60,9 +61,11 @@ class Parser:
         ErrorRaiser.raise_all()
         # pprint(tokens)
 
-        pm = ParserMatcher(tokens)
-        tree = pm.match_SPL()
-        pprint(tree)
+        pm = NewParserMatcher(tokens)
+        tree = pm.parse()
+        # tree.clean()
+        # pprint(tree)
+        print(pm.i, len(tokens))
 
         # TODO: Error if pm.i != len(tokens)
 

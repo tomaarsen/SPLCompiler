@@ -44,5 +44,4 @@ def test_parser(valid_file: str):
 
     parser = Parser(program)
     tree = parser.parse(tokens)
-    assert hasattr(tree, "decl")
-    assert tree.decl
+    assert tree

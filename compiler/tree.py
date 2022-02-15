@@ -8,11 +8,19 @@ from compiler.token import Token
 
 @dataclass
 class Tree:
-    # children: List[Tree] = field(kw_only=True, default_factory=list)
+    c: List[Tree | Token] = field(kw_only=True, default_factory=list)
 
-    # def add_child(self, child: Tree):
-    #     self.children.append(child)
-    pass
+    def add_child(self, child: Tree) -> None:
+        self.c.append(child)
+
+    def add_children(self, children: List[Tree]) -> None:
+        self.c.extend(children)
+
+    def __len__(self):
+        return len(self.c)
+
+    def __getitem__(self, index: int) -> Tree | Token:
+        return self.c[index]
 
 
 @dataclass

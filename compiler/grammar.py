@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import List
+from typing import Callable, List
 
 from compiler.token import Token
+from compiler.tree import Tree
 from compiler.type import Type
 
 
-class Non_Terminal(Enum):
+class NT(Enum):
     SPL = auto()
     Decl = auto()
     VarDecl = auto()
@@ -28,6 +29,7 @@ class Non_Terminal(Enum):
     Fact = auto()
     Fact_Prime = auto()
     Colon = auto()
+    Unary = auto()
     Basic = auto()
     Field = auto()
     FunCall = auto()
@@ -38,50 +40,55 @@ class Non_Terminal(Enum):
     id = auto()
 
 
+@dataclass
 class Or:
     def __init__(self, *argv) -> None:
         self.symbols = list(argv)
 
 
+@dataclass
 class Star:
-    def __init__(self, *argv) -> None:
-        self.symbols = list(argv)
+    def __init__(self, symbols) -> None:
+        self.symbols = symbols
 
 
+@dataclass
 class Plus:
-    def __init__(self, *argv) -> None:
-        self.symbols = list(argv)
+    def __init__(self, symbols) -> None:
+        self.symbols = symbols
 
 
+@dataclass
 class Optional:
-    def __init__(self, *argv) -> None:
-        self.symbols = list(argv)
+    def __init__(self, symbols) -> None:
+        self.symbols = symbols
 
 
-# https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
-class NewTree(object):
-    "Generic tree node."
+# TODO: Clean all this logging up, move it somewhere else
+import logging
 
-    def __init__(self, name, children=None):
-        self.name = name
-        self.children = []
-        if children is not None:
-            for child in self.children:
-                self.add_child(child)
+logger = logging.basicConfig(level=logging.NOTSET)
+# logger = logging.basicConfig(level=logging.CRITICAL)
+logger = logging.getLogger(__name__)
 
-    def __repr__(self):
-        return self.name
 
-    def __len__(self):
-        sum = 1
-        if self.children is not None:
-            for child in self.children:
-                sum += len(child)
-        return sum
+def log(level=logging.DEBUG):
+    def _decorator(fn):
+        def _decorated(*arg, **kwargs):
+            logger.log(
+                level,
+                f"Calling {fn.__name__!r}: {arg[1:]} with i={arg[0].i}: {arg[0].current}",
+            )
+            ret = fn(*arg, **kwargs)
+            logger.log(
+                level,
+                f"Called {fn.__name__!r}: {arg[1:]} with i={arg[0].i}: {arg[0].current} got return value: {ret}",
+            )
+            return ret
 
-    def add_child(self, node):
-        # assert isinstance(node, NewTree)
-        self.children.append(node)
+        return _decorated
+
+    return _decorator
 
 
 @dataclass
@@ -90,187 +97,257 @@ class NewParserMatcher:
 
     def __post_init__(self):
         self.grammar = {
-            Non_Terminal.SPL: [Star([Non_Terminal.Decl])],
-            Non_Terminal.Decl: [Or([Non_Terminal.VarDecl], [Non_Terminal.FunDecl])],
-            Non_Terminal.VarDecl: [
-                Or([Type.VAR], [Non_Terminal.Type]),
-                Non_Terminal.id,
+            NT.SPL: [Star([NT.Decl])],
+            NT.Decl: [Or([NT.VarDecl], [NT.FunDecl])],
+            NT.VarDecl: [
+                Or([Type.VAR], [NT.Type]),
+                Type.ID,
                 Type.EQ,
-                Non_Terminal.Exp,
+                NT.Exp,
                 Type.SEMICOLON,
             ],
-            Non_Terminal.FunDecl: [
-                Non_Terminal.id,
+            NT.FunDecl: [
+                Type.ID,
                 Type.LRB,
-                Optional([Non_Terminal.FArgs]),
+                Optional([NT.FArgs]),
                 Type.RRB,
-                Optional([Type.DOUBLE_COLON], [Non_Terminal.FunType]),
+                Optional([Type.DOUBLE_COLON, NT.FunType]),
+                Type.LCB,
+                Star([NT.VarDecl]),
+                Plus([NT.Stmt]),
                 Type.RCB,
-                Star([Non_Terminal.VarDecl]),
-                Plus([Non_Terminal.Stmt]),
             ],
-            Non_Terminal.RetType: [Or([Non_Terminal.Type], [Type.VOID])],
-            Non_Terminal.FunType: [
-                Optional([Non_Terminal.FTypes]),
+            NT.RetType: [Or([NT.Type], [Type.VOID])],
+            NT.FunType: [
+                Star([NT.Type]),
                 Type.ARROW,
-                Non_Terminal.RetType,
+                NT.RetType,
             ],
-            Non_Terminal.FTypes: [Non_Terminal.Type, Or([Non_Terminal.FTypes])],
-            Non_Terminal.Type: [
+            NT.Type: [
                 Or(
-                    [Non_Terminal.BasicType],
+                    [NT.BasicType],
                     [
                         Type.LRB,
-                        Non_Terminal.Type,
+                        NT.Type,
                         Type.COMMA,
-                        Non_Terminal.Type,
+                        NT.Type,
                         Type.RRB,
                     ],
-                    [Type.LSB, Non_Terminal.Type, Type.RSB],
-                    [Non_Terminal.id],
+                    [Type.LSB, NT.Type, Type.RSB],
+                    [Type.ID],
                 )
             ],
-            Non_Terminal.BasicType: [Type.INT, Type.BOOL, Type.CHAR],
-            Non_Terminal.FArgs: [
+            NT.BasicType: [Or([Type.INT], [Type.BOOL], [Type.CHAR])],
+            NT.FArgs: [
                 Type.ID,
-                Optional([Type.COMMA, Non_Terminal.FArgs]),
+                Optional([Type.COMMA, NT.FArgs]),
             ],
-            Non_Terminal.Stmt: [
+            NT.Stmt: [
                 Or(
                     [
                         Type.IF,
                         Type.LRB,
-                        Non_Terminal.Exp,
+                        NT.Exp,
                         Type.RRB,
                         Type.LCB,
-                        Star([Non_Terminal.Stmt]),
+                        Star([NT.Stmt]),
                         Type.RCB,
                         Optional(
                             [
                                 Type.ELSE,
                                 Type.LCB,
-                                Star([Non_Terminal.Stmt]),
-                                Type.LCB,
+                                Star([NT.Stmt]),
+                                Type.RCB,
                             ]
                         ),
                     ],
                     [
                         Type.WHILE,
                         Type.LRB,
-                        Non_Terminal.Exp,
+                        NT.Exp,
+                        Type.RRB,
                         Type.LCB,
-                        Star([Non_Terminal.Stmt]),
-                        Type.LCB,
+                        Star([NT.Stmt]),
+                        Type.RCB,
                     ],
                     [
                         Type.ID,
-                        Non_Terminal.Field,
+                        Optional([NT.Field]),
                         Type.EQ,
-                        Non_Terminal.Exp,
+                        NT.Exp,
                         Type.SEMICOLON,
                     ],
-                    [Non_Terminal.FunCall, Type.SEMICOLON],
-                    [Type.RETURN, Optional(Non_Terminal.Exp), Type.SEMICOLON],
+                    [NT.FunCall, Type.SEMICOLON],
+                    [Type.RETURN, Optional([NT.Exp]), Type.SEMICOLON],
                 )
             ],
-            Non_Terminal.Exp: [Non_Terminal.Eq],
-            Non_Terminal.Eq: [Non_Terminal.Leq, Optional([Non_Terminal.Eq_Prime])],
-            Non_Terminal.Eq_Prime: [
-                Or([Type.EQ], [Type.NEQ]),
-                Non_Terminal.Leq,
-                Optional([Non_Terminal.Eq_Prime]),
+            NT.Exp: [NT.Eq],
+            NT.Eq: [NT.Leq, Optional([NT.Eq_Prime])],
+            NT.Eq_Prime: [
+                Or([Type.DEQUALS], [Type.NEQ]),
+                NT.Leq,
+                Optional([NT.Eq_Prime]),
             ],
-            Non_Terminal.Leq: [
-                Non_Terminal.Sum,
-                Optional([Non_Terminal.Leq_Prime]),
+            NT.Leq: [
+                NT.Sum,
+                Optional([NT.Leq_Prime]),
             ],
-            Non_Terminal.Leq_Prime: [
+            NT.Leq_Prime: [
                 Or([Type.LT], [Type.GT], [Type.LEQ], [Type.GEQ]),
-                Non_Terminal.Sum,
-                Optional([Non_Terminal.Leq_Prime]),
+                NT.Sum,
+                Optional([NT.Leq_Prime]),
             ],
-            Non_Terminal.Sum: [
-                Non_Terminal.Fact,
-                Optional([Non_Terminal.Sum_Prime]),
+            NT.Sum: [
+                NT.Fact,
+                Optional([NT.Sum_Prime]),
             ],
-            Non_Terminal.Sum_Prime: [
+            NT.Sum_Prime: [
                 Or([Type.PLUS], [Type.MINUS], [Type.OR]),
-                Non_Terminal.Fact,
-                Optional([Non_Terminal.Sum_Prime]),
+                NT.Fact,
+                Optional([NT.Sum_Prime]),
             ],
-            Non_Terminal.Fact: [
-                Non_Terminal.Colon,
-                Optional([Non_Terminal.Fact_Prime]),
+            NT.Fact: [
+                NT.Colon,
+                Optional([NT.Fact_Prime]),
             ],
-            Non_Terminal.Fact_Prime: [
+            NT.Fact_Prime: [
                 Or([Type.STAR], [Type.SLASH], [Type.PERCENT], [Type.AND]),
-                Non_Terminal.Colon,
-                Optional([Non_Terminal.Fact_Prime]),
+                NT.Colon,
+                Optional([NT.Fact_Prime]),
             ],
-            Non_Terminal.Colon: [
+            NT.Colon: [NT.Unary, Optional([Type.COLON, NT.Colon])],
+            NT.Unary: [Or([Or([Type.NOT], [Type.MINUS]), NT.Unary], [NT.Basic])],
+            NT.Basic: [
                 Or(
-                    [Non_Terminal.Basic],
-                    [Non_Terminal.Basic, Type.COLON, Non_Terminal.Colon],
-                )
-            ],
-            Non_Terminal.Basic: [
-                Or(
-                    [Type.LRB, Non_Terminal.Exp, Type.RRB],
                     [
                         Type.LRB,
-                        Non_Terminal.Exp,
-                        Type.COMMA,
-                        Non_Terminal.Exp,
+                        NT.Exp,
+                        Optional(
+                            [
+                                Type.COMMA,
+                                NT.Exp,
+                            ]
+                        ),
                         Type.RRB,
                     ],
-                    [Type.INT],
+                    [Type.DIGIT],
                     [Type.CHAR],
                     [Type.FALSE],
                     [Type.TRUE],
-                    [Non_Terminal.FunCall],
+                    [NT.FunCall],
                     [Type.LSB, Type.RSB],
-                    [Type.ID],
+                    [Type.ID, Optional([NT.Field])],
                 )
             ],
+            NT.Field: [Plus([Or([Type.HD], [Type.TL], [Type.FST], [Type.SND])])],
+            NT.FunCall: [
+                Type.ID,
+                Type.LRB,
+                Optional([NT.ActArgs]),
+                Type.RRB,
+            ],
+            NT.ActArgs: [NT.Exp, Optional([Type.COMMA, NT.ActArgs])],
         }
 
-    # def repeat(self, t) -> List[Tree]:
-    #     accumulated = []
-    #     while tree := func():
-    #         accumulated.append(tree)
-    #     return accumulated
+        # Pointer on `self.tokens`
+        self.i = 0
 
-    # def parse(self, input: Non_Terminal, i):
+    @property
+    def current(self) -> Token:
+        if self.i < len(self.tokens):
+            return self.tokens[self.i]
+        return Token(" ", Type.SPACE)  # TODO: To avoid some errors, e.g. in match
 
-    #     expected = self.grammar[input]
+    @property
+    def onwards(self) -> List[Token]:
+        return self.tokens[self.i :]
 
-    #     for symbol in expected:
-    #         got = []
-    #         match symbol:
-    #             case Or():
-    #                 for OR in symbol.symbols:
-    #                     longest_or = []
-    #                     for or_symbol in OR:
-    #                         longest_or.append(parse(or_symbol))
-    #                     return max(longest_or)
+    def repeat(self, func: Callable) -> List[Tree]:
+        accumulated = []
+        while tree := func():
+            accumulated.append(tree)
+        return accumulated
 
-    #             case Star():
-    #                 for STAR in symbol.symbols:
-    #                     parse_star(STAR)
+    def add(self, value: str) -> True:
+        self.suggestions.add(value)
+        return True
 
-    #             case Plus():
-    #                 for PLUS in symbol.symbols:
-    #                     for plus_symbol in PLUS:
-    #                         match(plus_symbol)
-    #                         parse_star(plus_symbol)
+    def remove(self, value: str) -> True:
+        self.suggestions.remove(value)
+        return True
 
-    #             case Optional():
-    #                 pass
+    @log()
+    def match_type(self, *tok_types: Type) -> bool:
+        if self.current.type in tok_types:
+            try:
+                return self.current
+            finally:
+                self.i += 1
+        return None
 
-    #             case Type():
-    #                 print("type", symbol)
-    #             # Is single symbol:
-    #             case _:
-    #                 pass
+    def reset(self, initial) -> None:
+        self.i = initial
 
-    #     return []
+    # @log()
+    def parse(self, production=None):
+
+        initial = self.i
+
+        if production is None:
+            production = [NT.SPL]
+
+        tree = Tree()
+        for segment in production:
+            match segment:
+                case Or():
+                    for alternative in segment.symbols:
+                        if result := self.parse(alternative):
+                            tree.add_child(result)
+                            break
+                        self.reset(initial)
+                    else:
+                        # If no alternative resulted in anything
+                        return None
+
+                case Star():
+                    tree.add_children(self.repeat(lambda: self.parse(segment.symbols)))
+
+                case Plus():
+                    trees = self.repeat(lambda: self.parse(segment.symbols))
+                    if trees:
+                        tree.add_children(trees)
+                    else:
+                        self.reset(initial)
+                        return None
+
+                case Optional():
+                    if match := self.parse(segment.symbols):
+                        tree.add_child(match)
+
+                case Type():
+                    if match := self.match_type(segment):
+                        tree.add_child(match)
+                    else:
+                        self.reset(initial)
+                        return None
+
+                case NT():
+                    print("Trying", segment)
+                    if match := self.parse(self.grammar[segment]):
+                        print(segment, "succeeded!")
+                        tree.add_child(match)
+                    else:
+                        print(segment, "failed.")
+                        self.reset(initial)
+                        return None
+
+                # Is single symbol:
+                case _:
+                    # This shouldn't occur, right?
+                    raise Exception(segment)
+
+        # If the tree only has one child, return the child instead
+        if len(tree) == 1:
+            return tree[0]
+
+        return tree
