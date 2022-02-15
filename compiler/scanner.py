@@ -20,6 +20,7 @@ class Scanner:
     def __init__(self, program: str) -> None:
         # TODO: Potential extension: " for characters too
         # TODO: Potential extension: While else
+        # TODO: '\*'
 
         self.og_program = program
         self.preprocessed = None
