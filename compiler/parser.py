@@ -792,7 +792,7 @@ class ParserMatcher:
 
     def match_Colon(self):
         """
-        Colon  ::= Unary ':' Colon | Unary
+        Colon  ::= Unary [ ':' Colon ]
         """
         initial = self.i
 
@@ -824,7 +824,7 @@ class ParserMatcher:
     def match_Basic(self):
         """
         Basic  ::= '(' Exp ')' | '(' Exp ',' Exp ')' |
-                   int | char | 'False' | 'True' | FunCall | '[]' | id
+                   int | char | 'False' | 'True' | FunCall | '[]' | id Field
         """
         initial = self.i
 
