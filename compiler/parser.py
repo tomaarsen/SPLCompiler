@@ -416,7 +416,7 @@ class ParserMatcher:
         """
         initial = self.i
 
-        if trees := self.repeat(self.match_Type()):
+        if trees := self.repeat(self.match_Type):
             return FTypesTree(trees)
 
         self.reset(initial)
