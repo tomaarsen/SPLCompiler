@@ -52,7 +52,6 @@ class Parser:
         # TODO: Surely we can make these Bracket mismatch errors more specific?
         # E.g. "No corresponding closing bracket for ... on line ...",
         #      "No corresponding opening bracket for ... on line ..."
-        # TODO: Update grammar to add space after "var"
 
         tokens = self.match_parentheses(tokens)
         # TODO: Potentially make errors more specific, depended on where in the code the error is raised?
@@ -148,6 +147,7 @@ class Parser:
 
         return tokens
 
+    # TODO: Do we need this function?
     def parenthesize_expression(self, tokens: List[Token]) -> List[Token]:
         """Use Knuth's Operator Precedence alternative solution"""
         # TODO: && and ||

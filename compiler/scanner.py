@@ -59,7 +59,7 @@ class Scanner:
                 (?P<COLON>\:)|
                 (?P<NOT>\!)|
                 (?P<QUOTE>\'\\?.\')|
-                (?P<QUOTE_EMPTY_ERROR>\'\')| # TODO: Verify this
+                (?P<QUOTE_EMPTY_ERROR>\'\')|
                 (?P<QUOTE_LONELY_ERROR>\')|
                 # Dot only occurs with hd, tl, fst or snd:
                 (?P<HD>\.hd)| # Head
