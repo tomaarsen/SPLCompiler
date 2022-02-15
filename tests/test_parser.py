@@ -3,6 +3,7 @@ import re
 from compiler.error import CompilerException
 from compiler.parser import Parser
 from compiler.scanner import Scanner
+from tests.test_util import open_file
 
 
 def test_bracket_parser(list_program: str):
@@ -32,3 +33,16 @@ def test_bracket_parser_mutation(list_program: str):
             assert False
         except CompilerException:
             assert True
+
+
+def test_parser(valid_file: str):
+    # Ensure that we can scan and parse this program without Exceptions
+    program: str = open_file(valid_file)
+
+    scanner = Scanner(program)
+    tokens = scanner.scan()
+
+    parser = Parser(program)
+    tree = parser.parse(tokens)
+    assert hasattr(tree, "decl")
+    assert tree.decl

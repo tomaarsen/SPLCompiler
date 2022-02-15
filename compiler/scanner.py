@@ -48,10 +48,10 @@ class Scanner:
                 (?P<POWER>\^)|
                 (?P<PERCENT>\%)|
                 (?P<DEQUALS>\=\=)|
-                (?P<LT>\<)|
-                (?P<GT>\>)|
                 (?P<LEQ>\<\=)|
                 (?P<GEQ>\>\=)|
+                (?P<LT>\<)|
+                (?P<GT>\>)|
                 (?P<NEQ>\!\=)|
                 (?P<EQ>\=)|
                 (?P<AND>\&\&)|

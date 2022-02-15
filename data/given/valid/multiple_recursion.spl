@@ -2,10 +2,11 @@
 
 flip(n, l)
 {
-  if( n <= 0 )
+  if( n <= 0 ){
     return l;
-  else
+  }else{
     return flop(n-1, 0:l);
+  }
 }
 
 flop(n, l)
@@ -15,7 +16,4 @@ flop(n, l)
 
 rec(a) {
 	return flip(1, []):rec(a);
-}
-
-main() {
 }

@@ -62,8 +62,9 @@ class Parser:
 
         pm = ParserMatcher(tokens)
         tree = pm.match_SPL()
-
         pprint(tree)
+
+        # TODO: Error if pm.i != len(tokens)
 
         return tree
 
@@ -224,8 +225,8 @@ class Parser:
 # TODO: Clean all this logging up, move it somewhere else
 import logging
 
-# logger = logging.basicConfig(level=logging.NOTSET)
-logger = logging.basicConfig(level=logging.CRITICAL)
+logger = logging.basicConfig(level=logging.NOTSET)
+# logger = logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 
@@ -494,7 +495,7 @@ class ParserMatcher:
                 right_curly_if,
             )
 
-        # print(1, self.current)
+        self.reset(initial)
         if (
             (while_keyword := self.match(Type.WHILE))
             # and self.add("WhileExp")
@@ -518,9 +519,8 @@ class ParserMatcher:
                 statements,
                 right_curly,
             )
-        # print(2, self.current)
-        # breakpoint()
 
+        self.reset(initial)
         if (
             (var_id := self.match(Type.ID))
             and ((field := self.match_Field()) or True)
@@ -535,12 +535,14 @@ class ParserMatcher:
             # id Field '=' Exp ';'
             return AssignmentStmtTree(var_id, field, eq, exp, semicolon)
 
+        self.reset(initial)
         if (fun_call := self.match_FunCall()) and (
             semicolon := self.match(Type.SEMICOLON)
         ):
             # FunCall ';'
             return FunCallStmtTree(fun_call, semicolon)
 
+        self.reset(initial)
         if (
             (return_keyword := self.match(Type.RETURN))
             and ((exp := self.match_Exp()) or True)
@@ -632,6 +634,7 @@ class ParserMatcher:
         ):
             return TypeTupleTree(left, type_fst, comma, type_snd, right)
 
+        self.reset(initial)
         if (
             (left := self.match(Type.LSB))
             and (tok_type := self.match_Type())
@@ -639,6 +642,7 @@ class ParserMatcher:
         ):
             return TypeSingleTree(left, tok_type, right)
 
+        self.reset(initial)
         if tree := self.match_id():
             return tree
 
@@ -658,12 +662,14 @@ class ParserMatcher:
             return TokenTree(token)
         return None
 
+    @log()
     def match_Exp(self):
         """
         Exp    ::= Eq
         """
         return self.match_Eq()
 
+    @log()
     def match_Eq(self):
         """
         Eq     ::= Leq [ Eq' ]
@@ -679,6 +685,7 @@ class ParserMatcher:
         self.reset(initial)
         return None
 
+    @log()
     def match_EqPrime(self):
         """
         Eq'    ::= (== | !=) Leq [ Eq' ]
@@ -694,6 +701,7 @@ class ParserMatcher:
         self.reset(initial)
         return None
 
+    @log()
     def match_Leq(self):
         """
         Leq    ::= Sum [ Leq' ]
@@ -709,6 +717,7 @@ class ParserMatcher:
         self.reset(initial)
         return None
 
+    @log()
     def match_LeqPrime(self):
         """
         Leq'   ::= ( < | > | <= | >= ) Sum [ Leq' ]
@@ -726,6 +735,7 @@ class ParserMatcher:
         self.reset(initial)
         return None
 
+    @log()
     def match_Sum(self):
         """
         Sum    ::= Fact [ Sum' ]
@@ -741,6 +751,7 @@ class ParserMatcher:
         self.reset(initial)
         return None
 
+    @log()
     def match_SumPrime(self):
         """
         Sum'   ::= ( + | - | ||) Fact [ Sum' ]
@@ -750,7 +761,7 @@ class ParserMatcher:
         if (token := self.match(Type.PLUS, Type.MINUS, Type.OR)) and (
             fact := self.match_Fact()
         ):
-            if sum_prime := self.match_LeqPrime():
+            if sum_prime := self.match_SumPrime():
                 sum_prime.exp_one = fact
                 return sum_prime
             return Op2ExpTree(None, token, fact)
@@ -758,6 +769,7 @@ class ParserMatcher:
         self.reset(initial)
         return None
 
+    @log()
     def match_Fact(self):
         """
         Fact   ::= Colon [ Fact' ]
@@ -773,6 +785,7 @@ class ParserMatcher:
         self.reset(initial)
         return None
 
+    @log()
     def match_FactPrime(self):
         """
         Fact'  ::= ( * | / | % | && ) Colon [ Fact' ]
@@ -790,6 +803,7 @@ class ParserMatcher:
         self.reset(initial)
         return None
 
+    @log()
     def match_Colon(self):
         """
         Colon  ::= Unary [ ':' Colon ]
@@ -804,6 +818,7 @@ class ParserMatcher:
         self.reset(initial)
         return None
 
+    @log()
     def match_Unary(self):
         """
         Unary  ::= ( ! | - ) Unary | Basic
@@ -815,12 +830,14 @@ class ParserMatcher:
         ):
             return Op1ExpTree(token, unary)
 
+        self.reset(initial)
         if basic := self.match_Basic():
             return basic
 
         self.reset(initial)
         return None
 
+    @log()
     def match_Basic(self):
         """
         Basic  ::= '(' Exp ')' | '(' Exp ',' Exp ')' |
@@ -841,113 +858,28 @@ class ParserMatcher:
                 # '(' Exp ')'
                 return NestedExpTree(left, exp_one, right)
 
+        self.reset(initial)
         if int_ := self.match_int():
             return int_
 
+        self.reset(initial)
         if token := self.match(Type.QUOTE, Type.FALSE, Type.TRUE):
             return token
 
+        self.reset(initial)
         if fun_call := self.match_FunCall():
             return fun_call
 
+        self.reset(initial)
         if (left := self.match(Type.LSB)) and (right := self.match(Type.RSB)):
             return EmptyListExpTree(left, right)
 
+        self.reset(initial)
         if (_id := self.match_id()) and ((field := self.match_Field()) or True):
             return FieldTree(_id, field)
 
         self.reset(initial)
         return None
-
-    '''
-    @log()
-    def match_Exp(self) -> Tree:
-        """
-        Exp       = (
-                  '(' Exp ',' Exp ')'
-                  | '(' Exp ')'
-                  | Op1 Exp
-                  | FunCall
-
-                  | int
-                  | char
-                  | 'False' | 'True'
-                  | '[]'
-                  | id Field
-                  ) Exp'
-        Exp'      = [ Op2 Exp ]
-
-        Exp = id Field
-            | Exp Op2 Exp
-            | Op1 Exp
-            | int
-            | char
-            | 'False' | 'True'
-            | '(' Exp ')'
-            | FunCall
-            | '[]'
-            | '(' Exp ',' Exp ')'
-        """
-        initial = self.i
-
-        if (left := self.match(Type.LRB)) and (exp_one := self.match_Exp()):
-            if (
-                (comma := self.match(Type.COMMA))
-                and (exp_two := self.match_Exp())
-                and (right := self.match(Type.RRB))
-            ):
-                # '(' Exp ',' Exp ')'
-                self.match_ExpPrime()
-                return initial
-
-            elif right := self.match(Type.RRB):
-                # '(' Exp ')'
-                self.match_ExpPrime()
-                return initial
-
-        if (op := self.match_Op1()) and (exp := self.match_Exp()):
-            tree = Op1ExpTree(op, exp)
-            self.match_ExpPrime()
-            return initial
-
-        if fun_call := self.match_FunCall():
-            self.match_ExpPrime()
-            return initial
-
-        if int_tree := self.match_int():
-            self.match_ExpPrime()
-            return initial
-
-        if token := self.match(Type.CHAR, Type.FALSE, Type.TRUE):
-            self.match_ExpPrime()
-            return initial
-
-        if (left := self.match(Type.LSB)) and (right := self.match(Type.RSB)):
-            tree = EmptyListExpTree(left, right)
-            self.match_ExpPrime()
-            return initial
-
-        if (_id := self.match_id()) and ((field := self.match_Field()) or True):
-            tree = FieldTree(_id, field)
-            self.match_ExpPrime()
-            return initial
-
-        self.reset(initial)
-        return None
-
-    @log()
-    def match_ExpPrime(self) -> Tree:
-        """
-        Exp' = [ Op2 Exp ]
-        """
-        initial = self.i
-
-        if (op := self.match_Op2()) and (exp := self.match_Exp()):
-            return Op2ExpTree(None, op, exp)
-
-        self.reset(initial)
-        return None
-    '''
 
     @log()
     def match_Op2(self) -> Tree:
@@ -1004,42 +936,12 @@ class ParserMatcher:
 
     @log()
     def match_id(self) -> Tree:
+        initial = self.i
+
         # Step 1: Verify if this production matches
         if match := self.match(Type.ID):
             # Step 2: Return the corresponding Tree
             return TokenTree(match)
+
+        self.reset(initial)
         return None
-
-    '''
-    def parse_exp(self, exp_start: int) -> Tree:
-        if exp_start is None:
-            return None
-
-        expr = self.tokens[exp_start: self.i]
-
-        print(exp_start, self.i)
-        # print(expr)
-
-        """
-        TODO: Add the other operators:
-        &&  ||  :
-        and literals
-        int, char, False, True, FunCall, [], id Field
-
-        1. We need to look for ( and ) first
-           BUG: FunCall `(func(a, b), b * 2)`
-           ExprTupleTree(left=FunCallTree, ExprTree(b, "*", 2))
-        2. Preprocess to add 0 before unary - (detect unary - by checking if there are tokens before the -)
-        3. Loop over precedence levels:
-            == and !=
-            < and > and <= and >=
-            + and -
-            * and / and %
-            !
-            If a character on that level is found, split into `left`, `op`, `right`, and recurse with `left` and `right`, i.e.:
-        4. Create ExprTree(func(left), op, func(right))
-        """
-
-        # breakpoint()
-        return exp_start
-    '''
