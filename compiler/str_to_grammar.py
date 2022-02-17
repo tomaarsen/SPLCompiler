@@ -14,8 +14,14 @@ class Or:
 
 
 class Star:
-    def __init__(self, symbols) -> None:
-        self.symbols = symbols
+    def __init__(self, *symbols) -> None:
+        if symbols:
+            self.symbols = list(symbols)
+        else:
+            self.symbols = []
+
+    def add(self, arg):
+        self.symbols.append(arg)
 
     def __repr__(self):
         return f"Star({self.symbols})"
@@ -24,6 +30,9 @@ class Star:
 class Plus:
     def __init__(self, symbols) -> None:
         self.symbols = symbols
+
+    def add(self, arg):
+        self.symbols.append(arg)
 
     def __repr__(self):
         return f"Plus({self.symbols})"
@@ -50,8 +59,8 @@ RetType   ::= Type
             | 'Void'
 FunType   ::= Type* '->' RetType
 Type      ::= BasicType
-            | '(' Type ',' Type ')'
-            | '[' Type ']'
+            | ( '(' Type ',' Type ')' )
+            | ( '[' Type ']' )
             | id
 BasicType ::= 'Int'
             | 'Bool'
@@ -123,70 +132,108 @@ def is_non_terminal(symbol: str):
 
 
 NT_final = defaultdict(list)
-i = 0
 
 last_range = False
 
 
-def list_rindex(li, x):
-    for i in reversed(range(len(li))):
-        if li[i] == x:
-            return i
+def parse(non_terminal, production, i=0, prev_is_or=False) -> list:
+    if i >= len(production):
+        return
+
+    symbol = production[i]
+    is_star = has_star(symbol)
+    is_plus = has_plus(symbol)
+    # Terminals and non_terminals
+
+    if is_terminal(symbol) or is_non_terminal(symbol):
+        if is_star:
+            NT_final[non_terminal].append(
+                NT_final[non_terminal][-1].add(Star(symbol[:-1]))
+                if prev_is_or
+                else Star(symbol[:-1])
+            )
+        elif is_plus:
+            NT_final[non_terminal].append(
+                NT_final[non_terminal][-1].add(Plus(symbol[:-1]))
+                if prev_is_or
+                else Plus(symbol[:-1])
+            )
+        else:
+            NT_final[non_terminal].append(
+                NT_final[non_terminal][-1].add(symbol) if prev_is_or else symbol
+            )
+
+        prev_is_or = False
+
+    elif symbol == "|":
+        # Create or object.
+        # If the previous is already an Or object:
+        if isinstance(NT_final[non_terminal][-1], Or):
+            # Append to it only if the current is not an opening bracket
+            NT_final[non_terminal][-1].add(symbol)
+        else:
+            # Create new OR object
+            NT_final[non_terminal][-1] = Or(NT_final[non_terminal][-1])
+        prev_is_or = True
+    elif symbol == "[" or symbol == "(":
+        # Ignore for now, and combine later
+        NT_final[non_terminal].append(symbol)
+        prev_is_or = False
+    elif symbol == "]":
+        # All symbols between '[' and ']' are optional.
+        # Find '[':
+        start_index = NT_final[non_terminal].index("[")
+        # Create empty Optional object, to which we can add symbols to.
+        NT_final[non_terminal][start_index] = Optional()
+        for optional in NT_final[non_terminal][start_index + 1 :]:
+            NT_final[non_terminal][start_index].add(optional)
+            # TODO: Remove added object
+    elif symbol == ")" or symbol == ")*" or symbol == ")+":
+        # Check if we have any +/* as next symbol
+        try:
+            is_star = symbol[1] == "*"
+            is_plus = symbol[1] == "+"
+        except IndexError:
+            is_star = is_plus = False
+
+        start_index = NT_final[non_terminal].index("(")
+
+        try:
+            if isinstance(NT_final[non_terminal][start_index - 1], Or):
+                prev_is_or = True
+        except IndexError:
+            prev_is_or = False
+
+        if is_star:
+            # Create Star Optional object, to which we can add symbols to.
+            NT_final[non_terminal][start_index] = Star()
+            for optional in NT_final[non_terminal][start_index + 1 :]:
+                NT_final[non_terminal][start_index].add(optional)
+        elif is_plus:
+            # Create Plus Optional object, to which we can add symbols to.
+            NT_final[non_terminal][start_index] = Plus()
+            for optional in NT_final[non_terminal][start_index + 1 :]:
+                NT_final[non_terminal][start_index].add(optional)
+
+            prev_is_or = False
+
+        else:
+            del NT_final[non_terminal][start_index]
+
+        if prev_is_or:
+            NT_final[non_terminal].insert(start_index, Or())
+            for optional in NT_final[non_terminal][start_index + 1 :]:
+                NT_final[non_terminal][start_index].add(optional)
+
+    else:
+        print("xxxx", symbol)
+
+    parse(non_terminal, production, i + 1, prev_is_or)
+    return
 
 
-prev_is_or = False
+# Todo convert to recursive
 for non_terminal, segment in NT.items():
     segment = segment.strip().split(" ")
-
-    for i, s in enumerate(segment):
-        is_star = has_star(s)
-        is_plus = has_plus(s)
-        if prev_is_or:
-            prev_is_or = False
-            if s != "(" and s != "[":
-                NT_final[non_terminal][-1].add(s)
-                continue
-        if is_terminal(s):
-            if is_star:
-                NT_final[non_terminal].append(Star(s[:-1]))
-            elif is_plus:
-                NT_final[non_terminal].append(Plus(s[:-1]))
-            else:
-                NT_final[non_terminal].append(s)
-        elif is_non_terminal(s):
-            if is_star:
-                NT_final[non_terminal].append(Star(s[:-1]))
-            elif is_plus:
-                NT_final[non_terminal].append(Plus(s[:-1]))
-            else:
-                NT_final[non_terminal].append(s)
-        elif s == "(" or s == "[":
-            NT_final[non_terminal].append(s)
-            continue
-        elif s == ")":
-            open_index = NT_final[non_terminal].index("(")
-            del NT_final[non_terminal][open_index]
-        elif s == "]":
-            open_index = NT_final[non_terminal].index("[")
-            NT_final[non_terminal][open_index] = Optional(
-                NT_final[non_terminal][open_index + 1]
-            )
-            del NT_final[non_terminal][open_index + 1]
-            for i, e in enumerate(NT_final[non_terminal][open_index + 1 :]):
-                NT_final[non_terminal][open_index].add(e)
-                del NT_final[non_terminal][open_index + 1]
-        elif s == "*":
-            if NT_final[non_terminal][-1] == ")":
-                index = NT_final[non_terminal].index("(")
-                del NT_final[non_terminal][index]
-                temp = []
-                NT_final[non_terminal] = Star(NT_final[non_terminal][index - 1 :])
-        elif s == "|":
-            prev_is_or = True
-            if NT_final[non_terminal][-1]:
-                if not isinstance(NT_final[non_terminal][-1], Or):
-                    NT_final[non_terminal][-1] = Or(NT_final[non_terminal][-1])
-        else:
-            print(s, is_non_terminal(s))
-
+    parse(non_terminal, segment)
     print(non_terminal, "::= ", NT_final[non_terminal])
