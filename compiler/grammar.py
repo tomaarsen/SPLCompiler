@@ -239,7 +239,9 @@ class NewParserMatcher:
                     [Type.ID, Optional([NT.Field])],
                 )
             ],
-            NT.Field: [Plus([Or([Type.HD], [Type.TL], [Type.FST], [Type.SND])])],
+            NT.Field: [
+                Plus([Or([Type.HD], [Type.TL], [Type.FST], [Type.SND])])
+            ],  # TODO: This should be Star instead of Plus, right?
             NT.FunCall: [
                 Type.ID,
                 Type.LRB,
