@@ -1,6 +1,7 @@
 from pprint import pprint
 
-from compiler import Parser, Scanner
+from compiler import Scanner
+from compiler.grammar import Parser
 
 with open("data/given/valid/bool.spl", "r", encoding="utf8") as f:
     # with open("data/bracketed.spl", "r", encoding="utf8") as f:
@@ -29,5 +30,46 @@ scanner = Scanner(program)
 tokens = scanner.scan()
 # pprint(tokens)
 
-parser = Parser(program)
-parser.parse(tokens)
+grammar = r"""
+SPL       ::= Decl*
+Decl      ::= VarDecl
+            | FunDecl
+VarDecl   ::= ( 'var' | Type ) id  '=' Exp ';'
+FunDecl   ::= id '(' [ FArgs ] ')' [ '::' FunType ] '{' VarDecl* Stmt+ '}'
+RetType   ::= Type
+            | 'Void'
+FunType   ::= Type* '->' RetType
+Type      ::= BasicType
+            | ( '(' Type ',' Type ')' )
+            | ( '[' Type ']' )
+            | id
+BasicType ::= 'Int'
+            | 'Bool'
+            | 'Char'
+FArgs     ::= id [ ',' FArgs ]
+Stmt      ::= ( 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ] )
+            | ( 'while' '(' Exp ')' '{' Stmt* '}' )
+            | ( id Field '=' Exp ';' )
+            | ( FunCall ';' )
+            | ( 'return' [ Exp ] ';' )
+Exp       ::= Eq
+Eq        ::= Leq [ Eq' ]
+Eq'       ::= ( '==' | '!=' ) Leq [ Eq' ]
+Leq       ::= Sum [ Leq' ]
+Leq'      ::= ( '<' | '>' | '<=' | '>=' ) Sum [ Leq' ]
+Sum       ::= Fact [ Sum' ]
+Sum'      ::= ( '+' | '-' | '||' ) Fact [ Sum' ]
+Fact      ::= Colon [ Fact' ]
+Fact'     ::= ( '*' | '/' | '%' | '&&' ) Colon [ Fact' ]
+Colon     ::= Unary [ ':' Colon ]
+Unary     ::= ( ( '!' | '-' ) Unary ) | Basic
+Basic     ::= ( '(' Exp [ ',' Exp ] ')' ) | int | char | 'False' | 'True' | FunCall | '[]' | ( id Field )
+Field     ::= ( '.hd' | '.tl' | '.fst' | '.snd' )*
+FunCall   ::= id '(' [ ActArgs ] ')'
+ActArgs   ::= Exp [ ',' ActArgs ]
+int       ::= digit+
+char      ::= '$\texttt{\textquotesingle}$' ( '\b' | '\f' | '\n' | '\r' | '\t' | '\v' | 'ASCII'$\footnotemark{}$ ) '$\texttt{\textquotesingle}$'
+id        ::= alpha ( '_' | alphaNum )*
+"""
+parser = Parser(program, grammar_str=grammar)
+# parser.parse(tokens)

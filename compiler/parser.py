@@ -2,7 +2,6 @@ from pprint import pprint
 from typing import Callable, List
 
 from compiler.error import BracketMismatchError, ErrorRaiser
-from compiler.grammar import NewParserMatcher
 from compiler.token import Token
 from compiler.tree import Tree
 from compiler.type import Type
