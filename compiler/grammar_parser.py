@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from os.path import abspath
-from typing import List
+from typing import Dict, List
 
 from compiler.type import Type
 
@@ -43,6 +43,56 @@ class Optional(Quantifier):
 class Grammar_Parser:
     grammar_str: str = None
     grammar_file: str = None
+    terminal_mapping: Dict[str, Type] = field(
+        default_factory=lambda: {
+            "(": Type.LRB,
+            ")": Type.RRB,
+            "{": Type.LCB,
+            "}": Type.RCB,
+            "[": Type.LSB,
+            "]": Type.RSB,
+            ";": Type.SEMICOLON,
+            "::": Type.DOUBLE_COLON,
+            "->": Type.ARROW,
+            ",": Type.COMMA,
+            "+": Type.PLUS,
+            "-": Type.MINUS,
+            "*": Type.STAR,
+            "/": Type.SLASH,
+            "^": Type.POWER,
+            "%": Type.PERCENT,
+            "==": Type.DEQUALS,
+            "<=": Type.LEQ,
+            ">=": Type.GEQ,
+            "<": Type.LT,
+            ">": Type.GT,
+            "!=": Type.NEQ,
+            "=": Type.EQ,
+            "&&": Type.AND,
+            "||": Type.OR,
+            ":": Type.COLON,
+            "!": Type.NOT,
+            ".hd": Type.HD,
+            ".tl": Type.TL,
+            ".fst": Type.FST,
+            ".snd": Type.SND,
+            "if": Type.IF,
+            "else": Type.ELSE,
+            "while": Type.WHILE,
+            "return": Type.RETURN,
+            "Void": Type.VOID,
+            "Int": Type.INT,
+            "Bool": Type.BOOL,
+            "Char": Type.CHAR,
+            "False": Type.FALSE,
+            "True": Type.TRUE,
+            "var": Type.VAR,
+            "id": Type.ID,
+            "int": Type.DIGIT,
+            "char": Type.CHARACTER,
+            " ": Type.SPACE,
+        }
+    )
 
     def __post_init__(self) -> None:
         if not self.grammar_file and not self.grammar_str:
@@ -101,6 +151,20 @@ class Grammar_Parser:
     def _is_terminal(symbol: str):
         return symbol[0] == "'"
 
+    def _apply_terminal_mapping(self, symbol: str):
+        # Remove any possible plus or star
+        if symbol[-1] == "+" or symbol[-1] == "*":
+            symbol = symbol[:-1]
+        # Remove any possible quotes of terminals
+        if symbol[0] == "'":
+            symbol = symbol[1:-1]
+
+        # Check if we have a terminal or non-terminal:
+        if symbol in self.terminal_mapping:
+            return self.terminal_mapping[symbol]
+        global NT
+        return NT[symbol]
+
     def _is_non_terminal(self, symbol: str):
         return symbol in NT.__members__ or symbol[:-1] in NT.__members__
 
@@ -124,11 +188,11 @@ class Grammar_Parser:
         match symbol:
             # Terminals and Non-Terminals
             case s if self._is_terminal(s) or self._is_non_terminal(s):
-                temp_symbol = symbol
+                temp_symbol = self._apply_terminal_mapping(symbol)
                 if is_star:
-                    temp_symbol = Star(symbol[:-1])
+                    temp_symbol = Star(self._apply_terminal_mapping(symbol))
                 elif is_plus:
-                    temp_symbol = Plus(symbol[:-1])
+                    temp_symbol = Plus(self._apply_terminal_mapping(symbol))
 
                 if prev_is_or:
                     rule[non_terminal][-1].add(temp_symbol)
