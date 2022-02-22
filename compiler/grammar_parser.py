@@ -206,7 +206,7 @@ class GrammarParser:
                     temp_symbol = Plus(self._apply_terminal_mapping(symbol))
 
                 if prev_is_or:
-                    rule[non_terminal][-1].add(temp_symbol)
+                    rule[non_terminal][-1].add([temp_symbol])
                     prev_is_or = False
                 else:
                     rule[non_terminal].append(temp_symbol)
@@ -214,7 +214,7 @@ class GrammarParser:
             case "|":
                 if not isinstance(rule[non_terminal][-1], Or):
                     # Create new OR object
-                    rule[non_terminal][-1] = Or(rule[non_terminal][-1])
+                    rule[non_terminal][-1] = Or([rule[non_terminal][-1]])
                 prev_is_or = True
             # Opening of a sequence
             case "[" | "(":
@@ -299,7 +299,7 @@ class GrammarParser:
             segment = segment.strip().split(" ")
             # Transform the rule to a dict of key non_terminal and value list of annotated productions
             structured_grammar = self._parse_grammar(non_terminal, segment)
-            print(non_terminal, "::=", structured_grammar[non_terminal])
+            # print(non_terminal, "::=", structured_grammar[non_terminal])
         return {
             self._apply_terminal_mapping(key): value
             for key, value in structured_grammar.items()

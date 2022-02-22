@@ -170,7 +170,7 @@ class Grammar:
 
         tree = Tree()
         for segment in production:
-            print(segment)
+            # print(segment)
             match segment:
                 case Or():
                     for alternative in segment.symbols:
