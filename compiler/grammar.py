@@ -10,9 +10,65 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from lib2to3.pgen2 import grammar
 from os.path import abspath
+from pprint import pprint
 from typing import Callable, List
 
-from grammar_parser import NT, Optional, Or, Plus, Star
+from compiler.grammar_parser import GrammarParser
+
+"""
+class NT(Enum):
+    SPL = auto()
+    Decl = auto()
+    VarDecl = auto()
+    FunDecl = auto()
+    RetType = auto()
+    FunType = auto()
+    FTypes = auto()
+    Type = auto()
+    BasicType = auto()
+    FArgs = auto()
+    Stmt = auto()
+    Exp = auto()
+    Eq = auto()
+    Eq_Prime = auto()
+    Leq = auto()
+    Leq_Prime = auto()
+    Sum = auto()
+    Sum_Prime = auto()
+    Fact = auto()
+    Fact_Prime = auto()
+    Colon = auto()
+    Unary = auto()
+    Basic = auto()
+    Field = auto()
+    FunCall = auto()
+    ActArgs = auto()
+    Op2 = auto()
+    Op1 = auto()
+    int = auto()
+    id = auto()
+
+@dataclass
+class Quantifier:
+    symbols: List[NT | Type | Quantifier]
+
+
+class Or(Quantifier):
+    def __init__(self, *argv) -> None:
+        self.symbols = list(argv)
+
+
+class Star(Quantifier):
+    pass
+
+
+class Plus(Quantifier):
+    pass
+
+
+class Optional(Quantifier):
+    pass
+"""
 
 from compiler.token import Token
 from compiler.tree import Tree
@@ -43,12 +99,15 @@ def log(level=logging.DEBUG):
 
 
 @dataclass
-class Parser:
+class Grammar:
     tokens: List[Token]
 
     def __post_init__(self):
         # Pointer used with `self.tokens`
         self.i = 0
+        gp = GrammarParser(grammar_file="compiler/grammar.txt")
+        self.grammar = gp.get_parsed_grammar()
+        pprint(self.grammar)
 
     @property
     def current(self) -> Token:
@@ -87,43 +146,60 @@ class Parser:
         self.i = initial
 
     # @log()
-    def parse(self, production=None):
+    def parse(self, production=None, fix_level: int = 0):
         """
         Goal: (Not yet implemented)
 
         If `NT.Decl: [Or([NT.VarDecl], [NT.FunDecl])]` fails, then we must retry this rule
         but with some fixing enabled.
         """
+        from compiler.grammar_parser import NT, Optional, Or, Plus, Star
+
+        def fail(production, fix_level: int):
+            if production == [NT.SPL] and fix_level <= 5:
+                return self.parse(production, fix_level=fix_level + 1)
+            return None
+
         initial = self.i
+        # root = False
 
         if production is None:
+            # print("Setting root = True")
             production = [NT.SPL]
+            # root = True
 
         tree = Tree()
         for segment in production:
+            print(segment)
             match segment:
                 case Or():
                     for alternative in segment.symbols:
-                        if result := self.parse(alternative):
+                        if result := self.parse(alternative, fix_level=fix_level):
                             tree.add_child(result)
                             break
                         self.reset(initial)
                     else:
                         # If no alternative resulted in anything
-                        return None
+                        return fail(production, fix_level)
 
                 case Star():
-                    tree.add_children(self.repeat(lambda: self.parse(segment.symbols)))
+                    tree.add_children(
+                        self.repeat(
+                            lambda: self.parse(segment.symbols, fix_level=fix_level)
+                        )
+                    )
 
                 case Plus():
-                    if trees := self.repeat(lambda: self.parse(segment.symbols)):
+                    if trees := self.repeat(
+                        lambda: self.parse(segment.symbols, fix_level=fix_level)
+                    ):
                         tree.add_children(trees)
                     else:
                         self.reset(initial)
-                        return None
+                        return fail(production, fix_level)
 
                 case Optional():
-                    if match := self.parse(segment.symbols):
+                    if match := self.parse(segment.symbols, fix_level=fix_level):
                         tree.add_child(match)
 
                 case Type():
@@ -155,14 +231,14 @@ class Parser:
                             Probably less common in practice, and thus less important.
                         """
                         self.reset(initial)
-                        return None
+                        return fail(production, fix_level)
 
                 case NT():
-                    if match := self.parse(self.grammar[segment]):
+                    if match := self.parse(self.grammar[segment], fix_level=fix_level):
                         tree.add_child(match)
                     else:
                         self.reset(initial)
-                        return None
+                        return fail(production, fix_level)
 
                 # Is single symbol:
                 case _:

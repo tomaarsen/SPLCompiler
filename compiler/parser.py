@@ -2,6 +2,7 @@ from pprint import pprint
 from typing import Callable, List
 
 from compiler.error import BracketMismatchError, ErrorRaiser
+from compiler.grammar import Grammar
 from compiler.token import Token
 from compiler.tree import Tree
 from compiler.type import Type
@@ -32,7 +33,7 @@ class Parser:
         ErrorRaiser.raise_all()
         # pprint(tokens)
 
-        pm = NewParserMatcher(tokens)
+        pm = Grammar(tokens)
         tree = pm.parse()
         # tree.clean()
         # pprint(tree)

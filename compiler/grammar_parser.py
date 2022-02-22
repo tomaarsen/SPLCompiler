@@ -7,7 +7,10 @@ from typing import Dict, List
 
 from compiler.type import Type
 
-NT = None
+
+class NT:
+    pass
+
 
 # TODO Make all members of symbol either NT or Type
 class Quantifier:
@@ -40,7 +43,7 @@ class Optional(Quantifier):
 
 
 @dataclass
-class Grammar_Parser:
+class GrammarParser:
     grammar_str: str = None
     grammar_file: str = None
     terminal_mapping: Dict[str, Type] = field(
@@ -91,7 +94,9 @@ class Grammar_Parser:
             "int": Type.DIGIT,
             "char": Type.CHARACTER,
             " ": Type.SPACE,
-        }
+        },
+        init=False,
+        repr=False,
     )
 
     def __post_init__(self) -> None:
@@ -267,7 +272,6 @@ class Grammar_Parser:
         global NT  # TODO: Is this legit?
         NT = Enum("NT", {k: auto() for k, _ in grammar.items()})
         # Start a new dict as the basis of the new data structure.
-        structured_grammar = {}
         # For each grammar rule
         for non_terminal, segment in grammar.items():
             # Remove any leading or trailing whitespace, and split on space
@@ -275,4 +279,7 @@ class Grammar_Parser:
             # Transform the rule to a dict of key non_terminal and value list of annotated productions
             structured_grammar = self._parse_grammar(non_terminal, segment)
             print(non_terminal, "::=", structured_grammar[non_terminal])
-        return structured_grammar
+        return {
+            self._apply_terminal_mapping(key): value
+            for key, value in structured_grammar.items()
+        }
