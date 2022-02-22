@@ -107,7 +107,7 @@ class Grammar:
         self.i = 0
         gp = GrammarParser(grammar_file="compiler/grammar.txt")
         self.grammar = gp.get_parsed_grammar()
-        pprint(self.grammar)
+        # pprint(self.grammar)
 
     @property
     def current(self) -> Token:

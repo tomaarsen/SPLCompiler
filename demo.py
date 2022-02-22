@@ -1,7 +1,7 @@
 from pprint import pprint
 
 from compiler import Scanner
-from compiler.grammar_parser import Grammar_Parser
+from compiler.grammar_parser import GrammarParser
 
 with open("data/given/valid/bool.spl", "r", encoding="utf8") as f:
     # with open("data/bracketed.spl", "r", encoding="utf8") as f:
@@ -72,8 +72,8 @@ char      ::= '$\texttt{\textquotesingle}$' ( '\b' | '\f' | '\n' | '\r' | '\t' |
 id        ::= alpha ( '_' | alphaNum )*
 """
 
-grammar_parser = Grammar_Parser(grammar_file="compiler/grammar.txt")
-print(grammar_parser.get_parsed_grammar())
+grammar_parser = GrammarParser(grammar_file="compiler/grammar.txt")
+# print(grammar_parser.get_parsed_grammar())
 
 # parser = Parser(program, grammar_str=grammar)
 # parser.parse(tokens)

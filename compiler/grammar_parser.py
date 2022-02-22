@@ -156,6 +156,11 @@ class GrammarParser:
     def _is_terminal(symbol: str):
         return symbol[0] == "'"
 
+    def _peek(self, production, i):
+        if len(production) - 1 >= i:
+            return production[i]
+        return None
+
     def _apply_terminal_mapping(self, symbol: str):
         # Remove any possible plus or star
         if symbol[-1] == "+" or symbol[-1] == "*":
@@ -173,6 +178,7 @@ class GrammarParser:
     def _is_non_terminal(self, symbol: str):
         return symbol in NT.__members__ or symbol[:-1] in NT.__members__
 
+    # TODO: code clean-up
     # Converts result of _parse_non_terminals() into a predefined datastructure
     def _parse_grammar(
         self,
@@ -235,27 +241,42 @@ class GrammarParser:
 
                 # Sequence that needs to be combined
                 to_combine = rule[non_terminal][start_index + 1 :]
+                # Remove the sequence including the '('
+                del rule[non_terminal][start_index:]
 
                 # Add the combined sequence, depending on the type.
                 if is_star:
-                    rule[non_terminal][start_index] = Star(to_combine)
+                    star = Star()
+                    for s in to_combine:
+                        star.add(s)
+                    to_combine = [star]
                 elif is_plus:
-                    rule[non_terminal][start_index] = Plus(to_combine)
-                else:
-                    rule[non_terminal][start_index] = to_combine
+                    plus = Plus()
+                    for p in to_combine:
+                        plus.add(p)
+                    to_combine = [plus]
 
-                # Remove the combined sequence
-                del rule[non_terminal][start_index + 1 :]
-
-                # If the element(s) before this sequence was an or, add to it
-                if isinstance(rule[non_terminal][start_index - 1], Or):
-                    rule[non_terminal][start_index - 1].add(
-                        rule[non_terminal][start_index]
+                # Previous is or
+                if start_index != 0 and isinstance(
+                    rule[non_terminal][start_index - 1], Or
+                ):
+                    if len(to_combine) == 1:
+                        to_combine = to_combine[0]
+                    rule[non_terminal][start_index - 1].add(to_combine)
+                    return self._parse_grammar(
+                        non_terminal,
+                        production,
+                        rule,
+                        i + 1,
+                        prev_is_or,
                     )
-                    del rule[non_terminal][start_index]
-            case _:
-                # Ignore unrecognized symbols
-                pass
+                elif self._peek(production, i + 1) == "|":
+                    to_combine = [Or(to_combine)]
+
+                # We need to add to_combine, which is either a plus, star or a list
+                if len(to_combine) == 1:
+                    to_combine = to_combine[0]
+                rule[non_terminal].append(to_combine)
 
         return self._parse_grammar(
             non_terminal,
