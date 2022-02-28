@@ -79,6 +79,7 @@ class Scanner:
                 (?P<VAR>\bvar\b)|
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
+                (?P<CHARACTER>)\'(?:\\b|\\f|\\n|\\r|\\t|\\v|[ -~])\'| # TODO: verify
                 (?P<SPACE>[\ \r\t\f\v\n])|
                 (?P<ERROR>.)
             """,

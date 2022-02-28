@@ -29,11 +29,7 @@ def files() -> List[str]:
 
 
 def valid_files() -> List[str]:
-    return [
-        file
-        for file in glob("data/given/valid/*.spl", recursive=True)
-        if "list_ops" not in file
-    ]
+    return [file for file in glob("data/given/valid/*.spl", recursive=True)]
 
 
 @pytest.fixture(scope="session", params=files())

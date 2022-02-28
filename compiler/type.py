@@ -52,6 +52,7 @@ class Type(Enum):
     VAR = auto()
     ID = auto()
     DIGIT = auto()
+    CHARACTER = auto()
     SPACE = auto()
     ERROR = auto()
 

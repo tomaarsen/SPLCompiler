@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Tuple
 
 from compiler.type import Type
@@ -10,8 +10,8 @@ from compiler.type import Type
 class Token:
     text: str
     type: Type
-    line_no: int = None
-    span: Tuple[int, int] = None
+    line_no: int = field(repr=False, default=None)
+    span: Tuple[int, int] = field(repr=False, default=None)
 
     def __post_init__(self):
         if not isinstance(self.type, Type):

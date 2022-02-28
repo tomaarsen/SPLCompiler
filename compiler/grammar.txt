@@ -1,0 +1,33 @@
+SPL       ::= ( VarDecl | FunDecl )*
+VarDecl   ::= ( 'var' | Type ) 'id'  '=' Exp ';'
+FunDecl   ::= 'id' '(' [ FArgs ] ')' [ '::' FunType ] '{' VarDecl* Stmt+ '}'
+RetType   ::= Type
+            | 'Void'
+FunType   ::= Type* '->' RetType
+Type      ::= BasicType
+            | ( '(' Type ',' Type ')' )
+            | ( '[' Type ']' )
+            | 'id'
+BasicType ::= 'Int'
+            | 'Bool'
+            | 'Char'
+FArgs     ::= 'id' [ ',' FArgs ]
+Stmt      ::= ( 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ] )
+            | ( 'while' '(' Exp ')' '{' Stmt* '}' )
+            | ( 'id' Field '=' Exp ';' )
+            | ( FunCall ';' )
+            | ( 'return' [ Exp ] ';' )
+Exp       ::= Leq [ Eq' ]
+Eq'       ::= ( '==' | '!=' ) Leq [ Eq' ]
+Leq       ::= Sum [ Leq' ]
+Leq'      ::= ( '<' | '>' | '<=' | '>=' ) Sum [ Leq' ]
+Sum       ::= Fact [ Sum' ]
+Sum'      ::= ( '+' | '-' | '||' ) Fact [ Sum' ]
+Fact      ::= Colon [ Fact' ]
+Fact'     ::= ( '*' | '/' | '%' | '&&' ) Colon [ Fact' ]
+Colon     ::= Unary [ ':' Colon ]
+Unary     ::= ( ( '!' | '-' ) Unary ) | Basic
+Basic     ::= ( '(' Exp [ ',' Exp ] ')' ) | 'int' | 'char' | 'False' | 'True' | FunCall | ( '[' ']' ) | ( 'id' Field )
+Field     ::= ( '.hd' | '.tl' | '.fst' | '.snd' )*
+FunCall   ::= 'id' '(' [ ActArgs ] ')'
+ActArgs   ::= Exp [ ',' ActArgs ]
