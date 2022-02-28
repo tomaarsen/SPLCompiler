@@ -182,12 +182,14 @@ class GrammarParser:
     # Converts result of _parse_non_terminals() into a predefined datastructure
     def _parse_grammar(
         self,
-        non_terminal: str,
         production: str,
-        rule=defaultdict(list),
+        rule=None,
         i=0,
         prev_is_or=False,
     ) -> list:
+        if rule is None:
+            rule = []
+
         # Recursive base case
         if i >= len(production):
             return rule
@@ -206,43 +208,39 @@ class GrammarParser:
                     temp_symbol = Plus(self._apply_terminal_mapping(symbol))
 
                 if prev_is_or:
-                    rule[non_terminal][-1].add([temp_symbol])
+                    rule[-1].add([temp_symbol])
                     prev_is_or = False
                 else:
-                    rule[non_terminal].append(temp_symbol)
+                    rule.append(temp_symbol)
             # Or
             case "|":
-                if not isinstance(rule[non_terminal][-1], Or):
+                if not isinstance(rule[-1], Or):
                     # Create new OR object
-                    rule[non_terminal][-1] = Or([rule[non_terminal][-1]])
+                    rule[-1] = Or([rule[-1]])
                 prev_is_or = True
             # Opening of a sequence
             case "[" | "(":
                 # Ignore for now, and combine later
-                rule[non_terminal].append(symbol)
+                rule.append(symbol)
                 prev_is_or = False
             # Closing a Optional sequence
             case "]":
                 # Get the last index of opening bracket, in case of nested brackets
-                start_index = (
-                    len(rule[non_terminal]) - 1 - rule[non_terminal][::-1].index("[")
-                )
+                start_index = len(rule) - 1 - rule[::-1].index("[")
                 # Create empty Optional object, to which we can add symbols to.
-                rule[non_terminal][start_index] = Optional()
-                for optional in rule[non_terminal][start_index + 1 :]:
-                    rule[non_terminal][start_index].add(optional)
-                del rule[non_terminal][start_index + 1 :]
+                rule[start_index] = Optional()
+                for optional in rule[start_index + 1 :]:
+                    rule[start_index].add(optional)
+                del rule[start_index + 1 :]
             # Closing a sequence
             case ")" | ")*" | ")+":
                 # Get the last index of opening bracket, in case of nested brackets
-                start_index = (
-                    len(rule[non_terminal]) - rule[non_terminal][::-1].index("(") - 1
-                )
+                start_index = len(rule) - rule[::-1].index("(") - 1
 
                 # Sequence that needs to be combined
-                to_combine = rule[non_terminal][start_index + 1 :]
+                to_combine = rule[start_index + 1 :]
                 # Remove the sequence including the '('
-                del rule[non_terminal][start_index:]
+                del rule[start_index:]
 
                 # Add the combined sequence, depending on the type.
                 if is_star:
@@ -257,14 +255,11 @@ class GrammarParser:
                     to_combine = [plus]
 
                 # Previous is or
-                if start_index != 0 and isinstance(
-                    rule[non_terminal][start_index - 1], Or
-                ):
+                if start_index != 0 and isinstance(rule[start_index - 1], Or):
                     if len(to_combine) == 1:
                         to_combine = to_combine[0]
-                    rule[non_terminal][start_index - 1].add(to_combine)
+                    rule[start_index - 1].add(to_combine)
                     return self._parse_grammar(
-                        non_terminal,
                         production,
                         rule,
                         i + 1,
@@ -276,10 +271,9 @@ class GrammarParser:
                 # We need to add to_combine, which is either a plus, star or a list
                 if len(to_combine) == 1:
                     to_combine = to_combine[0]
-                rule[non_terminal].append(to_combine)
+                rule.append(to_combine)
 
         return self._parse_grammar(
-            non_terminal,
             production,
             rule,
             i + 1,
@@ -294,11 +288,13 @@ class GrammarParser:
         NT = Enum("NT", {k: auto() for k, _ in grammar.items()})
         # Start a new dict as the basis of the new data structure.
         # For each grammar rule
+        # breakpoint()
+        structured_grammar = {}
         for non_terminal, segment in grammar.items():
             # Remove any leading or trailing whitespace, and split on space
             segment = segment.strip().split(" ")
             # Transform the rule to a dict of key non_terminal and value list of annotated productions
-            structured_grammar = self._parse_grammar(non_terminal, segment)
+            structured_grammar[non_terminal] = self._parse_grammar(segment)
             # print(non_terminal, "::=", structured_grammar[non_terminal])
         return {
             self._apply_terminal_mapping(key): value

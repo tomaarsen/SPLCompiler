@@ -86,6 +86,9 @@ class Tree:
     def __getitem__(self, index: int) -> Tree | Token:
         return self.c[index]
 
+    def __bool__(self) -> bool:
+        return True
+
     def __str__(self):
         depth = 0
         program = ""

@@ -2,14 +2,8 @@ from __future__ import annotations
 
 # TODO: Clean all this logging up, move it somewhere else
 import logging
-import re
-import stat
-from abc import abstractclassmethod, abstractmethod
-from collections import defaultdict
-from dataclasses import dataclass, field
-from enum import Enum, auto
-from lib2to3.pgen2 import grammar
-from os.path import abspath
+import os
+from dataclasses import dataclass
 from pprint import pprint
 from typing import Callable, List
 
@@ -105,9 +99,10 @@ class Grammar:
     def __post_init__(self):
         # Pointer used with `self.tokens`
         self.i = 0
-        gp = GrammarParser(grammar_file="compiler/grammar.txt")
+        gp = GrammarParser(
+            grammar_file=os.path.join(os.path.dirname(__file__), "grammar.txt")
+        )
         self.grammar = gp.get_parsed_grammar()
-        # pprint(self.grammar)
 
     @property
     def current(self) -> Token:
@@ -170,7 +165,6 @@ class Grammar:
 
         tree = Tree()
         for segment in production:
-            # print(segment)
             match segment:
                 case Or():
                     for alternative in segment.symbols:
