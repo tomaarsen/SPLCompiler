@@ -25,7 +25,6 @@ class Parser:
         # TODO: Surely we can make these Bracket mismatch errors more specific?
         # E.g. "No corresponding closing bracket for ... on line ...",
         #      "No corresponding opening bracket for ... on line ..."
-        # TODO: Update grammar to add space after "var"
 
         tokens = self.match_parentheses(tokens)
         # TODO: Potentially make errors more specific, depended on where in the code the error is raised?
