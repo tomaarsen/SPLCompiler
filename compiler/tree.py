@@ -6,49 +6,6 @@ from typing import List
 from compiler.token import Token
 from compiler.type import Type
 
-# Set of types after which we always expect a space when printing
-# TODO: Remove this, it's unused, but exists because a future modification might use it
-SPACE_TYPES = {
-    Type.RRB,  # )
-    Type.DOUBLE_COLON,
-    Type.ARROW,
-    Type.COMMA,
-    Type.PLUS,
-    Type.MINUS,
-    Type.STAR,
-    Type.SLASH,
-    Type.POWER,
-    Type.PERCENT,
-    Type.DEQUALS,
-    Type.LEQ,
-    Type.GEQ,
-    Type.LT,
-    Type.GT,
-    Type.NEQ,
-    Type.EQ,
-    Type.AND,
-    Type.OR,
-    Type.COLON,
-    Type.NOT,
-    Type.QUOTE,
-    # fields?
-    # Keywords:
-    Type.IF,
-    Type.ELSE,
-    Type.WHILE,
-    Type.RETURN,
-    Type.VOID,
-    Type.INT,
-    Type.BOOL,
-    Type.CHAR,
-    Type.FALSE,
-    Type.TRUE,
-    Type.VAR,
-    Type.ID,
-    Type.DIGIT,
-    Type.CHARACTER,
-}
-
 # TODO: Type.MINUS *sometimes* left attaches (e.g. -12)
 LEFT_ATTACHED_TOKENS = {
     Type.LRB,  # (

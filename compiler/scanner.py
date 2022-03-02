@@ -7,6 +7,7 @@ from icecream import ic
 
 from compiler.error import EmptyQuoteError
 from compiler.token import Token
+from compiler.util import Span
 
 from compiler.error import (  # isort:skip
     DanglingMultiLineCommentError,
@@ -58,9 +59,6 @@ class Scanner:
                 (?P<OR>\|\|)|
                 (?P<COLON>\:)|
                 (?P<NOT>\!)|
-                (?P<QUOTE>\'\\?.\')|
-                (?P<QUOTE_EMPTY_ERROR>\'\')|
-                (?P<QUOTE_LONELY_ERROR>\')|
                 # Dot only occurs with hd, tl, fst or snd:
                 (?P<HD>\.hd)| # Head
                 (?P<TL>\.tl)| # Tail
@@ -80,6 +78,8 @@ class Scanner:
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
                 (?P<CHARACTER>)\'(?:\\b|\\f|\\n|\\r|\\t|\\v|[ -~])\'| # TODO: verify
+                (?P<QUOTE_EMPTY_ERROR>\'\')|
+                (?P<QUOTE_LONELY_ERROR>\')|
                 (?P<SPACE>[\ \r\t\f\v\n])|
                 (?P<ERROR>.)
             """,
@@ -110,21 +110,20 @@ class Scanner:
             if match is None or match.lastgroup is None:
                 UnmatchableTokenError(self.og_program, line_no)
 
+            span = Span(line_no, match.span())
             match match.lastgroup:
                 case "SPACE":
                     continue
                 case "ERROR":
-                    UnexpectedCharacterError(self.og_program, line_no, match.span())
+                    UnexpectedCharacterError(self.og_program, span)
                 case ("COMMENT_OPEN" | "COMMENT_CLOSE"):
-                    DanglingMultiLineCommentError(
-                        self.og_program, line_no, match.span()
-                    )
+                    DanglingMultiLineCommentError(self.og_program, span)
                 case "QUOTE_LONELY_ERROR":
-                    LonelyQuoteError(self.og_program, line_no, match.span())
+                    LonelyQuoteError(self.og_program, span)
                 case "QUOTE_EMPTY_ERROR":
-                    EmptyQuoteError(self.og_program, line_no, match.span())
+                    EmptyQuoteError(self.og_program, span)
 
-            tokens.append(Token(match[0], match.lastgroup, line_no, match.span()))
+            tokens.append(Token(match[0], match.lastgroup, span))
         return tokens
 
     def remove_comments(self, program: str):

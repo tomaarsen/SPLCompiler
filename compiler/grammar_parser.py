@@ -1,5 +1,5 @@
+import os
 import re
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from os.path import abspath
@@ -8,7 +8,7 @@ from typing import Dict, List
 from compiler.type import Type
 
 
-class NT:
+class NT(Enum):
     pass
 
 
@@ -37,9 +37,9 @@ class Plus(Quantifier):
         return f"Plus({self.symbols})"
 
 
-class Optional(Quantifier):
+class Opt(Quantifier):
     def __repr__(self):
-        return f"Optional({self.symbols})"
+        return f"Opt({self.symbols})"
 
 
 @dataclass
@@ -115,9 +115,6 @@ class GrammarParser:
     # Getter methods
     def get_parsed_grammar(self):
         return self.parsed_grammar
-
-    def get_non_literals(self):
-        return NT.__members__
 
     # Converts self.grammar_str into a dict with keys = Non Terminals, and value = the corresponding production
     def _parse_non_terminals(self) -> dict:
@@ -227,8 +224,8 @@ class GrammarParser:
             case "]":
                 # Get the last index of opening bracket, in case of nested brackets
                 start_index = len(rule) - 1 - rule[::-1].index("[")
-                # Create empty Optional object, to which we can add symbols to.
-                rule[start_index] = Optional()
+                # Create empty Opt object, to which we can add symbols to.
+                rule[start_index] = Opt()
                 for optional in rule[start_index + 1 :]:
                     rule[start_index].add(optional)
                 del rule[start_index + 1 :]
@@ -285,10 +282,9 @@ class GrammarParser:
         grammar = self._parse_non_terminals()
         # From the grammar, construct an Enum of non-terminals
         global NT  # TODO: Is this legit?
-        NT = Enum("NT", {k: auto() for k, _ in grammar.items()})
+        NT = Enum("NT", {k: auto() for k, _ in grammar.items()}, module=__name__)
         # Start a new dict as the basis of the new data structure.
         # For each grammar rule
-        # breakpoint()
         structured_grammar = {}
         for non_terminal, segment in grammar.items():
             # Remove any leading or trailing whitespace, and split on space
@@ -300,3 +296,8 @@ class GrammarParser:
             self._apply_terminal_mapping(key): value
             for key, value in structured_grammar.items()
         }
+
+
+GRAMMAR = GrammarParser(
+    grammar_file=os.path.join(os.path.dirname(__file__), "grammar.txt")
+).get_parsed_grammar()

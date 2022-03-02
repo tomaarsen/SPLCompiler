@@ -2,76 +2,74 @@ from enum import Enum, auto
 
 
 class Type(Enum):
-    LRB = auto()
-    RRB = auto()
-    LCB = auto()
-    RCB = auto()
-    LSB = auto()
-    RSB = auto()
-    # COMMENT = auto()
-    COMMENT_OPEN = auto()
-    COMMENT_CLOSE = auto()
-    SEMICOLON = auto()
-    DOUBLE_COLON = auto()
-    ARROW = auto()
-    COMMA = auto()
-    PLUS = auto()
-    MINUS = auto()
-    STAR = auto()
-    SLASH = auto()
-    POWER = auto()
-    PERCENT = auto()
-    DEQUALS = auto()
-    LEQ = auto()
-    GEQ = auto()
-    LT = auto()
-    GT = auto()
-    NEQ = auto()
-    EQ = auto()
-    AND = auto()
-    OR = auto()
-    COLON = auto()
-    NOT = auto()
-    QUOTE = auto()
-    QUOTE_EMPTY_ERROR = auto()
-    QUOTE_LONELY_ERROR = auto()
-    HD = auto()
-    TL = auto()
-    FST = auto()
-    SND = auto()
-    IF = auto()
-    ELSE = auto()
-    WHILE = auto()
-    RETURN = auto()
-    VOID = auto()
-    INT = auto()
-    BOOL = auto()
-    CHAR = auto()
-    FALSE = auto()
-    TRUE = auto()
-    VAR = auto()
+    LRB = "("
+    RRB = ")"
+    LCB = "{"
+    RCB = "}"
+    LSB = "["
+    RSB = "]"
+    COMMENT_OPEN = "/*"
+    COMMENT_CLOSE = "*/"
+    SEMICOLON = ";"
+    DOUBLE_COLON = "::"
+    ARROW = "->"
+    COMMA = ","
+    PLUS = "+"
+    MINUS = "-"
+    STAR = "*"
+    SLASH = "/"
+    POWER = "^"
+    PERCENT = "%"
+    DEQUALS = "=="
+    LEQ = "<="
+    GEQ = ">="
+    LT = "<"
+    GT = ">"
+    NEQ = "!="
+    EQ = "="
+    AND = "&&"
+    OR = "||"
+    COLON = ":"
+    NOT = "!"
+    QUOTE_EMPTY_ERROR = "''"
+    QUOTE_LONELY_ERROR = "'"
+    HD = ".hd"
+    TL = ".tl"
+    FST = ".fst"
+    SND = ".snd"
+    IF = "if"
+    ELSE = "else"
+    WHILE = "while"
+    RETURN = "return"
+    VOID = "Void"
+    INT = "Int"
+    BOOL = "Bool"
+    CHAR = "Char"
+    FALSE = "False"
+    TRUE = "True"
+    VAR = "var"
     ID = auto()
     DIGIT = auto()
     CHARACTER = auto()
-    SPACE = auto()
+    SPACE = " "
     ERROR = auto()
 
     def to_type(type_str: str):
         return Type[type_str]
 
     def __str__(self) -> str:
-        match self.name:
-            case "LRB":
-                return "left round bracket"
-            case "RRB":
-                return "right round bracket"
-            case "LCB":
-                return "left curly bracket"
-            case "RCB":
-                return "right curly bracket"
-            case "LSB":
-                return "left square bracket"
-            case "RSB":
-                return "right square bracket"
+        match self:
+            case Type.ID:
+                return "variable"
+            case Type.DIGIT:
+                return "digit"
+            case Type.ERROR:
+                return "error"
+        return repr(self.value)
+
+    def article_str(self) -> str:
+        match self:
+            case Type.ERROR | Type.INT | Type.ELSE | Type.IF:
+                return f"an {self}"
             case _:
-                return self.name
+                return f"a {self}"

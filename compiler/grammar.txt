@@ -12,11 +12,15 @@ BasicType ::= 'Int'
             | 'Bool'
             | 'Char'
 FArgs     ::= 'id' [ ',' FArgs ]
-Stmt      ::= ( 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ] )
-            | ( 'while' '(' Exp ')' '{' Stmt* '}' )
-            | ( 'id' Field '=' Exp ';' )
+Stmt      ::= IfElse
+            | While
+            | StmtAss
             | ( FunCall ';' )
-            | ( 'return' [ Exp ] ';' )
+            | Return
+StmtAss   ::= 'id' Field '=' Exp ';'
+IfElse    ::= 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ]
+While     ::= 'while' '(' Exp ')' '{' Stmt* '}'
+Return    ::= 'return' [ Exp ] ';'
 Exp       ::= Leq [ Eq' ]
 Eq'       ::= ( '==' | '!=' ) Leq [ Eq' ]
 Leq       ::= Sum [ Leq' ]

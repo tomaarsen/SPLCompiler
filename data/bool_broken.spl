@@ -1,0 +1,12 @@
+xor(a, b) :: Bool Bool -> Bool {
+	if (true) {} else {}
+	while (1){
+
+	}
+	return implies(12 / 4 + 4)
+	return (a || b) && !(a && b);
+}
+
+implies(a, b) :: Bool Bool -> Bool {
+	return a + b;
+}

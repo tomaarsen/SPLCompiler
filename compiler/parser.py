@@ -1,11 +1,20 @@
 from pprint import pprint
-from typing import Callable, List
+from typing import List
 
-from compiler.error import BracketMismatchError, ErrorRaiser
-from compiler.grammar import Grammar
+from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.token import Token
 from compiler.tree import Tree
 from compiler.type import Type
+from compiler.util import Span, span_between_inclusive
+
+from compiler.error import (  # isort:skip
+    ClosedWrongBracketError,
+    ErrorRaiser,
+    OpenedWrongBracketError,
+    ParseError,
+    UnclosedBracketError,
+    UnopenedBracketError,
+)
 
 
 class Parser:
@@ -30,15 +39,54 @@ class Parser:
         # TODO: Potentially make errors more specific, depended on where in the code the error is raised?
         # At this stage we should no longer have bracket errors
         ErrorRaiser.raise_all()
-        # pprint(tokens)
 
-        pm = Grammar(tokens)
-        tree = pm.parse()
-        # tree.clean()
-        # pprint(tree)
-        print(pm.i, len(tokens))
+        grammar = Grammar(tokens)
+        tree = grammar.parse()
+        # If the tokens wered parsed in full, just return
+        if grammar.done:
+            return tree
 
-        # TODO: Error if pm.i != len(tokens)
+        # Otherwise, we look at the most likely errors
+        # Remove everything that didn't reach the end, and then take the last potential error
+        max_end = max(error.end for error in grammar.potential_errors)
+        potential_errors = [
+            error
+            for error in grammar.potential_errors
+            if error.end == max_end
+            and (error.end > error.start or error.nt in ALLOW_EMPTY)
+        ]
+        # Extract the ParseErrorSpan instance
+        error = potential_errors[-1]
+        # The tokens that were matched before the error occurred
+        error_tokens = tokens[error.start : error.end]
+        # The partial production that failed to match
+        expected = error.remaining
+        # What we got instead of being able to match the partial production
+        got = tokens[error.end]
+
+        # Track whether the received token and the expected token are on the same line
+        sameline = False
+        # Get a span of the error tokens, if possible
+        if error_tokens:
+            error_tokens_span = span_between_inclusive(
+                error_tokens[0].span, error_tokens[-1].span
+            )
+            if got.span.start_ln == error_tokens_span.end_ln:
+                sameline = True
+        else:
+            error_tokens_span = Span(
+                got.span.start_ln, (got.span.start_col, got.span.start_col)
+            )
+
+        ParseError(
+            self.og_program,
+            error_tokens_span,
+            error.nt,
+            expected,
+            got if sameline else None,
+        )
+
+        ErrorRaiser.raise_all()
 
         return tree
 
@@ -50,7 +98,7 @@ class Parser:
         }
 
         queue = []
-        for i, token in enumerate(tokens):
+        for _, token in enumerate(tokens):
             match token.type:
                 case Type.LCB | Type.LRB | Type.LSB:  # {([
                     queue.append(token)
@@ -60,9 +108,7 @@ class Parser:
                     # that we now intend to close
                     if len(queue) == 0:
                         # Raise mismatch error: Closing bracket without open bracket
-                        BracketMismatchError(
-                            self.og_program, token.line_no, token.span, token.type
-                        )
+                        UnopenedBracketError(self.og_program, token.span, token.type)
                         continue
 
                     if queue[-1].type != right_to_left[token.type]:
@@ -83,16 +129,17 @@ class Parser:
                             # Note: This only works 1 deep, the issue persists with e.g.
                             # "{((}".
                             wrong_open = queue.pop()
-                            BracketMismatchError(
+                            OpenedWrongBracketError(
                                 self.og_program,
-                                wrong_open.line_no,
                                 wrong_open.span,
                                 wrong_open.type,
                             )
                         else:
                             # Otherwise, report the closing bracket as being false
-                            BracketMismatchError(
-                                self.og_program, token.line_no, token.span, token.type
+                            ClosedWrongBracketError(
+                                self.og_program,
+                                token.span,
+                                token.type,
                             )
 
                     if queue[-1].type == right_to_left[token.type]:
@@ -113,9 +160,8 @@ class Parser:
 
         # If queue is not empty, then there's an opening bracket that we did not close
         for token in queue:
-            BracketMismatchError(
+            UnclosedBracketError(
                 self.og_program,
-                token.line_no,
                 token.span,
                 token.type,
             )
