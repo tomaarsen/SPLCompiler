@@ -1,7 +1,6 @@
 from pprint import pprint
 
-from compiler.parser import Parser
-from compiler.scanner import Scanner
+from compiler import Parser, Scanner
 from tests.test_util import open_file
 
 program = open_file("data/bool_broken.spl")

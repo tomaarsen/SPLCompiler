@@ -202,10 +202,12 @@ class UnmatchableTokenError(LineError):
 
 class UnexpectedCharacterError(RangeError):
     def __str__(self) -> str:
-        error_line = self.program.splitlines()[self.line_no - 1]
-        multiple_unexpected_chars = (self.span[1] - self.span[0]) > 1
+        error_line = self.program.splitlines()[self.span.start_ln - 1]
+        multiple_unexpected_chars = (
+            self.span.end_col - self.span.start_col
+        ) > 1 or self.span.start_ln != self.span.end_ln
         return self.create_error(
-            f"Unexpected character{'s' if multiple_unexpected_chars else ''} {error_line[self.span[0]:self.span[1]]!r} on line {self.lines}."
+            f"Unexpected character{'s' if multiple_unexpected_chars else ''} {error_line[self.span.start_col: self.span.end_col]!r} on line {self.lines}."
         )
 
 
@@ -276,7 +278,7 @@ class ParseError(RangeError):
             after = f"Expected {self.expected[0].article_str()}"
             if self.got:
                 after += f", but got {self.got.text!r} instead"
-            after += f" on line {self.span.end_ln} column {self.span.end_col}."
+            after += f" on line {self.span.end_ln} column {self.span.end_col + 1}."
 
         return self.create_error(
             f"Syntax error detected when expecting a {self.nt} on line{'s' if self.span.multiline else ''} {self.lines}",

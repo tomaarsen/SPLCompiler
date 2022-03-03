@@ -98,7 +98,7 @@ class Parser:
         }
 
         queue = []
-        for _, token in enumerate(tokens):
+        for token in tokens:
             match token.type:
                 case Type.LCB | Type.LRB | Type.LSB:  # {([
                     queue.append(token)

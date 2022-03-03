@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-# TODO: Clean all this logging up, move it somewhere else
-import logging
-import os
 from dataclasses import dataclass, field
-from pprint import pprint
 from typing import Callable, List
 
 from compiler.grammar_parser import GRAMMAR, NT, Opt, Or, Plus, Star
@@ -38,29 +34,6 @@ ALLOW_EMPTY = (
 
 # Combination of the two, i.e. this type can be raised as an exception
 ALLOW = (*ALLOW_NONEMPTY, *ALLOW_EMPTY)
-
-# logger = logging.basicConfig(level=logging.NOTSET)
-logger = logging.basicConfig(level=logging.CRITICAL)
-logger = logging.getLogger(__name__)
-
-
-def log(level=logging.DEBUG):
-    def _decorator(fn):
-        def _decorated(*arg, **kwargs):
-            logger.log(
-                level,
-                f"Calling {fn.__name__!r}: {arg[1:]} with i={arg[0].i}: {arg[0].current}",
-            )
-            ret = fn(*arg, **kwargs)
-            logger.log(
-                level,
-                f"Called {fn.__name__!r}: {arg[1:]} with i={arg[0].i}: {arg[0].current} got return value: {ret}",
-            )
-            return ret
-
-        return _decorated
-
-    return _decorator
 
 
 @dataclass
@@ -111,7 +84,6 @@ class Grammar:
         self.suggestions.remove(value)
         return True
 
-    @log()
     def match_type(self, *tok_types: Type) -> bool:
         if self.current.type in tok_types:
             try:
@@ -123,7 +95,6 @@ class Grammar:
     def reset(self, initial) -> None:
         self.i = initial
 
-    # @log()
     def parse(self, production=None, non_terminal: Opt[NT] = None) -> Tree:
         initial = self.i
 
@@ -138,12 +109,6 @@ class Grammar:
                         error.end = self.i
                     if error.nt == non_terminal:
                         error.remaining = production[i:]
-                        # error.end = max(self.i, error.end)
-                        # print(error, error.remaining)
-
-                    # print(error.remaining)
-                    # print(error.remaining)
-                    # print(self.potential_errors[-1], production)
 
             match segment:
                 case Or():
