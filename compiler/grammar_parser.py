@@ -12,7 +12,6 @@ class NT(Enum):
     pass
 
 
-# TODO Make all members of symbol either NT or Type
 class Quantifier:
     def __init__(self, *symbols) -> None:
         self.members = List[NT | Type | Quantifier]
@@ -106,18 +105,18 @@ class GrammarParser:
         # If there is a grammar file provided:
         if self.grammar_file:
             with open(abspath(self.grammar_file)) as file:
-                data = file.read()
-                self.grammar_str = data
+                self.grammar_str = file.read()
 
         # Convert string to structured data
         self.parsed_grammar = self._grammar_from_string()
 
-    # Getter methods
+    # Getter method
     def get_parsed_grammar(self):
         return self.parsed_grammar
 
-    # Converts self.grammar_str into a dict with keys = Non Terminals, and value = the corresponding production
+    # Converts self.grammar_str into a dict with keys = Non Terminals, and values = the parsed production
     def _parse_non_terminals(self) -> dict:
+        # Match Non Terminals as the left hand side of '::='
         pattern = re.compile(r"(?P<Non_Terminal>\w*'?)\s*::= ", flags=re.X)
         matches = pattern.finditer(self.grammar_str)
         prev_match = None
@@ -134,9 +133,10 @@ class GrammarParser:
             # Remove consecutive whitespace
             production = re.sub(r"\s+", " ", production)
 
-            # Get non terminals.
+            # Get non terminals
             Non_Terminals[prev_match[1]] = production
             prev_match = match
+
         Non_Terminals[prev_match[1]] = self.grammar_str[prev_match.span()[1] :]
         return Non_Terminals
 
@@ -153,7 +153,8 @@ class GrammarParser:
     def _is_terminal(symbol: str):
         return symbol[0] == "'"
 
-    def _peek(self, production, i):
+    @staticmethod
+    def _peek(production, i):
         if len(production) - 1 >= i:
             return production[i]
         return None
@@ -175,7 +176,6 @@ class GrammarParser:
     def _is_non_terminal(self, symbol: str):
         return symbol in NT.__members__ or symbol[:-1] in NT.__members__
 
-    # TODO: code clean-up
     # Converts result of _parse_non_terminals() into a predefined datastructure
     def _parse_grammar(
         self,
@@ -251,7 +251,7 @@ class GrammarParser:
                         plus.add(p)
                     to_combine = [plus]
 
-                # Previous is or
+                # Previous is Or
                 if start_index != 0 and isinstance(rule[start_index - 1], Or):
                     if len(to_combine) == 1:
                         to_combine = to_combine[0]
@@ -281,17 +281,16 @@ class GrammarParser:
         # Get the grammar as a dict from key non-terminal to value production
         grammar = self._parse_non_terminals()
         # From the grammar, construct an Enum of non-terminals
-        global NT  # TODO: Is this legit?
+        global NT
         NT = Enum("NT", {k: auto() for k, _ in grammar.items()}, module=__name__)
-        # Start a new dict as the basis of the new data structure.
-        # For each grammar rule
+        # Start a new dict as the basis of the new data structure
         structured_grammar = {}
+        # For each rule:
         for non_terminal, segment in grammar.items():
-            # Remove any leading or trailing whitespace, and split on space
+            # Remove any leading or trailing whitespace, and split on spaces
             segment = segment.strip().split(" ")
-            # Transform the rule to a dict of key non_terminal and value list of annotated productions
+            # Transform the rule to a dict with key non_terminal and value list of annotated productions
             structured_grammar[non_terminal] = self._parse_grammar(segment)
-            # print(non_terminal, "::=", structured_grammar[non_terminal])
         return {
             self._apply_terminal_mapping(key): value
             for key, value in structured_grammar.items()
