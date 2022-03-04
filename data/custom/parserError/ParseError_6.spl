@@ -1,0 +1,8 @@
+// Typo in return
+xor(a, b) :: Bool Bool -> Bool {
+	return (a || b) && !(a && b);
+}
+
+implies(a, b) :: Bool x -> Bool {
+	returns a + b;
+}

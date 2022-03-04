@@ -1,0 +1,8 @@
+// First function matches SPL, but second function does not
+xor(a, b) :: Bool Bool -> Bool {
+	return (a || b) && !(a && b);
+}
+
+implies(a, b) :: Bool Bool -> Bool {
+	return a b;
+}
