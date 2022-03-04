@@ -146,6 +146,34 @@ class CompilerError:
             message += "\n" + after
         return message
 
+    @property
+    def str_nt(self) -> str:
+        match self.nt:
+            case NT.Return:
+                return "a return statement"
+            case NT.IfElse:
+                return "an if-else statement"
+            case NT.While:
+                return "a while loop"
+            case NT.StmtAss:
+                return "an assignment"
+            case NT.VarDecl:
+                return "a variable declaration"
+            case NT.FunDecl:
+                return "a function declaration"
+            case NT.RetType:
+                return "a return type"
+            case NT.FunType:
+                return "a function type"
+            case NT.FArgs:
+                return "function arguments"
+            case NT.Stmt:
+                return "a statement"
+            case NT.ActArgs:
+                return "a function-call"
+            case _:
+                return ""
+
 
 class UnmatchableTokenError(CompilerError):
     def __str__(self) -> str:
@@ -232,6 +260,6 @@ class ParseError(CompilerError):
             after += f" on line {self.span.end_ln} column {self.span.end_col}."
 
         return self.create_error(
-            f"Syntax error detected when expecting a {self.nt} on line{'s' if self.span.multiline else ''} {self.lines}",
+            f"Syntax error detected when expecting {self.str_nt} on line{'s' if self.span.multiline else ''} {self.lines}",
             after=after if after else "",
         )
