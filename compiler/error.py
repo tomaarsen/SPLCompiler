@@ -30,12 +30,6 @@ class ParserException(CompilerException):
 
 
 class ErrorRaiser:
-
-    # TODO: Think about the different stages of errors we have: Scanning Errors, Parsing Errors.
-    #       We never see Parsing Errors if we have Scanning errors (very logically), but maybe
-    #       we then want to specify what kinds of errors are being shown?
-    #       E.g. with `raise ParsingException` or `raise ScanningException` at the end of `raise_all`?
-
     ERRORS = []
 
     @staticmethod

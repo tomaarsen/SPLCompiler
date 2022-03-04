@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from compiler.type import Type
-
 
 @dataclass
 class Span:

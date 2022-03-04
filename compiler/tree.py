@@ -6,7 +6,7 @@ from typing import List
 from compiler.token import Token
 from compiler.type import Type
 
-# TODO: Type.MINUS *sometimes* left attaches (e.g. -12)
+# Optional TODO: Type.MINUS *sometimes* left attaches (e.g. -12)
 LEFT_ATTACHED_TOKENS = {
     Type.LRB,  # (
     Type.LSB,  # [

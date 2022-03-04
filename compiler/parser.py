@@ -34,12 +34,7 @@ class Parser:
         Step 1.1: Verify contents of these groups: Between '[' and ']' may only
                 be nothing or `Type`.
         """
-        # TODO: Surely we can make these Bracket mismatch errors more specific?
-        # E.g. "No corresponding closing bracket for ... on line ...",
-        #      "No corresponding opening bracket for ... on line ..."
-
         tokens = self.match_parentheses(tokens)
-        # TODO: Potentially make errors more specific, depended on where in the code the error is raised?
         # At this stage we should no longer have bracket errors
         ErrorRaiser.raise_all(ParserException)
 

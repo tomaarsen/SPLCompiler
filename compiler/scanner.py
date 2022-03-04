@@ -77,7 +77,7 @@ class Scanner:
                 (?P<VAR>\bvar\b)|
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
-                (?P<CHARACTER>)\'(?:\\b|\\f|\\n|\\r|\\t|\\v|[ -~])\'| # TODO: verify
+                (?P<CHARACTER>)\'(?:\\b|\\f|\\n|\\r|\\t|\\v|[ -~])\'|
                 (?P<QUOTE_EMPTY_ERROR>\'\')|
                 (?P<QUOTE_LONELY_ERROR>\')|
                 (?P<SPACE>[\ \r\t\f\v\n])|
@@ -89,8 +89,6 @@ class Scanner:
     def scan(self):
         # Remove comments first
         self.preprocessed = self.remove_comments(self.og_program)
-
-        # TODO: Verify that removing the \n with splitlines() doesn't cause issues
         lines = self.preprocessed.splitlines()
 
         tokens = [

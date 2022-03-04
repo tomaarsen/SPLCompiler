@@ -24,12 +24,9 @@ ALLOW_EMPTY = (
     NT.FunDecl,
     NT.RetType,
     NT.FunType,
-    # NT.Type,
-    # NT.BasicType,
     NT.FArgs,
     NT.Stmt,
     NT.ActArgs,
-    # NT.Exp,
 )
 
 # Combination of the two, i.e. this type can be raised as an exception

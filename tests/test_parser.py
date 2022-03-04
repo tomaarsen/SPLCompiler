@@ -29,13 +29,11 @@ def test_bracket_parser_mutation(list_program: str):
         tokens = scanner.scan()
 
         # Parsing must throw a CompilerException
-        # TODO: This must become a ParserException
+        # TODO: Possibly make more specific
         parser = Parser(mutation)
-        try:
+        with pytest.raises(ParserException) as excinfo:
             parser.parse(tokens)
-            assert False
-        except CompilerException:
-            assert True
+        assert excinfo
 
 
 def test_parser(valid_file: str):
@@ -160,7 +158,3 @@ def test_UnclosedBracketError():
         and "'{'" in str(excinfo.value)
         and "-> 1. " in str(excinfo.value)
     )
-
-
-# Put pprint in parser again and verify that ASt is the same
-# One test for each Error
