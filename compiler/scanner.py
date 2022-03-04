@@ -5,7 +5,7 @@ from typing import List
 
 from icecream import ic
 
-from compiler.error import EmptyQuoteError
+from compiler.error import EmptyQuoteError, ScannerException
 from compiler.token import Token
 from compiler.util import Span
 
@@ -100,7 +100,7 @@ class Scanner:
         ]
 
         # Raise all errors, if any, that may have accumulated during `scan_line`.
-        ErrorRaiser.raise_all()
+        ErrorRaiser.raise_all(ScannerException)
         return tokens
 
     def scan_line(self, line: str, line_no) -> List[Token]:

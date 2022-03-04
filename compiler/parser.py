@@ -1,6 +1,8 @@
 from pprint import pprint
 from typing import List
 
+from pyparsing import ParseBaseException
+
 from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.token import Token
 from compiler.tree import Tree
@@ -12,6 +14,7 @@ from compiler.error import (  # isort:skip
     ErrorRaiser,
     OpenedWrongBracketError,
     ParseError,
+    ParserException,
     UnclosedBracketError,
     UnopenedBracketError,
 )
@@ -38,7 +41,7 @@ class Parser:
         tokens = self.match_parentheses(tokens)
         # TODO: Potentially make errors more specific, depended on where in the code the error is raised?
         # At this stage we should no longer have bracket errors
-        ErrorRaiser.raise_all()
+        ErrorRaiser.raise_all(ParserException)
 
         grammar = Grammar(tokens)
         tree = grammar.parse()
@@ -86,7 +89,7 @@ class Parser:
             got if sameline else None,
         )
 
-        ErrorRaiser.raise_all()
+        ErrorRaiser.raise_all(ParserException)
 
         return tree
 

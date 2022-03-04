@@ -16,7 +16,16 @@ class Colors:
     BLUE = "\033[34m"
 
 
+# Python exceptions to differentiate the stage in which errors are thrown
 class CompilerException(Exception):
+    pass
+
+
+class ScannerException(CompilerException):
+    pass
+
+
+class ParserException(CompilerException):
     pass
 
 
@@ -62,7 +71,7 @@ class ErrorRaiser:
                 i += 1
 
     @staticmethod
-    def raise_all():
+    def raise_all(stage_of_exception: CompilerException):
         ErrorRaiser.__combine_errors__()
         errors = "".join(["\n\n" + str(error) for error in ErrorRaiser.ERRORS[:10]])
 
@@ -72,7 +81,7 @@ class ErrorRaiser:
                 omitting_multiple_errors = len(ErrorRaiser.ERRORS) - 10 > 1
                 errors += f"\n\nShowing 10 errors, omitting {len(ErrorRaiser.ERRORS)-10} error{'s' if omitting_multiple_errors else ''}..."
             ErrorRaiser.ERRORS.clear()
-            raise CompilerException(errors)
+            raise stage_of_exception(errors)
 
 
 @dataclass
