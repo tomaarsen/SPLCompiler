@@ -182,7 +182,7 @@ class GrammarParser:
         rule=None,
         i=0,
         prev_is_or=False,
-    ) -> list[Quantifier | Type]:
+    ) -> list[Quantifier | NT | Type]:
         if rule is None:
             rule = []
 
