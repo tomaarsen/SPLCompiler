@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from compiler.error import CompilerException, ParserException
+from compiler.error import ParserException
 from compiler.parser import Parser
 from compiler.scanner import Scanner
 from compiler.tree import Tree

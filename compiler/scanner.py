@@ -1,9 +1,5 @@
-import queue
 import re
-from multiprocessing.sharedctypes import Value
 from typing import List
-
-from icecream import ic
 
 from compiler.error import EmptyQuoteError, ScannerException
 from compiler.token import Token
@@ -86,7 +82,7 @@ class Scanner:
             flags=re.X,
         )
 
-    def scan(self):
+    def scan(self) -> list[Token]:
         # Remove comments first
         self.preprocessed = self.remove_comments(self.og_program)
         lines = self.preprocessed.splitlines()
@@ -124,7 +120,7 @@ class Scanner:
             tokens.append(Token(match[0], match.lastgroup, span))
         return tokens
 
-    def remove_comments(self, program: str):
+    def remove_comments(self, program: str) -> str:
         poi_pattern = re.compile(r"//|/\*|\*/|\n")
         comment_spans = []
         start_line = -1

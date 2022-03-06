@@ -1,7 +1,4 @@
-from pprint import pprint
 from typing import List
-
-from pyparsing import ParseBaseException
 
 from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.token import Token
@@ -40,7 +37,7 @@ class Parser:
 
         grammar = Grammar(tokens)
         tree = grammar.parse()
-        # If the tokens wered parsed in full, just return
+        # If the tokens are parsed in full, just return
         if grammar.done:
             return tree
 

@@ -3,9 +3,9 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from os.path import abspath
-from typing import Dict, List
 
 from compiler.type import Type
+from tests.test_util import open_file
 
 
 class NT(Enum):
@@ -13,31 +13,30 @@ class NT(Enum):
 
 
 class Quantifier:
-    def __init__(self, *symbols) -> None:
-        self.members = List[NT | Type | Quantifier]
+    def __init__(self, *symbols: tuple) -> None:
         self.symbols = list(symbols)
 
-    def add(self, arg):
+    def add(self, arg: str) -> None:
         self.symbols.append(arg)
 
 
 class Or(Quantifier):
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Or({self.symbols})"
 
 
 class Star(Quantifier):
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Star({self.symbols})"
 
 
 class Plus(Quantifier):
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Plus({self.symbols})"
 
 
 class Opt(Quantifier):
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Opt({self.symbols})"
 
 
@@ -45,7 +44,7 @@ class Opt(Quantifier):
 class GrammarParser:
     grammar_str: str = None
     grammar_file: str = None
-    terminal_mapping: Dict[str, Type] = field(
+    terminal_mapping: dict[str, Type] = field(
         default_factory=lambda: {
             "(": Type.LRB,
             ")": Type.RRB,
@@ -104,18 +103,17 @@ class GrammarParser:
 
         # If there is a grammar file provided:
         if self.grammar_file:
-            with open(abspath(self.grammar_file)) as file:
-                self.grammar_str = file.read()
+            self.grammar_str = open_file(abspath(self.grammar_file))
 
         # Convert string to structured data
         self.parsed_grammar = self._grammar_from_string()
 
     # Getter method
-    def get_parsed_grammar(self):
+    def get_parsed_grammar(self) -> dict[NT, list[Quantifier | NT | Type]]:
         return self.parsed_grammar
 
     # Converts self.grammar_str into a dict with keys = Non Terminals, and values = the parsed production
-    def _parse_non_terminals(self) -> dict:
+    def _parse_non_terminals(self) -> dict[str, str]:
         # Match Non Terminals as the left hand side of '::='
         pattern = re.compile(r"(?P<Non_Terminal>\w*'?)\s*::= ", flags=re.X)
         matches = pattern.finditer(self.grammar_str)
@@ -142,24 +140,28 @@ class GrammarParser:
 
     # Number of helper functions for _parse_grammar
     @staticmethod
-    def _has_star(symbol: str):
+    def _has_star(symbol: str) -> bool:
         return symbol[-1] == "*"
 
     @staticmethod
-    def _has_plus(symbol: str):
+    def _has_plus(symbol: str) -> bool:
         return symbol[-1] == "+"
 
     @staticmethod
-    def _is_terminal(symbol: str):
+    def _is_terminal(symbol: str) -> bool:
         return symbol[0] == "'"
 
     @staticmethod
-    def _peek(production, i):
+    def _peek(production: list[str], i: int) -> str | None:
         if len(production) - 1 >= i:
             return production[i]
         return None
 
-    def _apply_terminal_mapping(self, symbol: str):
+    @staticmethod
+    def _is_non_terminal(symbol: str) -> bool:
+        return symbol in NT.__members__ or symbol[:-1] in NT.__members__
+
+    def _apply_terminal_mapping(self, symbol: str) -> Type | NT:
         # Remove any possible plus or star
         if symbol[-1] == "+" or symbol[-1] == "*":
             symbol = symbol[:-1]
@@ -173,9 +175,6 @@ class GrammarParser:
         global NT
         return NT[symbol]
 
-    def _is_non_terminal(self, symbol: str):
-        return symbol in NT.__members__ or symbol[:-1] in NT.__members__
-
     # Converts result of _parse_non_terminals() into a predefined datastructure
     def _parse_grammar(
         self,
@@ -183,7 +182,7 @@ class GrammarParser:
         rule=None,
         i=0,
         prev_is_or=False,
-    ) -> list:
+    ) -> list[Quantifier | Type]:
         if rule is None:
             rule = []
 
@@ -277,7 +276,7 @@ class GrammarParser:
             prev_is_or,
         )
 
-    def _grammar_from_string(self):
+    def _grammar_from_string(self) -> dict[NT, list[Quantifier | NT | Type]]:
         # Get the grammar as a dict from key non-terminal to value production
         grammar = self._parse_non_terminals()
         # From the grammar, construct an Enum of non-terminals

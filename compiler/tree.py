@@ -37,7 +37,7 @@ class Tree:
     def add_children(self, children: List[Tree]) -> None:
         self.c.extend(children)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.c)
 
     def __getitem__(self, index: int) -> Tree | Token:
@@ -46,7 +46,7 @@ class Tree:
     def __bool__(self) -> bool:
         return True
 
-    def __str__(self):
+    def __str__(self) -> str:
         depth = 0
         program = ""
         last_token = None

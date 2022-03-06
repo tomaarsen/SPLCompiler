@@ -12,6 +12,6 @@ class Token:
     type: Type
     span: Span = field(repr=False, default_factory=lambda: Span(-1, (0, -1)))
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not isinstance(self.type, Type):
             self.type = Type.to_type(self.type)

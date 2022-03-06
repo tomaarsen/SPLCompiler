@@ -33,7 +33,7 @@ class ErrorRaiser:
     ERRORS = []
 
     @staticmethod
-    def __combine_errors__():
+    def __combine_errors__() -> None:
         # Check if we have any consecutive UnexpectedCharacterError
         # First sort on line_no, and then on start of the error in the line
         # If error object has no span attribute, then sort it on top
@@ -65,7 +65,7 @@ class ErrorRaiser:
                 i += 1
 
     @staticmethod
-    def raise_all(stage_of_exception: CompilerException):
+    def raise_all(stage_of_exception: CompilerException) -> None:
         ErrorRaiser.__combine_errors__()
         errors = "".join(["\n\n" + str(error) for error in ErrorRaiser.ERRORS[:10]])
 
@@ -87,7 +87,7 @@ class CompilerError:
     n_after: int = field(init=False, default=1)
 
     # Call __post_init__ using dataclass, to automatically add errors to the list
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         ErrorRaiser.ERRORS.append(self)
 
     @property
@@ -97,12 +97,12 @@ class CompilerError:
         return f"[{self.span.start_ln}]"
 
     @property
-    def length(self):
+    def length(self) -> int:
         return self.span.end_col - self.span.start_col
 
     # Give the characters that caused the error to be thrown
     @property
-    def error_chars(self):
+    def error_chars(self) -> str:
         error_line = self.program.splitlines()[self.span.start_ln - 1]
         return error_line[self.span.start_col : self.span.end_col]
 

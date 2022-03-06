@@ -35,7 +35,7 @@ class Span:
         self.col = span
 
 
-def span_between_inclusive(span_one: Span, span_two: Span):
+def span_between_inclusive(span_one: Span, span_two: Span) -> Span:
     return Span(
         line_no=(span_one.start_ln, span_two.end_ln),
         span=(span_one.start_col, span_two.end_col),
