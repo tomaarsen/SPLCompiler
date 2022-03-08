@@ -5,7 +5,7 @@ import pytest
 from compiler.error import ParserException
 from compiler.parser import Parser
 from compiler.scanner import Scanner
-from compiler.tree import Tree
+from compiler.tree import SPLNode
 from tests.test_util import open_file
 
 
@@ -61,13 +61,11 @@ def test_print(valid_file: str):
     program_pprint = str(original_tree)
     scanner_pprint = Scanner(program_pprint)
     tokens_pprint = scanner_pprint.scan()
-
     parser_print = Parser(program_pprint)
-    pretty_print_tree = parser_print.parse(tokens_pprint)
+    pprint_tree = parser_print.parse(tokens_pprint)
 
-    assert str(tokens) == str(tokens_pprint) and str(original_tree) == str(
-        pretty_print_tree
-    )
+    assert original_tree == pprint_tree
+    assert str(original_tree) == str(pprint_tree)
 
 
 def test_empty():
@@ -76,7 +74,7 @@ def test_empty():
 
     parser = Parser("")
     tree = parser.parse(tokens)
-    assert tree == Tree(c=[])
+    assert tree == SPLNode([])
 
 
 def test_parser_error(parser_error: str):

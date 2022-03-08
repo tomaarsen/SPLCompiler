@@ -1,12 +1,36 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 from compiler.grammar_parser import GRAMMAR, NT, Opt, Or, Plus, Star
 from compiler.token import Token
-from compiler.tree import Tree
 from compiler.type import Type
+
+from compiler.tree import (  # isort:skip
+    BasicFactory,
+    ColonFactory,
+    CommaFactory,
+    DefaultFactory,
+    ExpFactory,
+    ExpPrimeFactory,
+    FieldFactory,
+    FunCallFactory,
+    FunDeclFactory,
+    FunTypeFactory,
+    IfElseFactory,
+    Node,
+    NodeFactory,
+    ReturnFactory,
+    SingleFactory,
+    SPLFactory,
+    StmtAssFactory,
+    StmtFactory,
+    TypeFactory,
+    UnaryFactory,
+    VarDeclFactory,
+    WhileFactory,
+)
 
 # Allow a non-terminal of this type to be raised as
 # an exception, but only if the production was at least partially matched
@@ -67,10 +91,12 @@ class Grammar:
     def done(self) -> bool:
         return self.i == len(self.tokens)
 
-    def repeat(self, func: Callable) -> List[Tree]:
+    def repeat(self, func: Callable) -> List[Node]:
         accumulated = []
         while tree := func():
             accumulated.append(tree)
+        # if len(accumulated) == 1:
+        #     return accumulated[0]
         return accumulated
 
     def add(self, value: str) -> True:
@@ -92,26 +118,62 @@ class Grammar:
     def reset(self, initial) -> None:
         self.i = initial
 
-    def parse(self, production=None, non_terminal: Opt[NT] = None) -> Tree:
+    def parse(self, production=None, nt: Optional[NT] = None) -> Node:
         initial = self.i
 
         if production is None:
             production = [NT.SPL]
 
-        tree = Tree()
+        trees_dict = {
+            NT.SPL: SPLFactory(),
+            NT.VarDecl: VarDeclFactory(),
+            NT.FunDecl: FunDeclFactory(),
+            NT.RetType: SingleFactory(),
+            NT.FunType: FunTypeFactory(),
+            NT.Type: TypeFactory(),
+            NT.BasicType: SingleFactory(),
+            NT.FArgs: CommaFactory(),
+            NT.Stmt: StmtFactory(),
+            NT.StmtAss: StmtAssFactory(),
+            NT.IfElse: IfElseFactory(),
+            NT.While: WhileFactory(),
+            NT.Return: ReturnFactory(),
+            NT.Exp: ExpFactory(),
+            NT["Or'"]: ExpPrimeFactory(),
+            NT.And: ExpFactory(),
+            NT["And'"]: ExpPrimeFactory(),
+            NT.Eq: ExpFactory(),
+            NT["Eq'"]: ExpPrimeFactory(),
+            NT.Leq: ExpFactory(),
+            NT["Leq'"]: ExpPrimeFactory(),
+            NT.Sum: ExpFactory(),
+            NT["Sum'"]: ExpPrimeFactory(),
+            NT.Fact: ExpFactory(),
+            NT["Fact'"]: ExpPrimeFactory(),
+            NT.Colon: ColonFactory(),
+            NT.Unary: UnaryFactory(),
+            NT.Basic: BasicFactory(),
+            NT.Field: FieldFactory(),
+            NT.FunCall: FunCallFactory(),
+            NT.ActArgs: CommaFactory(),
+        }
+
+        tree = trees_dict.get(nt, DefaultFactory())
+        matches = []
         for i, segment in enumerate(production):
             for error in self.potential_errors:
                 if error.active:
                     if error.end < self.i:
                         error.end = self.i
-                    if error.nt == non_terminal:
+                    if error.nt == nt:
                         error.remaining = production[i:]
 
             match segment:
                 case Or():
                     for alternative in segment.symbols:
-                        if result := self.parse(alternative):
-                            tree.add_child(result)
+                        result = self.parse(alternative)
+                        if result is not None:
+                            tree.add_children(result)
                             break
                         self.reset(initial)
                     else:
@@ -129,12 +191,14 @@ class Grammar:
                         return None
 
                 case Opt():
-                    if match := self.parse(segment.symbols):
-                        tree.add_child(match)
+                    match = self.parse(segment.symbols)
+                    if match is not None:
+                        tree.add_children(match)
 
                 case Type():
-                    if match := self.match_type(segment):
-                        tree.add_child(match)
+                    match = self.match_type(segment)
+                    if match is not None:
+                        tree.add_children(match)
                     else:
                         self.reset(initial)
                         return None
@@ -144,8 +208,9 @@ class Grammar:
                         error = ParseErrorSpan(segment, self.i, self.i, active=True)
                         self.potential_errors.append(error)
 
-                    if match := self.parse(self.grammar[segment], non_terminal=segment):
-                        tree.add_child(match)
+                    match = self.parse(self.grammar[segment], nt=segment)
+                    if match is not None:
+                        tree.add_children(match)
                         if segment in ALLOW:
                             error.active = False
                     else:
@@ -158,8 +223,6 @@ class Grammar:
                 case _:
                     raise Exception(segment)
 
-        # If the tree only has one child, return the child instead
-        if len(tree) == 1:
-            return tree[0]
+        tree = tree.build()
 
         return tree

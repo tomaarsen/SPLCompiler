@@ -3,7 +3,7 @@ from pprint import pprint
 from compiler import Parser, Scanner
 from tests.test_util import open_file
 
-program = open_file("data/bool_broken.spl")
+program = open_file("data/given/valid/bool.spl")
 
 scanner = Scanner(program)
 tokens = scanner.scan()

@@ -1,8 +1,9 @@
 from typing import List
 
 from compiler.grammar import ALLOW_EMPTY, Grammar
+from compiler.grammar_parser import NT
 from compiler.token import Token
-from compiler.tree import Tree
+from compiler.tree import SPLNode
 from compiler.type import Type
 from compiler.util import Span, span_between_inclusive
 
@@ -21,7 +22,7 @@ class Parser:
     def __init__(self, program: str) -> None:
         self.og_program = program
 
-    def parse(self, tokens: List[Token]) -> Tree:
+    def parse(self, tokens: List[Token]) -> SPLNode:
         """
         Conceptual algorithm (bottom-up):
         Step 1: Group tokens that must co-occur, that define scopes
@@ -36,53 +37,53 @@ class Parser:
         ErrorRaiser.raise_all(ParserException)
 
         grammar = Grammar(tokens)
-        tree = grammar.parse()
-        # If the tokens are parsed in full, just return
-        if grammar.done:
+        tree = grammar.parse(nt=NT.SPL)
+        # If the tokens were not parsed in full, look at the most likely errors
+        # Remove everything that didn't reach the end, and then take the last potential error
+        if not grammar.done:
+            max_end = max(error.end for error in grammar.potential_errors)
+            potential_errors = [
+                error
+                for error in grammar.potential_errors
+                if error.end == max_end
+                and (error.end > error.start or error.nt in ALLOW_EMPTY)
+            ]
+            # Extract the ParseErrorSpan instance
+            error = potential_errors[-1]
+            # The tokens that were matched before the error occurred
+            error_tokens = tokens[error.start : error.end]
+            # The partial production that failed to match
+            expected = error.remaining
+            # What we got instead of being able to match the partial production
+            got = tokens[error.end]
+
+            # Track whether the received token and the expected token are on the same line
+            sameline = False
+            # Get a span of the error tokens, if possible
+            if error_tokens:
+                error_tokens_span = span_between_inclusive(
+                    error_tokens[0].span, error_tokens[-1].span
+                )
+                if got.span.start_ln == error_tokens_span.end_ln:
+                    sameline = True
+            else:
+                error_tokens_span = Span(
+                    got.span.start_ln, (got.span.start_col, got.span.start_col)
+                )
+
+            ParseError(
+                self.og_program,
+                error_tokens_span,
+                error.nt,
+                expected,
+                got if sameline else None,
+            )
+
+            ErrorRaiser.raise_all(ParserException)
+
             return tree
 
-        # Otherwise, we look at the most likely errors
-        # Remove everything that didn't reach the end, and then take the last potential error
-        max_end = max(error.end for error in grammar.potential_errors)
-        potential_errors = [
-            error
-            for error in grammar.potential_errors
-            if error.end == max_end
-            and (error.end > error.start or error.nt in ALLOW_EMPTY)
-        ]
-        # Extract the ParseErrorSpan instance
-        error = potential_errors[-1]
-        # The tokens that were matched before the error occurred
-        error_tokens = tokens[error.start : error.end]
-        # The partial production that failed to match
-        expected = error.remaining
-        # What we got instead of being able to match the partial production
-        got = tokens[error.end]
-
-        # Track whether the received token and the expected token are on the same line
-        sameline = False
-        # Get a span of the error tokens, if possible
-        if error_tokens:
-            error_tokens_span = span_between_inclusive(
-                error_tokens[0].span, error_tokens[-1].span
-            )
-            if got.span.start_ln == error_tokens_span.end_ln:
-                sameline = True
-        else:
-            error_tokens_span = Span(
-                got.span.start_ln, (got.span.start_col, got.span.start_col)
-            )
-
-        ParseError(
-            self.og_program,
-            error_tokens_span,
-            error.nt,
-            expected,
-            got if sameline else None,
-        )
-
-        ErrorRaiser.raise_all(ParserException)
-
+        # If there were no issues, then we convert this parse tree into a more abstract variant
         return tree
 
     def match_parentheses(self, tokens: List[Token]) -> None:
