@@ -9,7 +9,7 @@ from compiler.util import Span
 @dataclass
 class Token:
     text: str
-    type: Type
+    type: Type = field(repr=False)
     span: Span = field(repr=False, default_factory=lambda: Span(-1, (0, -1)))
 
     def __post_init__(self) -> None:

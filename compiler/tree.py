@@ -30,6 +30,7 @@ RIGHT_ATTACHED_TOKENS = {
 SPACES_PER_INDENT = 4
 
 
+"""
 @dataclass
 class Tree:
     nt: NT
@@ -114,32 +115,29 @@ class Tree:
 
                 case Tree():
                     yield from child.yield_tokens()
+"""
 
 
 @dataclass
 class NodeFactory:
-    c: List[Tree | Token] = field(kw_only=True, default_factory=list)
+    c: List[Node | Token] = field(kw_only=True, default_factory=list)
 
-    # def add_children(self, child: Tree) -> None:
-    # self.c.append(child)
+    def __len__(self):
+        return len(self.c)
 
-    def add_children(self, children: List[Tree] | Tree) -> None:
-        print("Before")
-        print(children)
+    def __bool__(self) -> bool:
+        return True
+
+    def add_children(self, children: List[Node] | Node) -> None:
         try:
             self.c.extend(children)
         except TypeError:
-            # print("TypeError when extending")
             self.c.append(children)
-        print("After")
-        print(children)
-        print("\n\n")
 
     def build(self):
         raise NotImplementedError()
 
 
-@dataclass
 class VarDeclFactory(NodeFactory):
     def build(self):
         assert len(self.c) == 5  # nosec
@@ -147,40 +145,108 @@ class VarDeclFactory(NodeFactory):
         return VarDeclNode(self.c[0], self.c[1], self.c[3])
 
 
-@dataclass
 class FunDeclFactory(NodeFactory):
     def build(self):
-        print(self.c)
-        # breakpoint()
+        func = self.c[0]
+        args = None
+        fun_type = None
+        var_decl = []
+        stmt = []
+        for child in self.c:
+            match child:
+                case CommaListNode():
+                    args = child
 
-        # return VarDeclNode(self.c[0], self.c[1], self.c[3])
+                case FunTypeNode():
+                    fun_type = child
+
+                case VarDeclNode():
+                    var_decl.append(child)
+
+                case StmtNode():
+                    stmt.append(child)
+
+        return FunDeclNode(func, args, fun_type, var_decl, stmt)
 
 
-@dataclass
+class FieldFactory(NodeFactory):
+    def build(self):
+        return FieldNode(self.c)
+
+
+class CommaFactory(NodeFactory):
+    def build(self):
+        return CommaListNode([self.c[0]] + [_id for comma, _id in self.c[1:]])
+
+
 class ExpFactory(NodeFactory):
     def build(self):
-        # print(self.c)
-        # breakpoint()
         if len(self.c) == 2:
             node = self.c[1]
-            node.left = self.c[0]
+            node.assign_left(self.c[0])
             return node
         elif len(self.c) == 1:
             return self.c[0]
-        # return Tree(None, c=self.c)
+        raise Exception()
 
 
-@dataclass
 class ExpPrimeFactory(NodeFactory):
     def build(self):
         if len(self.c) == 2:
             return Op2Node(left=None, operator=self.c[0], right=self.c[1])
-        # breakpoint()
-        # elif len(self.c) == 1:
-        #     return self.c[0]
+        if len(self.c) == 3:
+            op2 = self.c[2]
+            inner = Op2Node(left=None, operator=self.c[0], right=self.c[1])
+            op2.assign_left(inner)
+            return op2
+        raise Exception()
 
 
-@dataclass
+class ColonFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            case [_ as basic]:
+                return basic
+            case [_ as left, Token(type=Type.COLON) as operator, _ as right]:
+                return Op2Node(left, operator, right)
+        raise Exception()
+
+
+class UnaryFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            # ( ( '!' | '-' ) Unary )
+            case [_ as operator, _ as operand]:
+                return Op1Node(operator, operand)
+            # Basic
+            case [_ as basic]:
+                return basic
+        raise Exception()
+
+
+class StmtAssFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            case [
+                Token(type=Type.ID) as _id,
+                _ as field,
+                Token(type=Type.EQ),
+                _ as exp,
+                Token(type=Type.SEMICOLON),
+            ]:
+                _id = VariableNode(_id, field)
+                return StmtAssNode(_id, exp)
+            case [
+                Token(type=Type.ID) as _id,
+                Token(type=Type.EQ),
+                _ as exp,
+                Token(type=Type.SEMICOLON),
+            ]:
+                _id = VariableNode(_id)
+                return StmtAssNode(_id, exp)
+        raise Exception()
+
+
 class BasicFactory(NodeFactory):
     def build(self):
         match self.c:
@@ -199,41 +265,117 @@ class BasicFactory(NodeFactory):
             # Empty list [ ]
             case [Token(type=Type.LSB), Token(type=Type.RSB)]:
                 return ListNode(None)
+            case [Token(type=Type.ID) as _id, FieldNode() as field]:
+                return VariableNode(_id, field)
             case [_]:
                 return self.c[0]
         raise Exception()
 
 
-@dataclass
+class FunCallFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            case [
+                Token(type=Type.ID) as func,
+                Token(type=Type.LRB),
+                _ as args,
+                Token(type=Type.RRB),
+            ]:
+                return FunCallNode(func, args)
+            case [
+                Token(type=Type.ID) as func,
+                Token(type=Type.LRB),
+                Token(type=Type.RRB),
+            ]:
+                return FunCallNode(func, None)
+        raise Exception()
+
+
+class IfElseFactory(NodeFactory):
+    def build(self):
+        # 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ]
+        cond = self.c[2]
+        # Only if index 5 is indeed a Stmt, and not '}'
+        body = self.c[5] if isinstance(self.c[5], Node) else None
+        # Only if 4 from the last is "else", then there must be an else statmenet
+        else_body = (
+            self.c[-2]
+            if isinstance(self.c[-4], Token) and self.c[-4].type == Type.ELSE
+            else None
+        )
+        return IfElseNode(cond, body, else_body)
+
+
+class WhileFactory(NodeFactory):
+    def build(self):
+        cond = self.c[2]
+        # Only if index 5 is indeed a Stmt, and not '}'
+        body = self.c[5] if isinstance(self.c[5], Node) else None
+        return WhileNode(cond, body)
+
+
 class TypeFactory(NodeFactory):
     def build(self):
-        if len(self.c) == 1:
-            return self.c[0]
-        print(self.c)
-        # breakpoint()
+        match self.c:
+            case [_ as _type]:
+                return _type
+            case [Token(type=Type.LSB), _ as _type, Token(type=Type.RSB)]:
+                return ListNode(_type)
+            case [
+                Token(type=Type.LRB),
+                _ as left,
+                Token(type=Type.COMMA),
+                _ as right,
+                Token(type=Type.RRB),
+            ]:
+                return TupleNode(left, right)
+        raise Exception()
 
 
-@dataclass
 class SPLFactory(NodeFactory):
     def build(self):
         # breakpoint()
+        # print("SPLFactory", self.c)
         if len(self.c) == 1 and isinstance(self.c[0], SPLNode):
             return self.c[0]
         return SPLNode(self.c)
 
 
-@dataclass
-class BasicTypeFactory(NodeFactory):
+class FunTypeFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            case [*obj, Token(type=Type.ARROW), _ as ret_type]:
+                return FunTypeNode(self.c[:-2], ret_type)
+        raise Exception()
+
+
+class StmtFactory(NodeFactory):
+    def build(self):
+        return StmtNode(self.c[0])
+
+
+class SingleFactory(NodeFactory):
     def build(self):
         assert len(self.c) == 1  # nosec
         return self.c[0]
 
 
-@dataclass
+class ReturnFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            case [Token(type=Type.RETURN), _ as body, Token(type=Type.SEMICOLON)]:
+                return ReturnNode(body)
+            case [Token(type=Type.RETURN), Token(type=Type.SEMICOLON)]:
+                return ReturnNode(None)
+        raise Exception()
+
+
 class DefaultFactory(NodeFactory):
     def build(self):
         # print(self.c)
         # breakpoint()
+        if len(self.c) == 1:
+            return self.c[0]
         return self.c
 
 
@@ -250,6 +392,57 @@ class Node:
 
 
 @dataclass
+class CommaListNode(Node):
+    items: List[Node]
+
+
+@dataclass
+class FunCallNode(Node):
+    func: Token
+    args: Optional[CommaListNode]
+
+
+@dataclass
+class IfElseNode(Node):
+    cond: Node
+    body: Optional[StmtNode]
+    else_body: Optional[StmtNode]
+
+
+@dataclass
+class WhileNode(Node):
+    cond: Node
+    body: Optional[StmtNode]
+
+
+@dataclass
+class StmtAssNode(Node):
+    id: Token
+    exp: Node
+
+
+@dataclass
+class FieldNode(Node):
+    fields: List[Token]
+
+
+@dataclass
+class FunTypeNode(Node):
+    types: List[Node]
+    ret_type: Node
+
+
+@dataclass
+class StmtNode(Node):
+    stmt: Node
+
+
+@dataclass
+class ReturnNode(Node):
+    exp: Node
+
+
+@dataclass
 class TupleNode(Node):
     left: Node
     right: Node
@@ -261,15 +454,25 @@ class SPLNode(Node):
 
 
 @dataclass
+class FunDeclNode(Node):
+    id: Token
+    args: Optional[CommaListNode]
+    type: Optional[FunTypeNode]
+    var_decl: List[VarDeclNode]
+    stmt: List[StmtNode]
+
+
+@dataclass
 class VarDeclNode(Node):
     type: Token | Node
-    id: VariableNode
+    id: Token
     exp: Node
 
 
 @dataclass
 class VariableNode(Node):
-    id: Token  # (type=Type.ID)
+    id: Token
+    field: Optional[FieldNode] = None
 
 
 @dataclass
@@ -283,42 +486,16 @@ class Op2Node(Node):
     operator: Token
     right: Node
 
-    # def add_children(*args, **kwargs):
-
-    #     return
+    def assign_left(self, value: Token | Node):
+        if self.left is None:
+            self.left = value
+        elif isinstance(self.left, Op2Node):
+            self.left.assign_left(value)
+        else:
+            raise Exception()
 
 
 @dataclass
 class Op1Node(Node):
     operator: Token
     operand: Node
-
-
-"""
-Tree(nt=<NT.VarDecl: 2>,
-             c=[Token(text='int', type=<Type.ID: 1>),
-                Token(text='x', type=<Type.ID: 1>),
-                Token(text='=', type=<Type.EQ: '='>),
-                Tree(nt=<NT.Exp: 14>,
-                     c=[Tree(nt=<NT.Sum: 18>,
-                             c=[Token(text='1', type=<Type.DIGIT: 2>),
-                                Tree(nt=<NT.Sum': 19>,
-                                     c=[Token(text='+', type=<Type.PLUS: '+'>),
-                                        Tree(nt=<NT.Basic: 24>,
-                                             c=[Token(text='(',
-                                                      type=<Type.LRB: '('>),
-                                                Tree(nt=<NT.Fact: 20>,
-                                                     c=[Token(text='3',
-                                                              type=<Type.DIGIT: 2>),
-                                                        Tree(nt=<NT.Fact': 21>,
-                                                             c=[Token(text='*',
-                                                                      type=<Type.STAR: '*'>),
-                                                                Token(text='4',
-                                                                      type=<Type.DIGIT: 2>)])]),
-                                                Token(text=')',
-                                                      type=<Type.RRB: ')'>)])])]),
-                        Tree(nt=<NT.Eq': 15>,
-                             c=[Token(text='==', type=<Type.DEQUALS: '=='>),
-                                Token(text='12', type=<Type.DIGIT: 2>)])]),
-                Token(text=';', type=<Type.SEMICOLON: ';'>)])])
-"""

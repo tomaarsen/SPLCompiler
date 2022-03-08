@@ -3,7 +3,7 @@ from typing import List
 from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.grammar_parser import NT
 from compiler.token import Token
-from compiler.tree import Tree
+from compiler.tree import SPLNode
 from compiler.type import Type
 from compiler.util import Span, span_between_inclusive
 
@@ -22,7 +22,7 @@ class Parser:
     def __init__(self, program: str) -> None:
         self.og_program = program
 
-    def parse(self, tokens: List[Token]) -> Tree:
+    def parse(self, tokens: List[Token]) -> SPLNode:
         """
         Conceptual algorithm (bottom-up):
         Step 1: Group tokens that must co-occur, that define scopes
@@ -79,14 +79,12 @@ class Parser:
                 got if sameline else None,
             )
 
-            ErrorRaiser.raise_all()
+            ErrorRaiser.raise_all(ParserException)
 
             return tree
 
         # If there were no issues, then we convert this parse tree into a more abstract variant
         return tree
-        # ast = self.to_ast(tree)
-        # return ast
 
     def match_parentheses(self, tokens: List[Token]) -> None:
         right_to_left = {
@@ -165,22 +163,3 @@ class Parser:
             )
 
         return tokens
-
-    def to_ast(self, tree: Tree):
-        for i in range(len(tree)):
-            child = tree[i]
-            match child:
-                case Tree(nt=NT.Exp):
-                    tree.c[i] = self.to_ast_exp(child)
-
-                case Tree():
-                    tree.c[i] = self.to_ast(child)
-
-                case Token():
-                    print(child)
-        return tree
-
-    def to_ast_exp(self, tree: Tree):
-        # assert len(tree) == 2
-
-        return tree

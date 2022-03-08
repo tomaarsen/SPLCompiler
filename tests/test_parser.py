@@ -5,7 +5,7 @@ import pytest
 from compiler.error import ParserException
 from compiler.parser import Parser
 from compiler.scanner import Scanner
-from compiler.tree import Tree
+from compiler.tree import SPLNode
 from tests.test_util import open_file
 
 
@@ -76,7 +76,7 @@ def test_empty():
 
     parser = Parser("")
     tree = parser.parse(tokens)
-    assert tree == Tree(c=[])
+    assert tree == SPLNode([])
 
 
 def test_parser_error(parser_error: str):
