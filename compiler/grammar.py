@@ -1,12 +1,26 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 from compiler.grammar_parser import GRAMMAR, NT, Opt, Or, Plus, Star
 from compiler.token import Token
-from compiler.tree import Tree
 from compiler.type import Type
+
+from compiler.tree import (  # isort:skip
+    BasicFactory,
+    BasicTypeFactory,
+    DefaultFactory,
+    ExpFactory,
+    ExpPrimeFactory,
+    FunDeclFactory,
+    NodeFactory,
+    Op2Node,
+    SPLFactory,
+    Tree,
+    TypeFactory,
+    VarDeclFactory,
+)
 
 # Allow a non-terminal of this type to be raised as
 # an exception, but only if the production was at least partially matched
@@ -95,26 +109,54 @@ class Grammar:
     def reset(self, initial) -> None:
         self.i = initial
 
-    def parse(self, production=None, non_terminal: Opt[NT] = None) -> Tree:
+    def parse(
+        self, production=None, tree: NodeFactory = None, nt: Optional[NT] = None
+    ) -> Tree:
         initial = self.i
 
         if production is None:
             production = [NT.SPL]
 
-        tree = Tree()
+        trees_dict = {
+            NT.SPL: SPLFactory(),
+            NT.Exp: ExpFactory(),
+            NT["Eq'"]: ExpPrimeFactory(),
+            NT.Sum: ExpFactory(),
+            NT["Sum'"]: ExpPrimeFactory(),
+            NT.Fact: ExpFactory(),
+            NT["Fact'"]: ExpPrimeFactory(),
+            NT.Leq: ExpFactory(),
+            NT["Leq'"]: ExpPrimeFactory(),
+            NT.Unary: ExpFactory(),
+            NT.Colon: ExpFactory(),  # TODO: Fix this
+            NT.Basic: BasicFactory(),
+            NT.VarDecl: VarDeclFactory(),
+            NT.FunDecl: FunDeclFactory(),
+            NT.Type: TypeFactory(),
+            NT.BasicType: BasicTypeFactory(),
+        }
+
+        # print(nt, production)
+        # if nt:
+        # tree = trees_dict[nt]
+        tree = trees_dict.get(nt, DefaultFactory())
+        # else:
+        #     tree = Tree(nt)
+
+        # tree = trees_dict[nt]
         for i, segment in enumerate(production):
             for error in self.potential_errors:
                 if error.active:
                     if error.end < self.i:
                         error.end = self.i
-                    if error.nt == non_terminal:
+                    if error.nt == nt:
                         error.remaining = production[i:]
 
             match segment:
                 case Or():
                     for alternative in segment.symbols:
                         if result := self.parse(alternative):
-                            tree.add_child(result)
+                            tree.add_children(result)
                             break
                         self.reset(initial)
                     else:
@@ -133,11 +175,11 @@ class Grammar:
 
                 case Opt():
                     if match := self.parse(segment.symbols):
-                        tree.add_child(match)
+                        tree.add_children(match)
 
                 case Type():
                     if match := self.match_type(segment):
-                        tree.add_child(match)
+                        tree.add_children(match)
                     else:
                         self.reset(initial)
                         return None
@@ -147,8 +189,8 @@ class Grammar:
                         error = ParseErrorSpan(segment, self.i, self.i, active=True)
                         self.potential_errors.append(error)
 
-                    if match := self.parse(self.grammar[segment], non_terminal=segment):
-                        tree.add_child(match)
+                    if match := self.parse(self.grammar[segment], nt=segment):
+                        tree.add_children(match)
                         if segment in ALLOW:
                             error.active = False
                     else:
@@ -161,8 +203,15 @@ class Grammar:
                 case _:
                     raise Exception(segment)
 
+        # print(production)
+        # print(tree)
+
+        # tree = tree.build()
+        if isinstance(tree, NodeFactory):
+            tree = tree.build()
+
         # If the tree only has one child, return the child instead
-        if len(tree) == 1:
+        elif len(tree) == 1:
             return tree[0]
 
         return tree

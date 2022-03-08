@@ -1,0 +1,66 @@
+//int x = (((3)));
+int x = (1 + 3) * 4 == 12;
+int x = 1 + (3 * 4) == 12;
+//int x = 3;
+/*
+   3
+* 
+   4
+
+3
+   *
+   4 
+
+----------------
+       3 
+    +
+       1
+* 
+   4
+
+
+Op2Node
+Op1Node
+TupleNode
+ListNode
+
+FunDeclNode(
+    id:
+    fargs:
+    funtype:
+    body:
+)
+*/
+
+SPLNode(body=[[VarDeclNode(type=Token(text='int', type=<Type.ID: 1>),
+                           id=Token(text='x', type=<Type.ID: 1>),
+                           exp=Op2Node(left=Op2Node(left=Op2Node(left=Token(text='1',
+                                                                            type=<Type.DIGIT: 2>),
+                                                                 operator=Token(text='+',
+                                                                                type=<Type.PLUS: '+'>),
+                                                                 right=Token(text='3',
+                                                                             type=<Type.DIGIT: 2>)),
+                                                    operator=Token(text='*',
+                                                                   type=<Type.STAR: '*'>),
+                                                    right=Token(text='4',
+                                                                type=<Type.DIGIT: 2>)),
+                                       operator=Token(text='==',
+                                                      type=<Type.DEQUALS: '=='>),
+                                       right=Token(text='12',
+                                                   type=<Type.DIGIT: 2>)))],
+              [VarDeclNode(type=Token(text='int', type=<Type.ID: 1>),
+                           id=Token(text='x', type=<Type.ID: 1>),
+                           exp=Op2Node(left=Op2Node(left=Token(text='1',
+                                                               type=<Type.DIGIT: 2>),
+                                                    operator=Token(text='+',
+                                                                   type=<Type.PLUS: '+'>),
+                                                    right=Op2Node(left=Token(text='3',
+                                                                             type=<Type.DIGIT: 2>),
+                                                                  operator=Token(text='*',
+                                                                                 type=<Type.STAR: '*'>),
+                                                                  right=Token(text='4',
+                                                                              type=<Type.DIGIT: 2>))),
+                                       operator=Token(text='==',
+                                                      type=<Type.DEQUALS: '=='>),
+                                       right=Token(text='12',
+                                                   type=<Type.DIGIT: 2>)))]])
