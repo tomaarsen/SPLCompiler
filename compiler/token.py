@@ -15,3 +15,8 @@ class Token:
     def __post_init__(self) -> None:
         if not isinstance(self.type, Type):
             self.type = Type.to_type(self.type)
+
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, Token):
+            return False
+        return self.text == __o.text and self.type == __o.type

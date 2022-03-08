@@ -22,18 +22,18 @@ IfElse    ::= 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ]
 While     ::= 'while' '(' Exp ')' '{' Stmt* '}'
 Return    ::= 'return' [ Exp ] ';'
 Exp       ::= And [ Or' ]
-Or'       ::= ( '||' ) And [ Or' ]
+Or'       ::= '||' And [ Or' ]
 And       ::= Eq [ And' ]
-And'      ::= ( '&&' ) Eq [ And' ]
+And'      ::= '&&' Eq [ And' ]
 Eq        ::= Leq [ Eq' ]
 Eq'       ::= ( '==' | '!=' ) Leq [ Eq' ]
-Leq       ::= Sum [ Leq' ]
-Leq'      ::= ( '<' | '>' | '<=' | '>=' ) Sum [ Leq' ]
+Leq       ::= Colon [ Leq' ]
+Leq'      ::= ( '<' | '>' | '<=' | '>=' ) Colon [ Leq' ]
+Colon     ::= Sum [ ':' Colon ]
 Sum       ::= Fact [ Sum' ]
 Sum'      ::= ( '+' | '-' ) Fact [ Sum' ]
-Fact      ::= Colon [ Fact' ]
-Fact'     ::= ( '*' | '/' | '%' ) Colon [ Fact' ]
-Colon     ::= Unary [ ':' Colon ]
+Fact      ::= Unary [ Fact' ]
+Fact'     ::= ( '*' | '/' | '%' ) Unary [ Fact' ]
 Unary     ::= ( ( '!' | '-' ) Unary ) | Basic
 Basic     ::= ( '(' Exp [ ',' Exp ] ')' ) | 'int' | 'char' | 'False' | 'True' | FunCall | ( '[' ']' ) | ( 'id' [ Field ] )
 Field     ::= ( '.hd' | '.tl' | '.fst' | '.snd' )+

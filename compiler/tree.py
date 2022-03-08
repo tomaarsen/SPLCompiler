@@ -384,22 +384,109 @@ class DefaultFactory(NodeFactory):
 
 #         return Op2Node(left, op, right)
 
+#     for node in nodes:
+#         token = yield_token(node)
+#         print(token)
+#         yield token
+
+
+def yield_tokens(nodes: List[Node | Token]):
+    match nodes:
+        case list():
+            for item in nodes:
+                yield from yield_token(item)
+
+        case _:
+            yield from yield_token(nodes)
+
+
+def yield_token(node: Node | Token):
+    match node:
+        case Node():
+            yield from node.yield_tokens()
+
+        case Token():
+            yield node
+
 
 class Node:
-    # def add_children(*args, **kwargs):
-    #     raise NotImplementedError()
-    pass
+    def __str__(self) -> str:
+        depth = 0
+        program = ""
+        last_token = None
+
+        for token in self.yield_tokens():
+            # Modify depth before this token
+            if token.type == Type.RCB:  # }
+                depth -= 1
+
+            # Ensure indentation is correct
+            if program and program[-1] == "\n":
+                program += " " * (SPACES_PER_INDENT * depth)
+
+            # Modify depth after this token
+            if token.type == Type.LCB:  # {
+                depth += 1
+
+            # Remove the last space if this is a tightly bound character, e.g. ';'
+            # OR if `token` is the `(` after an `id` (i.e. a function call)
+            if (
+                program
+                and program[-1] == " "
+                and (
+                    token.type in RIGHT_ATTACHED_TOKENS
+                    or (
+                        last_token
+                        and last_token.type == Type.ID
+                        and token.type == Type.LRB
+                    )
+                )
+            ):
+                program = program[:-1]
+
+            # Print this token
+            program += token.text
+
+            # Print space that follows this token if applicable
+            if token.type not in LEFT_ATTACHED_TOKENS:
+                program += " "
+
+            # Print a newline if applicable
+            if token.type in {Type.RCB, Type.LCB, Type.SEMICOLON}:
+                program += "\n"
+
+            last_token = token
+
+        return program.strip()
+
+    def yield_tokens(self) -> str:
+        for _id, field in self.__dict__.items():
+            if not _id.startswith("_"):
+                yield from yield_tokens(field)
 
 
 @dataclass
 class CommaListNode(Node):
     items: List[Node]
 
+    def yield_tokens(self) -> str:
+        yield from yield_token(self.items[0])
+        for token in self.items[1:]:
+            yield Token(",", Type.COMMA)
+            yield from yield_token(token)
+
 
 @dataclass
 class FunCallNode(Node):
     func: Token
     args: Optional[CommaListNode]
+
+    def yield_tokens(self) -> str:
+        yield self.func
+        yield Token("(", Type.LRB)
+        if self.args:
+            yield from self.args.yield_tokens()
+        yield Token(")", Type.RRB)
 
 
 @dataclass
@@ -408,17 +495,48 @@ class IfElseNode(Node):
     body: Optional[StmtNode]
     else_body: Optional[StmtNode]
 
+    def yield_tokens(self) -> str:
+        yield Token("if", Type.IF)
+        yield Token("(", Type.LRB)
+        yield from yield_tokens(self.cond)
+        yield Token(")", Type.RRB)
+        yield Token("{", Type.LCB)
+        if self.body:
+            yield from yield_tokens(self.body)
+        yield Token("}", Type.RCB)
+        if self.else_body:
+            yield Token("else", Type.ELSE)
+            yield Token("{", Type.LCB)
+            yield from yield_tokens(self.else_body)
+            yield Token("}", Type.RCB)
+
 
 @dataclass
 class WhileNode(Node):
     cond: Node
     body: Optional[StmtNode]
 
+    def yield_tokens(self) -> str:
+        yield Token("while", Type.WHILE)
+        yield Token("(", Type.LRB)
+        yield from yield_tokens(self.cond)
+        yield Token(")", Type.RRB)
+        yield Token("{", Type.LCB)
+        if self.body:
+            yield from yield_tokens(self.body)
+        yield Token("}", Type.RCB)
+
 
 @dataclass
 class StmtAssNode(Node):
-    id: Token
+    id: VariableNode
     exp: Node
+
+    def yield_tokens(self) -> str:
+        yield from yield_tokens(self.id)
+        yield Token("=", Type.EQ)
+        yield from yield_tokens(self.exp)
+        yield Token(";", Type.SEMICOLON)
 
 
 @dataclass
@@ -431,21 +549,44 @@ class FunTypeNode(Node):
     types: List[Node]
     ret_type: Node
 
+    def yield_tokens(self) -> str:
+        yield from yield_tokens(self.types)
+        yield Token("->", Type.ARROW)
+        yield from yield_tokens(self.ret_type)
+
 
 @dataclass
 class StmtNode(Node):
     stmt: Node
 
+    def yield_tokens(self) -> str:
+        yield from yield_tokens(self.stmt)
+        if isinstance(self.stmt, FunCallNode):
+            yield Token(";", Type.SEMICOLON)
+
 
 @dataclass
 class ReturnNode(Node):
-    exp: Node
+    exp: Optional[Node | Token]
+
+    def yield_tokens(self) -> str:
+        yield Token("return", Type.RETURN)
+        if self.exp:
+            yield from yield_tokens(self.exp)
+        yield Token(";", Type.SEMICOLON)
 
 
 @dataclass
 class TupleNode(Node):
     left: Node
     right: Node
+
+    def yield_tokens(self) -> str:
+        yield Token("(", Type.LRB)
+        yield from yield_tokens(self.left)
+        yield Token(",", Type.COMMA)
+        yield from yield_tokens(self.right)
+        yield Token(")", Type.RRB)
 
 
 @dataclass
@@ -461,12 +602,33 @@ class FunDeclNode(Node):
     var_decl: List[VarDeclNode]
     stmt: List[StmtNode]
 
+    def yield_tokens(self) -> str:
+        yield from yield_tokens(self.id)
+        yield Token("(", Type.LRB)
+        if self.args:
+            yield from yield_tokens(self.args)
+        yield Token(")", Type.RRB)
+        if self.type:
+            yield Token("::", Type.DOUBLE_COLON)
+            yield from yield_tokens(self.type)
+        yield Token("{", Type.LCB)
+        yield from yield_tokens(self.var_decl)
+        yield from yield_tokens(self.stmt)
+        yield Token("}", Type.RCB)
+
 
 @dataclass
 class VarDeclNode(Node):
     type: Token | Node
     id: Token
     exp: Node
+
+    def yield_tokens(self) -> str:
+        yield from yield_tokens(self.type)
+        yield from yield_tokens(self.id)
+        yield Token("=", Type.EQ)
+        yield from yield_tokens(self.exp)
+        yield Token(";", Type.SEMICOLON)
 
 
 @dataclass
@@ -478,6 +640,11 @@ class VariableNode(Node):
 @dataclass
 class ListNode(Node):
     body: Optional[Node]
+
+    def yield_tokens(self) -> str:
+        yield Token("[", Type.LSB)
+        yield from yield_tokens(self.body)
+        yield Token("]", Type.RSB)
 
 
 @dataclass
@@ -493,6 +660,14 @@ class Op2Node(Node):
             self.left.assign_left(value)
         else:
             raise Exception()
+
+    def yield_tokens(self) -> str:
+        # if self.operator:
+        # yield from super().yield_tokens()
+        # else:
+        yield Token("(", Type.LRB)
+        yield from super().yield_tokens()
+        yield Token(")", Type.RRB)
 
 
 @dataclass
