@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from platform import node
 from pprint import pprint
-from typing import List, Optional
+from typing import Iterator, List, Optional
 
 from compiler.grammar_parser import NT
 from compiler.token import Token
 from compiler.type import Type
+from compiler.util import operator_precedence, right_associative
 
 # Optional TODO: Type.MINUS *sometimes* left attaches (e.g. -12)
 LEFT_ATTACHED_TOKENS = {
@@ -107,7 +108,7 @@ class Tree:
 
         return program.strip()
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         for child in self.c:
             match child:
                 case Token():
@@ -295,22 +296,35 @@ class IfElseFactory(NodeFactory):
     def build(self):
         # 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ]
         cond = self.c[2]
-        # Only if index 5 is indeed a Stmt, and not '}'
-        body = self.c[5] if isinstance(self.c[5], Node) else None
-        # Only if 4 from the last is "else", then there must be an else statmenet
-        else_body = (
-            self.c[-2]
-            if isinstance(self.c[-4], Token) and self.c[-4].type == Type.ELSE
-            else None
-        )
+        body = []
+        for i in range(5, len(self.c)):
+            node = self.c[i]
+            if isinstance(node, StmtNode):
+                body.append(node)
+            else:
+                break
+        else_body = []
+        match self.c[i + 1 :]:
+            case [
+                Token(type=Type.ELSE),
+                Token(type=Type.LCB),
+                *else_body,
+                Token(type=Type.RCB),
+            ]:
+                pass
+
         return IfElseNode(cond, body, else_body)
 
 
 class WhileFactory(NodeFactory):
     def build(self):
         cond = self.c[2]
-        # Only if index 5 is indeed a Stmt, and not '}'
-        body = self.c[5] if isinstance(self.c[5], Node) else None
+        body = []
+        for node in self.c[5:]:
+            if isinstance(node, StmtNode):
+                body.append(node)
+            else:
+                break
         return WhileNode(cond, body)
 
 
@@ -390,20 +404,20 @@ class DefaultFactory(NodeFactory):
 #         yield token
 
 
-def yield_tokens(nodes: List[Node | Token]):
+def yield_tokens(nodes: List[Node | Token], **kwargs):
     match nodes:
         case list():
             for item in nodes:
-                yield from yield_token(item)
+                yield from yield_token(item, **kwargs)
 
         case _:
-            yield from yield_token(nodes)
+            yield from yield_token(nodes, **kwargs)
 
 
-def yield_token(node: Node | Token):
+def yield_token(node: Node | Token, **kwargs):
     match node:
         case Node():
-            yield from node.yield_tokens()
+            yield from node.yield_tokens(**kwargs)
 
         case Token():
             yield node
@@ -459,7 +473,7 @@ class Node:
 
         return program.strip()
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         for _id, field in self.__dict__.items():
             if not _id.startswith("_"):
                 yield from yield_tokens(field)
@@ -469,7 +483,7 @@ class Node:
 class CommaListNode(Node):
     items: List[Node]
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield from yield_token(self.items[0])
         for token in self.items[1:]:
             yield Token(",", Type.COMMA)
@@ -481,7 +495,7 @@ class FunCallNode(Node):
     func: Token
     args: Optional[CommaListNode]
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield self.func
         yield Token("(", Type.LRB)
         if self.args:
@@ -492,17 +506,16 @@ class FunCallNode(Node):
 @dataclass
 class IfElseNode(Node):
     cond: Node
-    body: Optional[StmtNode]
-    else_body: Optional[StmtNode]
+    body: List[StmtNode]
+    else_body: List[StmtNode]
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield Token("if", Type.IF)
         yield Token("(", Type.LRB)
         yield from yield_tokens(self.cond)
         yield Token(")", Type.RRB)
         yield Token("{", Type.LCB)
-        if self.body:
-            yield from yield_tokens(self.body)
+        yield from yield_tokens(self.body)
         yield Token("}", Type.RCB)
         if self.else_body:
             yield Token("else", Type.ELSE)
@@ -514,16 +527,15 @@ class IfElseNode(Node):
 @dataclass
 class WhileNode(Node):
     cond: Node
-    body: Optional[StmtNode]
+    body: List[StmtNode]
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield Token("while", Type.WHILE)
         yield Token("(", Type.LRB)
         yield from yield_tokens(self.cond)
         yield Token(")", Type.RRB)
         yield Token("{", Type.LCB)
-        if self.body:
-            yield from yield_tokens(self.body)
+        yield from yield_tokens(self.body)
         yield Token("}", Type.RCB)
 
 
@@ -532,7 +544,7 @@ class StmtAssNode(Node):
     id: VariableNode
     exp: Node
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield from yield_tokens(self.id)
         yield Token("=", Type.EQ)
         yield from yield_tokens(self.exp)
@@ -549,7 +561,7 @@ class FunTypeNode(Node):
     types: List[Node]
     ret_type: Node
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield from yield_tokens(self.types)
         yield Token("->", Type.ARROW)
         yield from yield_tokens(self.ret_type)
@@ -559,7 +571,7 @@ class FunTypeNode(Node):
 class StmtNode(Node):
     stmt: Node
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield from yield_tokens(self.stmt)
         if isinstance(self.stmt, FunCallNode):
             yield Token(";", Type.SEMICOLON)
@@ -569,7 +581,7 @@ class StmtNode(Node):
 class ReturnNode(Node):
     exp: Optional[Node | Token]
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield Token("return", Type.RETURN)
         if self.exp:
             yield from yield_tokens(self.exp)
@@ -581,7 +593,7 @@ class TupleNode(Node):
     left: Node
     right: Node
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield Token("(", Type.LRB)
         yield from yield_tokens(self.left)
         yield Token(",", Type.COMMA)
@@ -602,7 +614,7 @@ class FunDeclNode(Node):
     var_decl: List[VarDeclNode]
     stmt: List[StmtNode]
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield from yield_tokens(self.id)
         yield Token("(", Type.LRB)
         if self.args:
@@ -623,7 +635,7 @@ class VarDeclNode(Node):
     id: Token
     exp: Node
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield from yield_tokens(self.type)
         yield from yield_tokens(self.id)
         yield Token("=", Type.EQ)
@@ -641,7 +653,7 @@ class VariableNode(Node):
 class ListNode(Node):
     body: Optional[Node]
 
-    def yield_tokens(self) -> str:
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
         yield Token("[", Type.LSB)
         yield from yield_tokens(self.body)
         yield Token("]", Type.RSB)
@@ -661,16 +673,35 @@ class Op2Node(Node):
         else:
             raise Exception()
 
-    def yield_tokens(self) -> str:
-        # if self.operator:
-        # yield from super().yield_tokens()
-        # else:
-        yield Token("(", Type.LRB)
-        yield from super().yield_tokens()
-        yield Token(")", Type.RRB)
+    def yield_tokens(self, previous_precedence: int = None) -> str:
+        precedence = operator_precedence[self.operator.type]
+        if previous_precedence and (
+            precedence > previous_precedence
+            and self.operator.type not in right_associative
+            or precedence < previous_precedence
+            and self.operator.type in right_associative
+        ):
+            yield Token("(", Type.LRB)
+            yield from yield_tokens(self.left, previous_precedence=precedence)
+            yield self.operator
+            yield from yield_tokens(self.right, previous_precedence=precedence)
+            yield Token(")", Type.RRB)
+        else:
+            yield from yield_tokens(self.left, previous_precedence=precedence)
+            yield self.operator
+            yield from yield_tokens(self.right, previous_precedence=precedence)
 
 
 @dataclass
 class Op1Node(Node):
     operator: Token
     operand: Node
+
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
+        if isinstance(self.operand, Op2Node):
+            yield self.operator
+            yield Token("(", Type.LRB)
+            yield from yield_tokens(self.operand)
+            yield Token(")", Type.RRB)
+        else:
+            yield from super().yield_tokens()

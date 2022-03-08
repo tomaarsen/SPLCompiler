@@ -48,7 +48,7 @@ def span_between_inclusive(span_one: Span, span_two: Span) -> Span:
 operator_precedence = {
     Type.OR: 15,
     Type.AND: 14,
-    Type.EQ: 10,
+    Type.DEQUALS: 10,
     Type.NEQ: 10,
     Type.LT: 9,
     Type.GT: 9,
@@ -61,3 +61,5 @@ operator_precedence = {
     Type.SLASH: 5,
     Type.PERCENT: 5,
 }
+
+right_associative = (Type.COLON,)
