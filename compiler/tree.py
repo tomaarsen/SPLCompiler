@@ -9,7 +9,7 @@ from compiler.grammar_parser import NT
 from compiler.token import Token
 from compiler.type import Type
 
-# TODO: Type.MINUS *sometimes* left attaches (e.g. -12)
+# Optional TODO: Type.MINUS *sometimes* left attaches (e.g. -12)
 LEFT_ATTACHED_TOKENS = {
     Type.LRB,  # (
     Type.LSB,  # [
@@ -57,7 +57,7 @@ class Tree:
     def __bool__(self) -> bool:
         return True
 
-    def __str__(self):
+    def __str__(self) -> str:
         depth = 0
         program = ""
         last_token = None

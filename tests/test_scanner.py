@@ -1,4 +1,7 @@
+import pytest
+
 from compiler import Scanner, Token, Type
+from compiler.error import ScannerException
 from tests.test_util import open_file
 
 
@@ -47,3 +50,86 @@ def test_scan(file: str):
     # unless the program itself is empty or just whitespace.
     # Specifically, ensure no crashing.
     assert len(tokens) > 1 or not program.strip()
+
+
+def test_DanglingMultiLineCommentError_1():
+    program: str = open_file(
+        "data/custom/scannerError/DanglingMultiLineCommentError_1.spl"
+    )
+    scanner = Scanner(program)
+
+    with pytest.raises(ScannerException) as excinfo:
+        scanner.scan()
+    assert "DanglingMultiLineCommentError" in str(excinfo) and "-> 5. " in str(excinfo)
+
+
+def test_DanglingMultiLineCommentError_2():
+    program: str = open_file(
+        "data/custom/scannerError/DanglingMultiLineCommentError_2.spl"
+    )
+    scanner = Scanner(program)
+
+    with pytest.raises(ScannerException) as excinfo:
+        scanner.scan()
+    assert "DanglingMultiLineCommentError" in str(excinfo) and "-> 5. " in str(excinfo)
+
+
+def test_EmptyQuoteError():
+    program: str = open_file("data/custom/scannerError/EmptyQuoteError.spl")
+    scanner = Scanner(program)
+
+    with pytest.raises(ScannerException) as excinfo:
+        scanner.scan()
+    assert "EmptyQuoteError" in str(excinfo) and "-> 6. " in str(excinfo)
+
+
+def test_LonelyQuoteError_1():
+    program: str = open_file("data/custom/scannerError/LonelyQuoteError_1.spl")
+    scanner = Scanner(program)
+
+    with pytest.raises(ScannerException) as excinfo:
+        scanner.scan()
+    assert "LonelyQuoteError" in str(excinfo) and "-> 6. " in str(excinfo)
+
+
+def test_LonelyQuoteError_2():
+    program: str = open_file("data/custom/scannerError/LonelyQuoteError_2.spl")
+    scanner = Scanner(program)
+
+    with pytest.raises(ScannerException) as excinfo:
+        scanner.scan()
+    assert "LonelyQuoteError" in str(excinfo) and "-> 6. " in str(excinfo)
+
+
+def test_UnexpectedCharacterError_1():
+    program: str = open_file("data/custom/scannerError/UnexpectedCharacterError_1.spl")
+    scanner = Scanner(program)
+
+    with pytest.raises(ScannerException) as excinfo:
+        scanner.scan()
+    assert (
+        "UnexpectedCharacterError" in str(excinfo)
+        and "'~'" in str(excinfo)
+        and "-> 4. " in str(excinfo)
+    )
+
+
+def test_UnexpectedCharacterError_2():
+    program: str = open_file("data/custom/scannerError/UnexpectedCharacterError_2.spl")
+    scanner = Scanner(program)
+
+    with pytest.raises(ScannerException) as excinfo:
+        scanner.scan()
+    assert (
+        "UnexpectedCharacterError" in str(excinfo)
+        and "'~~'" in str(excinfo)
+        and "-> 4. " in str(excinfo)
+    )
+
+
+def test_char():
+    program: str = open_file("data/custom/tokens.spl")
+
+    scanner = Scanner(program)
+    tokens = scanner.scan()
+    assert tokens

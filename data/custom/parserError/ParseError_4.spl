@@ -1,0 +1,8 @@
+// Empty function argument
+xor(a, b) :: Bool Bool -> Bool {
+	return (a || b) && !(a && b);
+}
+
+implies(a, ,b) :: Bool Bool -> Bool {
+	return a + b;
+}

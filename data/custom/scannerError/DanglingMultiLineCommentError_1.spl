@@ -1,0 +1,5 @@
+xor(a, b) :: Bool Bool -> Bool {
+	return (a || b) && !(a && b);
+}
+
+/* test test * /

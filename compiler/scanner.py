@@ -1,11 +1,7 @@
-import queue
 import re
-from multiprocessing.sharedctypes import Value
 from typing import List
 
-from icecream import ic
-
-from compiler.error import EmptyQuoteError
+from compiler.error import EmptyQuoteError, ScannerException
 from compiler.token import Token
 from compiler.util import Span
 
@@ -77,7 +73,7 @@ class Scanner:
                 (?P<VAR>\bvar\b)|
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
-                (?P<CHARACTER>)\'(?:\\b|\\f|\\n|\\r|\\t|\\v|[ -~])\'| # TODO: verify
+                (?P<CHARACTER>)\'(?:\\b|\\f|\\n|\\r|\\t|\\v|[ -~])\'|
                 (?P<QUOTE_EMPTY_ERROR>\'\')|
                 (?P<QUOTE_LONELY_ERROR>\')|
                 (?P<SPACE>[\ \r\t\f\v\n])|
@@ -86,11 +82,9 @@ class Scanner:
             flags=re.X,
         )
 
-    def scan(self):
+    def scan(self) -> list[Token]:
         # Remove comments first
         self.preprocessed = self.remove_comments(self.og_program)
-
-        # TODO: Verify that removing the \n with splitlines() doesn't cause issues
         lines = self.preprocessed.splitlines()
 
         tokens = [
@@ -100,7 +94,7 @@ class Scanner:
         ]
 
         # Raise all errors, if any, that may have accumulated during `scan_line`.
-        ErrorRaiser.raise_all()
+        ErrorRaiser.raise_all(ScannerException)
         return tokens
 
     def scan_line(self, line: str, line_no) -> List[Token]:
@@ -126,7 +120,7 @@ class Scanner:
             tokens.append(Token(match[0], match.lastgroup, span))
         return tokens
 
-    def remove_comments(self, program: str):
+    def remove_comments(self, program: str) -> str:
         poi_pattern = re.compile(r"//|/\*|\*/|\n")
         comment_spans = []
         start_line = -1
