@@ -1,5 +1,19 @@
+var c = 5;
+
+swapCopy(a, b){
+    return (b, (a, b));
+}
+
 xor(a, b) {
-	return a : b;
+	if (a) {
+        if (a) {
+            return b;
+        } else {
+            return a;
+        }
+    } else {
+        return a;
+    }
 }
 
 implies(a, b) :: a Int -> c {

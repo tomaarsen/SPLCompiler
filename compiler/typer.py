@@ -122,6 +122,25 @@ class Typer:
                 # breakpoint()
                 return trans
 
+            case TupleNode():
+                left_fresh = PolymorphicTypeNode.fresh()
+                right_fresh = PolymorphicTypeNode.fresh()
+
+                # Left side recursion
+                trans = self.type_node(tree.left, context, left_fresh)
+                context = self.apply_trans_context(trans, context)
+
+                # Right side recursion
+                trans += self.type_node(tree.right, context, right_fresh)
+
+                # Unification with expected type
+                trans += self.unify(
+                    self.apply_trans(exp_type, trans),
+                    self.apply_trans(TupleNode(left_fresh, right_fresh), trans),
+                )
+
+                return trans
+
             case Op2Node():
                 if tree.operator.type == Type.COLON:
                     left_exp_type = PolymorphicTypeNode.fresh()
@@ -206,7 +225,7 @@ class Typer:
 
                 transformation_then = []
                 for expression in then_branch:
-                    trans = self.type_node(expression, {**context}, original_sigma)
+                    trans = self.type_node(expression, context, original_sigma)
                     context = self.apply_trans_context(trans, context)
                     transformation_then += trans
 
@@ -215,7 +234,7 @@ class Typer:
 
                 transformation_else = []
                 for expression in else_branch:
-                    trans = self.type_node(expression, {**context}, sigma_else)
+                    trans = self.type_node(expression, context, sigma_else)
                     context_else = self.apply_trans_context(trans, context_else)
                     transformation_else += trans
 
