@@ -148,6 +148,16 @@ class Typer:
 
                 return trans
 
+            case ListNode():
+                if tree.body:
+                    # body_exp_type = PolymorphicTypeNode.fresh()
+                    # trans = self.type_node(tree.body, context, body_exp_type)
+                    # return self.unify(exp_type, ListNode(self.apply_trans(body_exp_type, trans)))
+                    # breakpoint()
+                    raise Exception("List body should not be filled at this stage")
+                else:
+                    return self.unify(exp_type, ListNode(PolymorphicTypeNode.fresh()))
+
             case Op2Node():
                 if tree.operator.type == Type.COLON:
                     left_exp_type = PolymorphicTypeNode.fresh()
@@ -188,13 +198,16 @@ class Typer:
                 else:
                     raise Exception("Incorrect Op2Node")
 
-                trans_left = self.type_node(tree.left, context, left_exp_type)
-                context = self.apply_trans_context(trans_left, context)
-                trans_right = self.type_node(tree.right, context, right_exp_type)
-                trans_op = self.unify(
-                    self.apply_trans(exp_type, trans_right), output_exp_type
+                trans = self.type_node(tree.left, context, left_exp_type)
+                context = self.apply_trans_context(trans, context)
+                trans += self.type_node(
+                    tree.right, context, self.apply_trans(right_exp_type, trans)
                 )
-                return trans_left + trans_right + trans_op
+                trans += self.unify(
+                    self.apply_trans(exp_type, trans),
+                    self.apply_trans(output_exp_type, trans),
+                )
+                return trans
 
             case VarDeclNode():
 
