@@ -11,6 +11,7 @@ from compiler.tree import (  # isort:skip
     CharTypeNode,
     FunDeclNode,
     FunTypeNode,
+    IfElseNode,
     IntTypeNode,
     ListNode,
     Node,
@@ -164,6 +165,37 @@ class Typer:
                     self.apply_trans(exp_type, trans_right), output_exp_type
                 )
                 return trans_left + trans_right + trans_op
+
+            case IfElseNode():
+                condition = tree.cond
+                then_branch = tree.body
+                else_branch = tree.else_body
+
+                original_sigma = exp_type
+                original_context = context.copy()
+
+                transformation_then = []
+                for expression in then_branch:
+                    trans = self.type_node(expression, {**context}, original_sigma)
+                    context = self.apply_trans_context(trans, context)
+                    transformation_then += trans
+
+                context_else = context
+                sigma_else = self.apply_trans(original_sigma, transformation_then)
+
+                transformation_else = []
+                for expression in else_branch:
+                    trans = self.type_node(expression, {**context}, sigma_else)
+                    context_else = self.apply_trans_context(trans, context_else)
+                    transformation_else += trans
+
+                trans_context = self.apply_trans_context(
+                    transformation_then + transformation_else, original_context
+                )
+                trans_condition = self.type_node(
+                    condition, trans_context, BoolTypeNode(None)
+                )
+                return transformation_then + transformation_else + trans_condition
 
         raise Exception("Node had no handler")
         # breakpoint()
