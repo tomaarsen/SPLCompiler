@@ -64,7 +64,7 @@ class Typer:
             case SPLNode():
                 transformations = []
                 for expression in tree.body:
-                    trans = self.type_node(expression, {**context}, get_fresh_type())
+                    trans = self.type_node(expression, context, get_fresh_type())
                     context = self.apply_trans_context(trans, context)
                     transformations += trans
                 return transformations
@@ -72,48 +72,52 @@ class Typer:
             case FunDeclNode():
                 # fresh_types = [get_fresh_type() for _ in tree.args.items]
                 # context.extend(list(zip(tree.args.items, fresh_types)))
+                context_copy = context.copy()
                 if tree.type:
                     if len(tree.args.items) != len(tree.type.types):
                         raise Exception("Wrong number of arguments")
 
                     for token, _type in zip(tree.args.items, tree.type.types):
-                        context[token.text] = _type
+                        context_copy[token.text] = _type
 
                     ret_type = tree.type.ret_type
-                    context[tree.id.text] = tree.type
+                    context_copy[tree.id.text] = tree.type
 
                 else:
                     fresh_types = []
                     for token in tree.args.items:
-                        if token.text in context:
+                        if token.text in context_copy:
                             raise Exception("Redefined variable")
                         ft = get_fresh_type()
-                        context[token.text] = ft
+                        context_copy[token.text] = ft
                         fresh_types.append(ft)
 
                     ret_type = get_fresh_type()
-                    context[tree.id.text] = FunTypeNode(fresh_types, ret_type)
+                    context_copy[tree.id.text] = FunTypeNode(fresh_types, ret_type)
 
-                # TODO: Fill return type
                 transformations = []
                 for stmt in tree.stmt:
-                    trans = self.type_node(stmt, {**context}, ret_type)
-                    context = self.apply_trans_context(trans, context)
+                    trans = self.type_node(stmt, context_copy, ret_type)
+                    context_copy = self.apply_trans_context(trans, context_copy)
                     transformations += trans
 
-                tree.type = context[tree.id.text]
+                # Place in tree
+                tree.type = context_copy[tree.id.text]
 
                 transformations += self.unify(
                     self.apply_trans(exp_type, transformations), tree.type
                 )
 
+                # Place in global context
+                context[tree.id.text] = context_copy[tree.id.text]
+
                 return transformations
 
             case StmtNode():
-                return self.type_node(tree.stmt, {**context}, exp_type)
+                return self.type_node(tree.stmt, context, exp_type)
 
             case ReturnNode():
-                trans = self.type_node(tree.exp, {**context}, exp_type)
+                trans = self.type_node(tree.exp, context, exp_type)
                 # breakpoint()
                 return trans
 
@@ -165,8 +169,34 @@ class Typer:
                 )
                 return trans_left + trans_right + trans_op
 
-        raise Exception("Node had no handler")
+            case VarDeclNode():
+
+                if tree.id.text in context:
+                    raise Exception("Redefinition of global variable is not allowed")
+
+                match tree.type:
+                    case Token(type=Type.VAR):
+                        expr_exp_type = PolymorphicTypeNode.fresh()
+                    case Node():
+                        expr_exp_type = tree.type
+                    case None:
+                        expr_exp_type = PolymorphicTypeNode.fresh()
+                    case _:
+                        raise Exception("Incorrect VarDecl type")
+
+                trans = self.type_node(tree.exp, context, expr_exp_type)
+
+                # Place in global context
+                context[tree.id.text] = expr_exp_type
+                context = self.apply_trans_context(trans, context)
+
+                # Place in tree
+                tree.type = context[tree.id.text]
+
+                return trans
+
         # breakpoint()
+        raise Exception("Node had no handler")
 
     def apply_trans(
         self, node: TypeNode, trans: List[Tuple[PolymorphicTypeNode, TypeNode]]
