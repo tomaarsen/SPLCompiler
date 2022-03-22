@@ -748,6 +748,7 @@ class Op2Node(Node):
             raise Exception()
 
     def yield_tokens(self, previous_precedence: int = None) -> str:
+        # TODO: Left-associative brackets for colon operator, e.g. ([]:[]):[]
         precedence = operator_precedence[self.operator.type]
         if previous_precedence and (
             precedence > previous_precedence

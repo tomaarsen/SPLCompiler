@@ -84,6 +84,7 @@ class Parser:
             return tree
 
         # If there were no issues, then we convert this parse tree into a more abstract variant
+        # TODO: Prune parser to remove statements after `return`, and throw warning if there are any
         return tree
 
     def match_parentheses(self, tokens: List[Token]) -> None:
