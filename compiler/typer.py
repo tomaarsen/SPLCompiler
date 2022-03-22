@@ -9,6 +9,8 @@ from compiler.type import Type
 from compiler.tree import (  # isort:skip
     BoolTypeNode,
     CharTypeNode,
+    FieldNode,
+    FunCallNode,
     FunDeclNode,
     FunTypeNode,
     IfElseNode,
@@ -23,6 +25,7 @@ from compiler.tree import (  # isort:skip
     TupleNode,
     TypeNode,
     VarDeclNode,
+    VariableNode,
     WhileNode,
 )
 
@@ -274,8 +277,37 @@ class Typer:
 
                 return trans_condition
 
-        # breakpoint()
-        raise Exception("Node had no handler")
+            case VariableNode():
+                # transformation is of type: Dict[str, TypeNode]
+                for field in tree.field.fields:
+                    a_1 = PolymorphicTypeNode.fresh()
+                    a_2 = PolymorphicTypeNode.fresh()
+
+                    if field.type == Type.FST:
+                        # self.unify(
+                        #     exp_type,
+                        #     TupleNode(left=a_1, right=a_2)
+                        # )
+                        # TODO: Implement FunTypeNode() to fix this?
+                        return self.unify(
+                            exp_type,
+                            FunTypeNode(
+                                types=[TupleNode(left=a_1, right=a_2)],
+                                ret_type=a_1,
+                            ),
+                        )
+                    elif field.type == Type.SND:
+                        return self.unify(
+                            exp_type,
+                            FunTypeNode(
+                                types=[TupleNode(left=a_1, right=a_2)],
+                                ret_type=a_2,
+                            ),
+                        )
+
+                    raise Exception("Unreachable compiler code")
+
+        raise Exception(f"Node had no handler\n\n{tree}")
 
     def apply_trans(
         self, node: TypeNode, trans: List[Tuple[PolymorphicTypeNode, TypeNode]]
