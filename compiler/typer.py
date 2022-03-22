@@ -23,6 +23,7 @@ from compiler.tree import (  # isort:skip
     TupleNode,
     TypeNode,
     VarDeclNode,
+    WhileNode,
 )
 
 
@@ -46,6 +47,12 @@ class Typer:
             case Token(type=Type.DIGIT):
                 # If tree is e.g. `12`:
                 return self.unify(exp_type, IntTypeNode(None))
+
+            case Token(type=Type.TRUE) | Token(type=Type.FALSE):
+                return self.unify(exp_type, BoolTypeNode(None))
+
+            case Token(type=Type.CHARACTER):
+                return self.unify(exp_type, CharTypeNode(None))
 
             case Token(type=Type.ID):
                 # If tree is e.g. `a`:
@@ -226,6 +233,27 @@ class Typer:
                     condition, trans_context, BoolTypeNode(None)
                 )
                 return transformation_then + transformation_else + trans_condition
+
+            case WhileNode():
+                condition = tree.cond
+                body = tree.body
+
+                original_context = context.copy()
+
+                transformation_body = []
+                for expression in body:
+                    trans = self.type_node(expression, {**context}, exp_type)
+                    context = self.apply_trans_context(trans, context)
+                    transformation_body += trans
+
+                trans_context = self.apply_trans_context(
+                    transformation_body, original_context
+                )
+                trans_condition = self.type_node(
+                    condition, trans_context, BoolTypeNode(None)
+                )
+
+                return trans_condition
 
         # breakpoint()
         raise Exception("Node had no handler")
