@@ -1,5 +1,5 @@
-xor(a, b) :: Int Int -> Int {
-	return 12 + a + b;
+xor(a, b) {
+	return a : b;
 }
 
 implies(a, b) :: a Int -> c {

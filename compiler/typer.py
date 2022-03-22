@@ -118,26 +118,52 @@ class Typer:
                 return trans
 
             case Op2Node():
-                # TODO: Incomplete:
-                if tree.operator.type in (
-                    # Type.LEQ,
-                    # Type.GEQ,
-                    # Type.LT,
-                    # Type.GT,
+                if tree.operator.type == Type.COLON:
+                    left_exp_type = PolymorphicTypeNode.fresh()
+                    right_exp_type = ListNode(left_exp_type)
+                    output_exp_type = right_exp_type
+
+                elif tree.operator.type in (
                     Type.PLUS,
                     Type.MINUS,
                     Type.STAR,
                     Type.SLASH,
                     Type.PERCENT,
                 ):
-                    operand_exp_type = IntTypeNode(None)
-                    trans_left = self.type_node(tree.left, context, operand_exp_type)
-                    context = self.apply_trans_context(trans_left, context)
-                    trans_right = self.type_node(tree.right, context, operand_exp_type)
-                    trans_op = self.unify(
-                        self.apply_trans(exp_type, trans_right), operand_exp_type
-                    )
-                    return trans_left + trans_right + trans_op
+                    left_exp_type = IntTypeNode(None)
+                    right_exp_type = left_exp_type
+                    output_exp_type = left_exp_type
+
+                elif tree.operator.type in (
+                    Type.LEQ,
+                    Type.GEQ,
+                    Type.LT,
+                    Type.GT,
+                ):
+                    left_exp_type = IntTypeNode(None)
+                    right_exp_type = left_exp_type
+                    output_exp_type = BoolTypeNode(None)
+
+                elif tree.operator.type in (Type.OR, Type.AND):
+                    left_exp_type = BoolTypeNode(None)
+                    right_exp_type = left_exp_type
+                    output_exp_type = left_exp_type
+
+                elif tree.operator.type in (Type.DEQUALS, Type.NEQ):
+                    left_exp_type = PolymorphicTypeNode.fresh()
+                    right_exp_type = left_exp_type
+                    output_exp_type = BoolTypeNode(None)
+
+                else:
+                    raise Exception("Incorrect Op2Node")
+
+                trans_left = self.type_node(tree.left, context, left_exp_type)
+                context = self.apply_trans_context(trans_left, context)
+                trans_right = self.type_node(tree.right, context, right_exp_type)
+                trans_op = self.unify(
+                    self.apply_trans(exp_type, trans_right), output_exp_type
+                )
+                return trans_left + trans_right + trans_op
 
         raise Exception("Node had no handler")
         # breakpoint()
@@ -200,14 +226,11 @@ class Typer:
             return []
 
         # If left is very general, e.g. "a", and right is specific, e.g. "Int", then map "a" to "Int"
-        if isinstance(type_one, PolymorphicTypeNode) and not isinstance(
-            type_two, PolymorphicTypeNode
-        ):
+        # TODO: Fail case
+        if isinstance(type_one, PolymorphicTypeNode):
             return [(type_one, type_two)]
 
-        if isinstance(type_two, PolymorphicTypeNode) and not isinstance(
-            type_one, PolymorphicTypeNode
-        ):
+        if isinstance(type_two, PolymorphicTypeNode):
             return [(type_two, type_one)]
 
         if isinstance(type_one, ListNode) and isinstance(type_two, ListNode):

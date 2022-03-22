@@ -14,5 +14,5 @@ tree = parser.parse(tokens)
 typer = Typer()
 annotree = typer.type(tree)
 
-pprint(annotree)
+# pprint(annotree)
 print(tree)

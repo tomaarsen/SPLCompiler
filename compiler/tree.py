@@ -697,6 +697,9 @@ class PolymorphicTypeNode(Node):
 
     next_variable_name = "a"
 
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
+        yield Token(self.name, type=Type.ID)
+
     @property
     def name(self):
         if self._name is None:
