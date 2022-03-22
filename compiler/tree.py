@@ -331,8 +331,10 @@ class WhileFactory(NodeFactory):
 class TypeFactory(NodeFactory):
     def build(self):
         match self.c:
-            case [_ as _type]:
-                return _type
+            case [Token()]:
+                return PolymorphicTypeNode(self.c[0])
+            case [IntTypeNode() | BoolTypeNode() | CharTypeNode()]:
+                return self.c[0]
             case [Token(type=Type.LSB), _ as _type, Token(type=Type.RSB)]:
                 return ListNode(_type)
             case [
@@ -343,6 +345,19 @@ class TypeFactory(NodeFactory):
                 Token(type=Type.RRB),
             ]:
                 return TupleNode(left, right)
+        raise Exception()
+
+
+class BasicTypeFactory(NodeFactory):
+    def build(self):
+        assert len(self.c) == 1  # nosec
+        match self.c[0]:
+            case Token(type=Type.INT):
+                return IntTypeNode(self.c[0])
+            case Token(type=Type.BOOL):
+                return BoolTypeNode(self.c[0])
+            case Token(type=Type.CHAR):
+                return CharTypeNode(self.c[0])
         raise Exception()
 
 
@@ -644,6 +659,62 @@ class VarDeclNode(Node):
 
 
 @dataclass
+class BasicTypeNode(Node):
+    token: Token
+
+
+class IntTypeNode(BasicTypeNode):
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
+        if self.token:
+            yield self.token
+        else:
+            yield Token("Int", Type.INT)
+
+
+class CharTypeNode(BasicTypeNode):
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
+        if self.token:
+            yield self.token
+        else:
+            yield Token("Char", Type.CHAR)
+
+
+class BoolTypeNode(BasicTypeNode):
+    def yield_tokens(self, **kwargs) -> Iterator[Token]:
+        if self.token:
+            yield self.token
+        else:
+            yield Token("Bool", Type.BOOL)
+
+
+class PolymorphicTypeNode(Node):
+    id = 0
+
+    def __init__(self, name=None) -> None:
+        self._name = name
+        self.id = PolymorphicTypeNode.id
+        PolymorphicTypeNode.id += 1
+
+    next_variable_name = "a"
+
+    @property
+    def name(self):
+        if self._name is None:
+            self._name = PolymorphicTypeNode.next_variable_name
+            PolymorphicTypeNode.next_variable_name = chr(
+                ord(PolymorphicTypeNode.next_variable_name) + 1
+            )
+        return self._name
+
+    def __repr__(self):
+        return f"PolymorphicTypeNode(name={self.name}, id={self.id})"
+
+    @classmethod
+    def fresh(cls):
+        return cls(None)
+
+
+@dataclass
 class VariableNode(Node):
     id: Token
     field: Optional[FieldNode] = None
@@ -705,3 +776,6 @@ class Op1Node(Node):
             yield Token(")", Type.RRB)
         else:
             yield from super().yield_tokens()
+
+
+TypeNode = FunTypeNode | ListNode | TupleNode | BasicTypeNode | PolymorphicTypeNode

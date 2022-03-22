@@ -9,6 +9,7 @@ from compiler.type import Type
 
 from compiler.tree import (  # isort:skip
     BasicFactory,
+    BasicTypeFactory,
     ColonFactory,
     CommaFactory,
     DefaultFactory,
@@ -131,7 +132,7 @@ class Grammar:
             NT.RetType: SingleFactory(),
             NT.FunType: FunTypeFactory(),
             NT.Type: TypeFactory(),
-            NT.BasicType: SingleFactory(),
+            NT.BasicType: BasicTypeFactory(),
             NT.FArgs: CommaFactory(),
             NT.Stmt: StmtFactory(),
             NT.StmtAss: StmtAssFactory(),

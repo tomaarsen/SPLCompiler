@@ -1,0 +1,7 @@
+xor(a, b) :: Int Int -> Int {
+	return 12 + a + b;
+}
+
+implies(a, b) :: a Int -> c {
+	return a + b;
+}
