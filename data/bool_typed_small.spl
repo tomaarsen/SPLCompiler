@@ -1,0 +1,52 @@
+[([Int], [(Int, Bool)])] x = ([], (1, True) : (2, False) : []) : [];
+
+
+/*
+// Can infer Bool from function definition
+my_func(b) {
+    return func(b);
+}
+
+
+func(a) :: Bool -> Bool {
+    return a && a;
+}
+
+
+// ------------
+
+my_func(b) :: Bool -> Void {
+    b = b && b;
+    func(b);
+}
+
+// Should not be allowed to change because of unify with FunCall
+func(a) :: a -> a {
+    return a;
+}
+*/
+
+
+
+
+
+
+// TODO: Make this throw an error
+/*func(a, b) :: a b -> c {
+    return a;
+}*/
+
+xor(a) {
+    return True;
+}
+
+const(x, y, z, v) :: a b c d -> a {
+    z = 12;
+    return z;
+    /*
+    if (x){
+        return z;
+    }
+    */
+    //return x;
+}

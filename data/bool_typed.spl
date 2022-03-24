@@ -1,5 +1,38 @@
+var c = 5;
 
-xor(a, b) {
-	return a.fst;
+/*g(x, y) {
+	f(y);
+}*/
+
+swapCopy(a, b){
+    return (b, (a, b));
 }
 
+f(a) {
+    return xor(a, a, a);
+}
+
+xor(a, b, c) {
+	if (a) {
+        if (a) {
+            return b;
+        } else {
+            return a;
+        }
+    } else {
+        return a;
+    }
+}
+
+g(a, b) {
+    return xor(a, b, a);
+}
+
+implies(a, b) :: a Int -> c {
+	return a + b;
+}
+
+toList(a){
+    return a : ([]:[]):[];
+    //return (2:[], 5:[]):[];
+}

@@ -1,0 +1,10 @@
+eee(a){
+    return 12;
+    /*while (False){
+        if (a > 5){
+            return False;
+        }
+        a = a + 1;
+    }
+    return False;*/
+}

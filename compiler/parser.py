@@ -1,11 +1,23 @@
+from dataclasses import dataclass
 from typing import List
 
 from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.grammar_parser import NT
 from compiler.token import Token
-from compiler.tree import SPLNode
+from compiler.tree.visitor import NodeTransformer
 from compiler.type import Type
 from compiler.util import Span, span_between_inclusive
+
+from compiler.tree.tree import (  # isort:skip
+    FunDeclNode,
+    IfElseNode,
+    Node,
+    PolymorphicTypeNode,
+    ReturnNode,
+    SPLNode,
+    StmtNode,
+    WhileNode,
+)
 
 from compiler.error import (  # isort:skip
     ClosedWrongBracketError,
@@ -21,6 +33,9 @@ from compiler.error import (  # isort:skip
 class Parser:
     def __init__(self, program: str) -> None:
         self.og_program = program
+
+        # Reset the Polymorphic IDs as we are now dealing with a new parser
+        PolymorphicTypeNode.reset()
 
     def parse(self, tokens: List[Token]) -> SPLNode:
         """
@@ -84,7 +99,8 @@ class Parser:
             return tree
 
         # If there were no issues, then we convert this parse tree into a more abstract variant
-        # TODO: Prune parser to remove statements after `return`, and throw warning if there are any
+        # TODO: Prune tree to remove statements after `return`, and throw warning if there are any
+        tree = self.return_path(tree)
         return tree
 
     def match_parentheses(self, tokens: List[Token]) -> None:
@@ -164,3 +180,95 @@ class Parser:
             )
 
         return tokens
+
+    def return_path(self, tree: Node) -> Node:
+        transformer = ReturnTransformer()
+        transformer.visit(tree)
+        return tree
+
+
+@dataclass
+class Boolean:
+    """
+    An instanced wrapper of a `bool` that can be passed along a function,
+    modified deeper in the call stack, and then those changes can be read
+    up higher.
+
+    >>> def func(bl: Boolean):
+    >>>     bl.set(False)
+    >>> bl = Boolean(True)
+    >>> bl
+    Boolean(boolean=True)
+    >>> func(bl)
+    >>> bl
+    Boolean(boolean=False)
+    """
+
+    boolean: bool
+
+    def set(self, boolean: bool) -> None:
+        self.boolean = boolean
+
+    def __bool__(self) -> bool:
+        return self.boolean
+
+
+class ReturnTransformer(NodeTransformer):
+    def traverse_statements(self, stmts: List[StmtNode], reachable: Boolean) -> None:
+        for i, stmt in enumerate(stmts, start=1):
+            self.generic_visit(stmt, reachable=reachable)
+            if not reachable:
+                if stmts[i:]:
+                    # TODO: This is where we delete unreachable code, add a warning.
+                    # print(f"Deleting dead code: {stmts[i:]}")
+                    del stmts[i:]
+                break
+
+    def visit_FunDeclNode(self, node: FunDeclNode, **kwargs) -> FunDeclNode:
+        reachable = Boolean(True)
+
+        self.traverse_statements(node.stmt, reachable)
+
+        # If the end of the function body is reachable, then we add an empty (void) return
+        if reachable:
+            # print(f"Adding Return at the end of {node.id.text!r}")
+            node.stmt.append(StmtNode(ReturnNode(None)))
+
+        return node
+
+    def visit_IfElseNode(
+        self, node: IfElseNode, reachable: Boolean, **kwargs
+    ) -> StmtNode:
+        if reachable:
+            # Traverse the "then" branch to see if that side is reachable
+            self.traverse_statements(node.body, reachable)
+            left_reachable = reachable.boolean
+
+            # Reset reachability to true, as we know the if-else can be reached,
+            # so the else can be reached too.
+            reachable.set(True)
+            self.traverse_statements(node.else_body, reachable)
+            right_reachable = reachable.boolean
+
+            # Only if both sides end with a return (and thus have reachable=False at the end),
+            # then we get reachable=False for this if-else
+            reachable.set(left_reachable or right_reachable)
+        return node
+
+    def visit_WhileNode(
+        self, node: WhileNode, reachable: Boolean, **kwargs
+    ) -> WhileNode:
+        # Code after a while statement is always assumed to be reachable,
+        # as we assume that the condition can be False from the get-go.
+        # So, we only traverse statements to potentially delete dead code after a return statement.
+        self.traverse_statements(node.body, reachable)
+        reachable.set(True)
+        return node
+
+    def visit_ReturnNode(
+        self, node: ReturnNode, reachable: Boolean, **kwargs
+    ) -> ReturnNode:
+        # Code directly after this Return statement is *not* reachable
+        self.generic_visit(node, reachable=reachable)
+        reachable.set(False)
+        return node

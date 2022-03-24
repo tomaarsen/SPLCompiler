@@ -1,0 +1,48 @@
+// Correct
+aaa(a) {
+    return True;
+}
+
+// Correct
+bbb(a) {
+    if (a){
+        return True;
+        print(x);
+    } else {
+        return False;
+    }
+    print(a);
+}
+
+// Incorrect
+ccc(a) {
+    if (a){
+        return True;
+    }
+    return False;
+}
+
+// Correct
+ddd(a) {
+    if (a){
+        return True;
+    } else {
+        a = a && True;
+    }
+    return False;
+}
+
+eee(a){
+    while (False){
+        if (a > 5){
+            return False;
+        }
+        a = a + 1;
+    }
+    return False;
+}
+
+main(x) :: a -> Void {
+    x = x && True;
+    eee(x);
+}

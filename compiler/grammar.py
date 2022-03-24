@@ -7,7 +7,7 @@ from compiler.grammar_parser import GRAMMAR, NT, Opt, Or, Plus, Star
 from compiler.token import Token
 from compiler.type import Type
 
-from compiler.tree import (  # isort:skip
+from compiler.tree.factory import (  # isort:skip
     BasicFactory,
     BasicTypeFactory,
     ColonFactory,
@@ -19,11 +19,10 @@ from compiler.tree import (  # isort:skip
     FunCallFactory,
     FunDeclFactory,
     FunTypeFactory,
+    RetTypeFactory,
     IfElseFactory,
     Node,
-    NodeFactory,
     ReturnFactory,
-    SingleFactory,
     SPLFactory,
     StmtAssFactory,
     StmtFactory,
@@ -129,7 +128,7 @@ class Grammar:
             NT.SPL: SPLFactory(),
             NT.VarDecl: VarDeclFactory(),
             NT.FunDecl: FunDeclFactory(),
-            NT.RetType: SingleFactory(),
+            NT.RetType: RetTypeFactory(),
             NT.FunType: FunTypeFactory(),
             NT.Type: TypeFactory(),
             NT.BasicType: BasicTypeFactory(),
