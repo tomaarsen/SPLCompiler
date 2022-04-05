@@ -166,12 +166,11 @@ class Printer(YieldVisitor):
     def visit_Op2Node(
         self, node: Op2Node, previous_precedence: int = None, **kwargs
     ) -> Iterator[Token]:
-        # TODO: Left-associative brackets for colon operator, e.g. ([]:[]):[]
         precedence = operator_precedence[node.operator.type]
         if previous_precedence and (
             precedence > previous_precedence
             and node.operator.type not in right_associative
-            or precedence < previous_precedence
+            or precedence <= previous_precedence
             and node.operator.type in right_associative
         ):
             yield Token("(", Type.LRB)

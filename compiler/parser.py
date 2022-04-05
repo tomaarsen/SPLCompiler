@@ -269,6 +269,8 @@ class ReturnTransformer(NodeTransformer):
         self, node: ReturnNode, reachable: Boolean, **kwargs
     ) -> ReturnNode:
         # Code directly after this Return statement is *not* reachable
+        # TODO: This line might not be needed
         self.generic_visit(node, reachable=reachable)
+
         reachable.set(False)
         return node
