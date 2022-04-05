@@ -3,6 +3,7 @@ from typing import List
 
 from compiler.token import Token
 from compiler.type import Type
+from compiler.util import Span
 
 from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
@@ -48,6 +49,14 @@ class NodeFactory:
         except TypeError:
             self.c.append(children)
 
+    @property
+    def span(self):
+        if len(self.c) == 0:
+            return Span(0, (0, 0))
+        if len(self.c) == 1:
+            return self.c[0].span
+        return self.c[0].span & self.c[-1].span
+
     def build(self):
         raise NotImplementedError()
 
@@ -56,7 +65,7 @@ class VarDeclFactory(NodeFactory):
     def build(self):
         assert len(self.c) == 5  # nosec
 
-        return VarDeclNode(self.c[0], self.c[1], self.c[3])
+        return VarDeclNode(self.c[0], self.c[1], self.c[3], span=self.span)
 
 
 class FunDeclFactory(NodeFactory):
@@ -80,17 +89,21 @@ class FunDeclFactory(NodeFactory):
                 case StmtNode():
                     stmt.append(child)
 
-        return FunDeclNode(func, args, fun_type, var_decl, stmt)
+        # Reset the cache of polymorphic variables that should be shared within this function
+        TypeFactory.reset_poly_cache()
+        return FunDeclNode(func, args, fun_type, var_decl, stmt, span=self.span)
 
 
 class FieldFactory(NodeFactory):
     def build(self):
-        return FieldNode(self.c)
+        return FieldNode(self.c, span=self.span)
 
 
 class CommaFactory(NodeFactory):
     def build(self):
-        return CommaListNode([self.c[0]] + [_id for comma, _id in self.c[1:]])
+        items = [self.c[0]] + [_id for comma, _id in self.c[1:]]
+        span = items[0].span & items[-1].span
+        return CommaListNode(items, span=span)
 
 
 class ExpFactory(NodeFactory):
@@ -107,10 +120,14 @@ class ExpFactory(NodeFactory):
 class ExpPrimeFactory(NodeFactory):
     def build(self):
         if len(self.c) == 2:
-            return Op2Node(left=None, operator=self.c[0], right=self.c[1])
+            return Op2Node(
+                left=None, operator=self.c[0], right=self.c[1], span=self.span
+            )
         if len(self.c) == 3:
             op2 = self.c[2]
-            inner = Op2Node(left=None, operator=self.c[0], right=self.c[1])
+            inner = Op2Node(
+                left=None, operator=self.c[0], right=self.c[1], span=self.span
+            )
             op2.assign_left(inner)
             return op2
         raise Exception()
@@ -122,7 +139,7 @@ class ColonFactory(NodeFactory):
             case [_ as basic]:
                 return basic
             case [_ as left, Token(type=Type.COLON) as operator, _ as right]:
-                return Op2Node(left, operator, right)
+                return Op2Node(left, operator, right, span=self.span)
         raise Exception()
 
 
@@ -131,7 +148,7 @@ class UnaryFactory(NodeFactory):
         match self.c:
             # ( ( '!' | '-' ) Unary )
             case [_ as operator, _ as operand]:
-                return Op1Node(operator, operand)
+                return Op1Node(operator, operand, span=self.span)
             # Basic
             case [_ as basic]:
                 return basic
@@ -148,16 +165,16 @@ class StmtAssFactory(NodeFactory):
                 _ as exp,
                 Token(type=Type.SEMICOLON),
             ]:
-                _id = VariableNode(_id, field)
-                return StmtAssNode(_id, exp)
+                _id = VariableNode(_id, field, span=_id.span & field.span)
+                return StmtAssNode(_id, exp, span=self.span)
             case [
                 Token(type=Type.ID) as _id,
                 Token(type=Type.EQ),
                 _ as exp,
                 Token(type=Type.SEMICOLON),
             ]:
-                _id = VariableNode(_id)
-                return StmtAssNode(_id, exp)
+                _id = VariableNode(_id, span=_id.span)
+                return StmtAssNode(_id, exp, span=self.span)
         raise Exception()
 
 
@@ -172,15 +189,15 @@ class BasicFactory(NodeFactory):
                 _,
                 Token(type=Type.RRB),
             ]:
-                return TupleNode(self.c[1], self.c[3])
+                return TupleNode(self.c[1], self.c[3], span=self.span)
             # Bracket ( exp )
             case [Token(type=Type.LRB), _, Token(type=Type.RRB)]:
                 return self.c[1]
             # Empty list [ ]
             case [Token(type=Type.LSB), Token(type=Type.RSB)]:
-                return ListNode(None)
+                return ListNode(None, span=self.span)
             case [Token(type=Type.ID) as _id, FieldNode() as field]:
-                return VariableNode(_id, field)
+                return VariableNode(_id, field, span=self.span)
             case [_]:
                 return self.c[0]
         raise Exception()
@@ -195,13 +212,13 @@ class FunCallFactory(NodeFactory):
                 _ as args,
                 Token(type=Type.RRB),
             ]:
-                return FunCallNode(func, args)
+                return FunCallNode(func, args, span=self.span)
             case [
                 Token(type=Type.ID) as func,
                 Token(type=Type.LRB),
                 Token(type=Type.RRB),
             ]:
-                return FunCallNode(func, None)
+                return FunCallNode(func, None, span=self.span)
         raise Exception()
 
 
@@ -226,7 +243,7 @@ class IfElseFactory(NodeFactory):
             ]:
                 pass
 
-        return IfElseNode(cond, body, else_body)
+        return IfElseNode(cond, body, else_body, span=self.span)
 
 
 class WhileFactory(NodeFactory):
@@ -238,18 +255,25 @@ class WhileFactory(NodeFactory):
                 body.append(node)
             else:
                 break
-        return WhileNode(cond, body)
+        return WhileNode(cond, body, span=self.span)
 
 
 class TypeFactory(NodeFactory):
+
+    POLY_CACHE = {}
+
     def build(self):
         match self.c:
             case [Token()]:
-                return PolymorphicTypeNode(self.c[0])
+                # Fill the POLY_CACHE with a mapping to poly types,
+                # make a new Polymorphic type node if no cached poly node exists for this token
+                return TypeFactory.POLY_CACHE.setdefault(
+                    self.c[0].text, PolymorphicTypeNode(self.c[0], span=self.span)
+                )
             case [IntTypeNode() | BoolTypeNode() | CharTypeNode()]:
                 return self.c[0]
             case [Token(type=Type.LSB), _ as _type, Token(type=Type.RSB)]:
-                return ListNode(_type)
+                return ListNode(_type, span=self.span)
             case [
                 Token(type=Type.LRB),
                 _ as left,
@@ -257,8 +281,12 @@ class TypeFactory(NodeFactory):
                 _ as right,
                 Token(type=Type.RRB),
             ]:
-                return TupleNode(left, right)
+                return TupleNode(left, right, span=self.span)
         raise Exception()
+
+    @classmethod
+    def reset_poly_cache(cls):
+        cls.POLY_CACHE = {}
 
 
 class BasicTypeFactory(NodeFactory):
@@ -266,28 +294,26 @@ class BasicTypeFactory(NodeFactory):
         assert len(self.c) == 1  # nosec
         match self.c[0]:
             case Token(type=Type.INT):
-                return IntTypeNode(self.c[0])
+                return IntTypeNode(self.c[0], span=self.span)
             case Token(type=Type.BOOL):
-                return BoolTypeNode(self.c[0])
+                return BoolTypeNode(self.c[0], span=self.span)
             case Token(type=Type.CHAR):
-                return CharTypeNode(self.c[0])
+                return CharTypeNode(self.c[0], span=self.span)
         raise Exception()
 
 
 class SPLFactory(NodeFactory):
     def build(self):
-        # breakpoint()
-        # print("SPLFactory", self.c)
         if len(self.c) == 1 and isinstance(self.c[0], SPLNode):
             return self.c[0]
-        return SPLNode(self.c)
+        return SPLNode(self.c, span=self.span)
 
 
 class FunTypeFactory(NodeFactory):
     def build(self):
         match self.c:
-            case [*obj, Token(type=Type.ARROW), _ as ret_type]:
-                return FunTypeNode(self.c[:-2], ret_type)
+            case [*types, Token(type=Type.ARROW), _ as ret_type]:
+                return FunTypeNode(types, ret_type, span=self.span)
         raise Exception()
 
 
@@ -295,7 +321,7 @@ class RetTypeFactory(NodeFactory):
     def build(self):
         match self.c:
             case [Token(type=Type.VOID)]:
-                return VoidTypeNode(self.c[0])
+                return VoidTypeNode(self.c[0], span=self.span)
             case [_]:
                 return self.c[0]
         raise Exception()
@@ -303,7 +329,7 @@ class RetTypeFactory(NodeFactory):
 
 class StmtFactory(NodeFactory):
     def build(self):
-        return StmtNode(self.c[0])
+        return StmtNode(self.c[0], span=self.span)
 
 
 class SingleFactory(NodeFactory):
@@ -316,16 +342,14 @@ class ReturnFactory(NodeFactory):
     def build(self):
         match self.c:
             case [Token(type=Type.RETURN), _ as body, Token(type=Type.SEMICOLON)]:
-                return ReturnNode(body)
+                return ReturnNode(body, span=self.span)
             case [Token(type=Type.RETURN), Token(type=Type.SEMICOLON)]:
-                return ReturnNode(None)
+                return ReturnNode(None, span=self.span)
         raise Exception()
 
 
 class DefaultFactory(NodeFactory):
     def build(self):
-        # print(self.c)
-        # breakpoint()
         if len(self.c) == 1:
             return self.c[0]
         return self.c

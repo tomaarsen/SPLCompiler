@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -36,12 +38,11 @@ class Span:
             self.ln = line_no
         self.col = span
 
-
-def span_between_inclusive(span_one: Span, span_two: Span) -> Span:
-    return Span(
-        line_no=(span_one.start_ln, span_two.end_ln),
-        span=(span_one.start_col, span_two.end_col),
-    )
+    def __and__(self, other: Span) -> Span:
+        return Span(
+            line_no=(self.start_ln, other.end_ln),
+            span=(self.start_col, other.end_col),
+        )
 
 
 # This only considers binary operators

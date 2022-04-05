@@ -7,9 +7,13 @@ from typing import Iterator, List, Optional
 
 from compiler.token import Token
 from compiler.type import Type
+from compiler.util import Span
 
 
+@dataclass
 class Node:
+    span: Span = field(repr=False, kw_only=True, compare=False)
+
     def __str__(self) -> str:
         from compiler.tree.printer import Printer
 
@@ -130,8 +134,9 @@ class PolymorphicTypeNode(Node):
     id = 0
     print_id = 0
 
-    def __init__(self, name=None) -> None:
+    def __init__(self, name=None, span=None) -> None:
         self._token = None
+        self.span = span
         self.id = PolymorphicTypeNode.id
         PolymorphicTypeNode.id += 1
 
@@ -187,6 +192,7 @@ class Op2Node(Node):
     def assign_left(self, value: Token | Node):
         if self.left is None:
             self.left = value
+            self.span = value.span & self.span
         elif isinstance(self.left, Op2Node):
             self.left.assign_left(value)
         else:

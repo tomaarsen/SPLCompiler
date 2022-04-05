@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 from compiler.token import Token
 from compiler.type import Type
+from compiler.util import Span
 
 from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
@@ -51,13 +52,13 @@ class Typer:
 
             case Token(type=Type.DIGIT):
                 # If tree is e.g. `12`:
-                return self.unify(exp_type, IntTypeNode(None))
+                return self.unify(exp_type, IntTypeNode(None, span=tree.span))
 
             case Token(type=Type.TRUE) | Token(type=Type.FALSE):
-                return self.unify(exp_type, BoolTypeNode(None))
+                return self.unify(exp_type, BoolTypeNode(None, span=tree.span))
 
             case Token(type=Type.CHARACTER):
-                return self.unify(exp_type, CharTypeNode(None))
+                return self.unify(exp_type, CharTypeNode(None, span=tree.span))
 
             case Token(type=Type.ID):
                 # If tree is e.g. `a`:
@@ -132,7 +133,11 @@ class Typer:
                             fresh_types.append(ft)
 
                     ret_type = get_fresh_type()
-                    context[tree.id.text] = FunTypeNode(fresh_types, ret_type)
+                    context[tree.id.text] = FunTypeNode(
+                        fresh_types,
+                        ret_type,
+                        span=Span(tree.id.span.start_ln, (-1, -1)),
+                    )
 
                 for key, value in arg_context.items():
                     context[key] = value
@@ -167,11 +172,11 @@ class Typer:
                 # context[tree.id.text] = context_copy[tree.id.text]
 
                 # Reset function arguments
-                for token in tree.args.items:
-                    if token.text in original_context:
-                        context[token.text] = original_context[token.text]
-                    else:
-                        del context[token.text]
+                for token in list(context.keys()):
+                    if token in original_context:
+                        context[token] = original_context[token]
+                    elif token != tree.id.text:
+                        del context[token]
 
                 return trans
 
@@ -183,7 +188,7 @@ class Typer:
                     trans = self.type_node(tree.exp, context, exp_type)
                     return trans
 
-                trans = self.unify(exp_type, VoidTypeNode(None))
+                trans = self.unify(exp_type, VoidTypeNode(None, span=tree.span))
                 return trans
 
             case StmtAssNode():
@@ -220,7 +225,9 @@ class Typer:
                 # Unification with expected type
                 trans += self.unify(
                     self.apply_trans(exp_type, trans),
-                    self.apply_trans(TupleNode(left_fresh, right_fresh), trans),
+                    self.apply_trans(
+                        TupleNode(left_fresh, right_fresh, span=tree.span), trans
+                    ),
                 )
 
                 return trans
@@ -233,12 +240,14 @@ class Typer:
                     # breakpoint()
                     raise Exception("List body should not be filled at this stage")
                 else:
-                    return self.unify(exp_type, ListNode(PolymorphicTypeNode.fresh()))
+                    return self.unify(
+                        exp_type, ListNode(PolymorphicTypeNode.fresh(), span=tree.span)
+                    )
 
             case Op2Node():
                 if tree.operator.type == Type.COLON:
                     left_exp_type = PolymorphicTypeNode.fresh()
-                    right_exp_type = ListNode(left_exp_type)
+                    right_exp_type = ListNode(left_exp_type, span=tree.right.span)
                     output_exp_type = right_exp_type
 
                 elif tree.operator.type in (
@@ -248,7 +257,7 @@ class Typer:
                     Type.SLASH,
                     Type.PERCENT,
                 ):
-                    left_exp_type = IntTypeNode(None)
+                    left_exp_type = IntTypeNode(None, span=tree.left.span)
                     right_exp_type = left_exp_type
                     output_exp_type = left_exp_type
 
@@ -258,19 +267,19 @@ class Typer:
                     Type.LT,
                     Type.GT,
                 ):
-                    left_exp_type = IntTypeNode(None)
+                    left_exp_type = IntTypeNode(None, span=tree.left.span)
                     right_exp_type = left_exp_type
-                    output_exp_type = BoolTypeNode(None)
+                    output_exp_type = BoolTypeNode(None, span=tree.span)
 
                 elif tree.operator.type in (Type.OR, Type.AND):
-                    left_exp_type = BoolTypeNode(None)
+                    left_exp_type = BoolTypeNode(None, span=tree.left.span)
                     right_exp_type = left_exp_type
                     output_exp_type = left_exp_type
 
                 elif tree.operator.type in (Type.DEQUALS, Type.NEQ):
                     left_exp_type = PolymorphicTypeNode.fresh()
                     right_exp_type = left_exp_type
-                    output_exp_type = BoolTypeNode(None)
+                    output_exp_type = BoolTypeNode(None, span=tree.span)
 
                 else:
                     raise Exception("Incorrect Op2Node")
@@ -339,7 +348,7 @@ class Typer:
                     transformation_then + transformation_else, original_context
                 )
                 trans_condition = self.type_node(
-                    condition, trans_context, BoolTypeNode(None)
+                    condition, trans_context, BoolTypeNode(None, span=condition.span)
                 )
                 return transformation_then + transformation_else + trans_condition
 
@@ -540,4 +549,6 @@ class Typer:
             trans += self.unify(type_one.ret_type, type_two.ret_type)
             return trans
 
+        print(type_one.span)
+        print(type_two.span)
         raise Exception("Failed to unify", type_one, "and", type_two)

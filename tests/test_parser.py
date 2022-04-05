@@ -6,6 +6,7 @@ from compiler.error import ParserException
 from compiler.parser import Parser
 from compiler.scanner import Scanner
 from compiler.tree.tree import SPLNode
+from compiler.util import Span
 from tests.test_util import open_file
 
 
@@ -74,7 +75,7 @@ def test_empty():
 
     parser = Parser("")
     tree = parser.parse(tokens)
-    assert tree == SPLNode([])
+    assert tree == SPLNode([], span=Span(0, (0, 0)))
 
 
 def test_parser_error(parser_error: str):

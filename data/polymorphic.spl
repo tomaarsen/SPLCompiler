@@ -1,0 +1,44 @@
+aaa(x, y, z) :: a b a -> (a, b) {
+    a c = 12;
+    return (x, y);
+}
+
+bbb(x, y, z) :: a b a -> (a, b) {
+    b c = 12;
+    return (x, y);
+}
+
+ccc(a, b) :: a b -> Bool {
+    return a == b;
+}
+
+ddd(a) {
+    if (a){
+        return True;
+    } else {
+        a = a && True;
+    }
+    //a = 'a';
+    return False;
+}
+
+
+/*
+compiler.error.TypingException:
+
+TypeError: Function ddd has unambigious return types Bool and Void
+-> 6.  ddd(a) {
+   7.     if (a){
+    |  ...
+   12. }
+
+
+compiler.error.TypingException:
+
+TypeError: Function ddd has unambigious return types Bool [8] and inferred type Void [12]
+-> 6.  ddd(a) {
+   7.     if (a){
+    |  ...
+   12. }
+Note that `return;` was inserted by the compiler on line 12.
+*/

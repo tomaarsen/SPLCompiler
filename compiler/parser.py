@@ -6,7 +6,7 @@ from compiler.grammar_parser import NT
 from compiler.token import Token
 from compiler.tree.visitor import NodeTransformer
 from compiler.type import Type
-from compiler.util import Span, span_between_inclusive
+from compiler.util import Span
 
 from compiler.tree.tree import (  # isort:skip
     FunDeclNode,
@@ -76,9 +76,7 @@ class Parser:
             sameline = False
             # Get a span of the error tokens, if possible
             if error_tokens:
-                error_tokens_span = span_between_inclusive(
-                    error_tokens[0].span, error_tokens[-1].span
-                )
+                error_tokens_span = error_tokens[0].span and error_tokens[-1].span
                 if got.span.start_ln == error_tokens_span.end_ln:
                     sameline = True
             else:
@@ -232,7 +230,9 @@ class ReturnTransformer(NodeTransformer):
         # If the end of the function body is reachable, then we add an empty (void) return
         if reachable:
             # print(f"Adding Return at the end of {node.id.text!r}")
-            node.stmt.append(StmtNode(ReturnNode(None)))
+            col = max(node.span.end_col - 1, 0)
+            span = Span(node.span.end_ln, (col, col))
+            node.stmt.append(StmtNode(ReturnNode(None, span=span), span=span))
 
         return node
 
