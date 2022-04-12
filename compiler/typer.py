@@ -412,10 +412,13 @@ class Typer:
                     transformation_else += trans
 
                 trans_context = self.apply_trans_context(
-                    transformation_then + transformation_else, original_context
+                    transformation_then + transformation_else, original_var_context
                 )
                 trans_condition = self.type_node(
-                    condition, trans_context, BoolTypeNode(None, span=condition.span)
+                    condition,
+                    trans_context,
+                    original_fun_context,
+                    BoolTypeNode(None, span=condition.span),
                 )
                 return transformation_then + transformation_else + trans_condition
 
