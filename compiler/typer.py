@@ -3,6 +3,7 @@ from enum import Enum, auto
 from pprint import pprint
 from typing import Any, Dict, List, Tuple
 
+from compiler.error import ErrorRaiser, TypeError, TyperException
 from compiler.token import Token
 from compiler.type import Type
 from compiler.util import Span
@@ -38,12 +39,15 @@ def get_fresh_type() -> TypeNode:
 
 
 class Typer:
-    def __init__(self) -> None:
+    def __init__(self, program: str) -> None:
         self.i = 0
+        self.program = program
 
     def type(self, tree: Node):
         ft = get_fresh_type()
-        return self.type_node(tree, {}, ft)
+        tree = self.type_node(tree, {}, ft)
+        ErrorRaiser.raise_all(TyperException)
+        return tree
 
     def type_node(
         self, tree: Node, context: Dict[str, TypeNode], exp_type: TypeNode
@@ -368,45 +372,47 @@ class Typer:
                     transformation_body, original_context
                 )
                 trans_condition = self.type_node(
-                    condition, trans_context, BoolTypeNode(None)
+                    condition, trans_context, BoolTypeNode(None, span=condition.span)
                 )
 
                 return trans_condition
 
             case FunCallNode():
+                self.i += 1
+                print(self.i, end="\r")
+                return self.type_node(tree, context, PolymorphicTypeNode.fresh())
 
-                """
-                if tree.func.text in context:
-                    fun_type = context[tree.func.text]
-                    ret_type = fun_type.ret_type
-                    if len(tree.args.items) != len(fun_type.types):
-                        raise Exception("Wrong number of arguments")
+                # if tree.func.text in context:
+                #     fun_type = context[tree.func.text]
+                #     ret_type = fun_type.ret_type
+                #     if len(tree.args.items) != len(fun_type.types):
+                #         raise Exception("Wrong number of arguments")
 
-                    trans = []
-                    for arg, arg_type in zip(tree.args.items, fun_type.types):
-                        trans += self.unify(context[arg.text], arg_type)
+                #     trans = []
+                #     for arg, arg_type in zip(tree.args.items, fun_type.types):
+                #         trans += self.unify(context[arg.text], arg_type)
 
-                    trans += self.unify(exp_type, ret_type)
-                    return trans
+                #     trans += self.unify(exp_type, ret_type)
+                #     return trans
 
-                else:
-                    fun_types = []
-                    for arg in tree.args.items:
-                        if arg.text in context:
-                            fun_types.append(context[arg.text])
-                        else:
-                            raise Exception(f"Unknown Variable {arg_context.text!r}")
+                # else:
+                #     fun_types = []
+                #     for arg in tree.args.items:
+                #         if arg.text in context:
+                #             fun_types.append(context[arg.text])
+                #         else:
+                #             raise Exception(f"Unknown Variable {arg.text!r}")
 
-                    ret_type = PolymorphicTypeNode.fresh()
-                    fun_type = FunTypeNode(fun_types, ret_type)
+                #     ret_type = PolymorphicTypeNode.fresh()
+                #     fun_type = FunTypeNode(fun_types, ret_type)
 
-                    # context[tree.func.text] = fun_type
+                #     # context[tree.func.text] = fun_type
 
-                    trans = self.unify(exp_type, ret_type)
+                #     trans = self.unify(exp_type, ret_type)
 
-                    return trans
-                """
-                pass
+                #     return trans
+
+                # pass
 
             case VariableNode():
                 # transformation is of type: Dict[str, TypeNode]
@@ -551,4 +557,4 @@ class Typer:
 
         print(type_one.span)
         print(type_two.span)
-        raise Exception("Failed to unify", type_one, "and", type_two)
+        TypeError(type_one, type_two, self.program)

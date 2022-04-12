@@ -4,6 +4,7 @@ from typing import List, Tuple
 
 from compiler.grammar_parser import NT
 from compiler.token import Token
+from compiler.tree.tree import TypeNode
 from compiler.type import Type
 from compiler.util import Span
 
@@ -29,6 +30,10 @@ class ParserException(CompilerException):
     pass
 
 
+class TyperException(CompilerException):
+    pass
+
+
 class ErrorRaiser:
     ERRORS = []
 
@@ -39,6 +44,8 @@ class ErrorRaiser:
         # If error object has no span attribute, then sort it on top
         ErrorRaiser.ERRORS.sort(
             key=lambda error: (error.span.start_ln, error.span.start_col)
+            if isinstance(error, CompilerError)
+            else (0, 0)
         )
 
         length = len(ErrorRaiser.ERRORS)
@@ -68,7 +75,6 @@ class ErrorRaiser:
     def raise_all(stage_of_exception: CompilerException) -> None:
         ErrorRaiser.__combine_errors__()
         errors = "".join(["\n\n" + str(error) for error in ErrorRaiser.ERRORS[:10]])
-
         if errors:
             sys.tracebacklimit = -1
             if len(ErrorRaiser.ERRORS) > 10:
@@ -199,6 +205,65 @@ class LonelyQuoteError(CompilerError):
 class EmptyQuoteError(CompilerError):
     def __str__(self) -> str:
         return self.create_error(f"Found empty quote on line {self.lines}.")
+
+
+# Failed to unify these two types
+@dataclass
+class UnificationError:
+    type_one: TypeNode
+    type_two: TypeNode
+    program: str
+
+    def __post_init__(self) -> None:
+        # class Span:
+        # ln: Tuple[int, int]
+        # col: Tuple[int, int]
+        ErrorRaiser.ERRORS.append(self)
+        ErrorRaiser.raise_all(TyperException)
+
+
+class TypeError(UnificationError):
+    # If span = ln = 0 and col=0 --> inserted by us
+
+    @staticmethod
+    def lines(span) -> Tuple[int]:
+        if span.multiline:
+            return f"on lines [{span.start_ln}-{span.end_ln}]"
+        return f"on line [{span.start_ln}]"
+
+    def __str__(self) -> str:
+        compilerError = CompilerError(
+            program=self.program,
+            span=self.type_one.span if self.type_two is None else self.type_two.span,
+        )
+        str_type_one = (
+            "an inserted Void" if self.type_one is None else str(self.type_one)
+        )
+        str_type_two = (
+            "an inserted Void" if self.type_two is None else str(self.type_two)
+        )
+        line_type_one = "" if self.type_one is None else self.lines(self.type_one.span)
+        line_type_two = "" if self.type_two is None else self.lines(self.type_two.span)
+
+        return compilerError.create_error(
+            before=f"Type error: failed to unify {str_type_one} {line_type_one} with {str_type_two} {line_type_two}."
+        )
+
+
+# Compiler errors from which we cannot recover
+@dataclass
+class CompilerStringError:
+    error_message: str
+
+    # Add the error to the list, and immediately raise it
+    def __post_init__(self) -> None:
+        ErrorRaiser.ERRORS.append(self)
+        ErrorRaiser.raise_all(TyperException)
+
+
+class UnrecoverableError(CompilerError):
+    def __str__(self) -> str:
+        return self.error_message
 
 
 @dataclass

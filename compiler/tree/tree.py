@@ -86,6 +86,9 @@ class TupleNode(Node):
     left: Node
     right: Node
 
+    def __str__(self) -> str:
+        return f"({str(self.left)}, {str(self.right)})"
+
 
 @dataclass
 class SPLNode(Node):
@@ -114,20 +117,26 @@ class BasicTypeNode(Node):
 
 
 class IntTypeNode(BasicTypeNode):
-    pass
+    def __str__(self) -> str:
+        return "Int"
 
 
 class CharTypeNode(BasicTypeNode):
-    pass
+    def __str__(self) -> str:
+        return "Char"
 
 
 class BoolTypeNode(BasicTypeNode):
-    pass
+    def __str__(self) -> str:
+        return "Bool"
 
 
 @dataclass
 class VoidTypeNode(Node):
     token: Token
+
+    def __str__(self) -> str:
+        return "Void"
 
 
 class PolymorphicTypeNode(Node):
@@ -170,6 +179,9 @@ class PolymorphicTypeNode(Node):
     @classmethod
     def fresh(cls):
         return cls(None)
+
+    def __str__(self) -> str:
+        return "polymorphic"
 
 
 @dataclass
