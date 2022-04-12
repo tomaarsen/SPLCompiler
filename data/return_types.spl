@@ -7,8 +7,8 @@ aaa(a) {
 bbb(a) {
     if (a){
         return True;
-        print(x);
     } else {
+        //print(a);
         return False;
     }
     print(a);

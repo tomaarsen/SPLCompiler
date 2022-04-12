@@ -1,0 +1,7 @@
+foo(a) {
+    return id(a);
+}
+
+id(n){
+    return n;
+}

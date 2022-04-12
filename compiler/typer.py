@@ -1,9 +1,11 @@
 import string
+from collections import defaultdict
 from enum import Enum, auto
 from pprint import pprint
 from typing import Any, Dict, List, Tuple
 
 from compiler.token import Token
+from compiler.tree.visitor import NodeTransformer
 from compiler.type import Type
 from compiler.util import Span
 
@@ -40,10 +42,23 @@ def get_fresh_type() -> TypeNode:
 class Typer:
     def __init__(self) -> None:
         self.i = 0
+        self.fun_calls = defaultdict(list)
 
     def type(self, tree: Node):
         ft = get_fresh_type()
-        return self.type_node(tree, {}, ft)
+        context = {
+            "print": FunTypeNode(
+                [PolymorphicTypeNode.fresh()], VoidTypeNode(None, span=None), span=None
+            ),
+            "isEmpty": FunTypeNode(
+                [ListNode(PolymorphicTypeNode.fresh(), span=None)],
+                BoolTypeNode(None, span=None),
+                span=None,
+            ),
+        }
+        trans = self.type_node(tree, context, ft)
+        self.apply_trans(tree, trans)
+        return tree
 
     def type_node(
         self, tree: Node, context: Dict[str, TypeNode], exp_type: TypeNode
@@ -177,6 +192,16 @@ class Typer:
                         context[token] = original_context[token]
                     elif token != tree.id.text:
                         del context[token]
+
+                if tree.id.text in self.fun_calls:
+                    for fc_tree, fc_context, fc_exp_type in self.fun_calls[
+                        tree.id.text
+                    ]:
+                        trans += self.type_node(
+                            fc_tree, context | fc_context, fc_exp_type
+                        )
+                        # breakpoint()
+                    del self.fun_calls[tree.id.text]
 
                 return trans
 
@@ -368,27 +393,58 @@ class Typer:
                     transformation_body, original_context
                 )
                 trans_condition = self.type_node(
-                    condition, trans_context, BoolTypeNode(None)
+                    condition, trans_context, BoolTypeNode(None, span=None)
                 )
 
                 return trans_condition
 
             case FunCallNode():
 
-                """
+                # """
                 if tree.func.text in context:
+                    # print(tree.func.text)
+                    # breakpoint()
                     fun_type = context[tree.func.text]
-                    ret_type = fun_type.ret_type
                     if len(tree.args.items) != len(fun_type.types):
                         raise Exception("Wrong number of arguments")
 
-                    trans = []
-                    for arg, arg_type in zip(tree.args.items, fun_type.types):
-                        trans += self.unify(context[arg.text], arg_type)
+                    # The transformations that we want to return
+                    return_trans = []
+                    # The transformations that we only want to locally apply here
+                    local_trans = []
+                    for call_arg, decl_arg_type in zip(tree.args.items, fun_type.types):
+                        # Get the type of the argument
+                        fresh = PolymorphicTypeNode.fresh()
+                        trans = self.type_node(call_arg, context, fresh)
+                        call_arg_type = self.apply_trans(fresh, trans)
+                        return_trans += trans
 
-                    trans += self.unify(exp_type, ret_type)
-                    return trans
+                        # local_trans += self.unify(decl_arg_type, call_arg_type)
+                        trans = self.unify(decl_arg_type, call_arg_type)
+                        return_trans += [t for t in trans if t[0] == fresh]
+                        local_trans += [t for t in trans if t[0] != fresh]
+                        # local_trans += trans
 
+                    # Get the return type using both transformation types
+                    ret_type = self.apply_trans(
+                        fun_type.ret_type, return_trans + local_trans
+                    )
+                    return_trans += self.unify(exp_type, ret_type)
+
+                    # pprint(context)
+                    # pprint(return_trans)
+                    # pprint(local_trans)
+                    # pprint(self.apply_trans_context(return_trans, context))
+                    # breakpoint()
+                    return return_trans
+
+                else:
+                    self.fun_calls[tree.func.text].append(
+                        (tree, context.copy(), exp_type)
+                    )
+                    return []
+
+                """
                 else:
                     fun_types = []
                     for arg in tree.args.items:
@@ -405,7 +461,7 @@ class Typer:
                     trans = self.unify(exp_type, ret_type)
 
                     return trans
-                """
+                # """
                 pass
 
             case VariableNode():
@@ -455,6 +511,15 @@ class Typer:
     def apply_trans(
         self, node: TypeNode, trans: List[Tuple[PolymorphicTypeNode, TypeNode]]
     ) -> TypeNode:
+        # sub_transformer = SubstitutionTransformer()
+        # pprint(node)
+        # pprint(trans)
+        # if isinstance(node, PolymorphicTypeNode) and node.id == 7:
+        #     breakpoint()
+        # node = sub_transformer.visit(node, trans)
+        # pprint(node)
+        # print()
+        # breakpoint()
         self.i += 1
         match node:
             case FunTypeNode():
@@ -529,6 +594,10 @@ class Typer:
             return [(type_one, type_two)]
 
         if isinstance(type_two, PolymorphicTypeNode):
+            # If we only want to update left based on right, then we just want to return [] here
+            # if left_to_right:
+            #     return []
+
             return [(type_two, type_one)]
 
         if isinstance(type_one, ListNode) and isinstance(type_two, ListNode):
@@ -552,3 +621,21 @@ class Typer:
         print(type_one.span)
         print(type_two.span)
         raise Exception("Failed to unify", type_one, "and", type_two)
+
+
+"""
+class SubstitutionTransformer(NodeTransformer):
+    def visit_PolymorphicTypeNode(
+        self,
+        node: PolymorphicTypeNode,
+        trans: List[Tuple[PolymorphicTypeNode, TypeNode]],
+    ) -> Node:
+        # pprint(node)
+        # pprint(trans)
+        for left_sub, right_sub in trans:
+            if node == left_sub:
+                # breakpoint()
+                return right_sub
+        # breakpoint()
+        return node
+"""

@@ -4,7 +4,7 @@ from compiler import Parser, Scanner, Typer
 from tests.test_util import open_file
 
 # program = open_file("data/given/valid/brainfuck.spl")
-program = open_file("data/polymorphic.spl")
+program = open_file("data/typer_test.spl")
 
 scanner = Scanner(program)
 tokens = scanner.scan()

@@ -1,0 +1,10 @@
+var x = id('a');
+
+id(n){
+    return n;
+}
+
+foo(a) {
+    var y = id('a');
+    return id(12);
+}

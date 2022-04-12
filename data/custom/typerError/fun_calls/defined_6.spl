@@ -1,0 +1,7 @@
+double(n){
+    return n + n;
+}
+
+foo(a) {
+    return double(a);
+}
