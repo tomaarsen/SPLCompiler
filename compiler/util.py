@@ -38,10 +38,21 @@ class Span:
             self.ln = line_no
         self.col = span
 
+    # TODO MIN / MAX
     def __and__(self, other: Span) -> Span:
+        # return Span(
+        #     line_no=(self.start_ln, other.end_ln),
+        #     span=(self.start_col, other.end_col),
+        # )
         return Span(
-            line_no=(self.start_ln, other.end_ln),
-            span=(self.start_col, other.end_col),
+            line_no=(
+                min(self.start_ln, other.start_ln),
+                max(self.end_ln, other.end_ln),
+            ),
+            span=(
+                min(self.start_col, other.start_col),
+                max(self.end_col, other.end_col),
+            ),
         )
 
 

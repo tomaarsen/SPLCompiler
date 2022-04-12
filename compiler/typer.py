@@ -4,6 +4,7 @@ from enum import Enum, auto
 from pprint import pprint
 from typing import Any, Dict, List, Tuple
 
+from compiler.error import ErrorRaiser, TypeError, TyperException
 from compiler.token import Token
 from compiler.tree.visitor import NodeTransformer
 from compiler.type import Type
@@ -40,9 +41,10 @@ def get_fresh_type() -> TypeNode:
 
 
 class Typer:
-    def __init__(self) -> None:
+    def __init__(self, program: str) -> None:
         self.i = 0
         self.fun_calls = defaultdict(list)
+        self.program = program
 
     def type(self, tree: Node):
         ft = get_fresh_type()
@@ -58,6 +60,7 @@ class Typer:
         }
         trans = self.type_node(tree, context, ft)
         self.apply_trans(tree, trans)
+        ErrorRaiser.raise_all(TyperException)
         return tree
 
     def type_node(
@@ -393,12 +396,15 @@ class Typer:
                     transformation_body, original_context
                 )
                 trans_condition = self.type_node(
-                    condition, trans_context, BoolTypeNode(None, span=None)
+                    condition, trans_context, BoolTypeNode(None, span=condition.span)
                 )
 
                 return trans_condition
 
             case FunCallNode():
+                # self.i += 1
+                # print(self.i, end="\r")
+                # return self.type_node(tree, context, PolymorphicTypeNode.fresh())
 
                 # """
                 if tree.func.text in context:
@@ -453,12 +459,12 @@ class Typer:
                         else:
                             raise Exception(f"Unknown Variable {arg_context.text!r}")
 
-                    ret_type = PolymorphicTypeNode.fresh()
-                    fun_type = FunTypeNode(fun_types, ret_type)
+                #     ret_type = PolymorphicTypeNode.fresh()
+                #     fun_type = FunTypeNode(fun_types, ret_type)
 
-                    # context[tree.func.text] = fun_type
+                #     # context[tree.func.text] = fun_type
 
-                    trans = self.unify(exp_type, ret_type)
+                #     trans = self.unify(exp_type, ret_type)
 
                     return trans
                 # """

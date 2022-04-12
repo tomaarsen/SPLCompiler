@@ -12,7 +12,7 @@ tokens = scanner.scan()
 parser = Parser(program)
 tree = parser.parse(tokens)
 
-typer = Typer()
+typer = Typer(program)
 annotree = typer.type(tree)
 
 # pprint(tree)

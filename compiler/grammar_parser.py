@@ -99,7 +99,9 @@ class GrammarParser:
 
     def __post_init__(self) -> None:
         if not self.grammar_file and not self.grammar_str:
-            raise Exception("Must provide either grammar_str or grammar_file.")
+            from compiler.error import UnrecoverableError
+
+            UnrecoverableError("Must provide either grammar_str or grammar_file.")
 
         # If there is a grammar file provided:
         if self.grammar_file:
@@ -121,7 +123,9 @@ class GrammarParser:
         Non_Terminals = {}
         for match in matches:
             if match is None or match.lastgroup is None:
-                raise Exception("Unmatchable")
+                from compiler.error import UnrecoverableError
+
+                UnrecoverableError("Unmatchable match when parsing non terminals.")
 
             if prev_match is None:
                 prev_match = match

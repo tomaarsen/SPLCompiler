@@ -26,7 +26,7 @@ def type_tree(filename: str) -> Node:
     parser = Parser(program)
     tree = parser.parse(tokens)
 
-    typer = Typer()
+    typer = Typer(program)
     typer.type(tree)
     return tree
 
