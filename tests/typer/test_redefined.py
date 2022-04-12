@@ -1,6 +1,7 @@
 from pprint import pprint
 
-from compiler.error import CompilerException, TyperException
+from compiler.error.error import CompilerException
+from compiler.error.typerError import TyperException
 from tests.typer.util import type_tree
 
 from compiler.tree.tree import (  # isort:skip

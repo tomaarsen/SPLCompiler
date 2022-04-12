@@ -1,14 +1,20 @@
-import string
 from collections import defaultdict
-from enum import Enum, auto
 from pprint import pprint
 from typing import Any, Dict, List, Tuple
 
-from compiler.error import ErrorRaiser, TypeError, TyperException
+from compiler.error.error import ErrorRaiser
 from compiler.token import Token
 from compiler.tree.visitor import NodeTransformer
 from compiler.type import Type
 from compiler.util import Span
+
+from compiler.error.typerError import (  # isort:skip
+    TypeError,
+    TyperException,
+    UnificationError,
+    defaultUnifyErrorFactory,
+    returnUnifyErrorFactory,
+)
 
 from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
@@ -42,9 +48,11 @@ def get_fresh_type() -> TypeNode:
 
 class Typer:
     def __init__(self, program: str) -> None:
+        self.program = program
         self.i = 0
         self.fun_calls = defaultdict(list)
-        self.program = program
+        # Keeps track of the current function that is checked
+        self.current_function = None
 
     def type(self, tree: Node):
         ft = get_fresh_type()
@@ -114,6 +122,7 @@ class Typer:
                 return transformations
 
             case FunDeclNode():
+                self.current_function = tree
                 # fresh_types = [get_fresh_type() for _ in tree.args.items]
                 # context.extend(list(zip(tree.args.items, fresh_types)))
 
@@ -233,7 +242,11 @@ class Typer:
                     trans = self.type_node(tree.exp, var_context, fun_context, exp_type)
                     return trans
 
-                trans = self.unify(exp_type, VoidTypeNode(None, span=tree.span))
+                trans = self.unify(
+                    exp_type,
+                    VoidTypeNode(None, span=tree.span),
+                    returnUnifyErrorFactory,
+                )
                 return trans
 
             case StmtAssNode():
@@ -412,10 +425,13 @@ class Typer:
                     transformation_else += trans
 
                 trans_context = self.apply_trans_context(
-                    transformation_then + transformation_else, original_context
+                    transformation_then + transformation_else, original_var_context
                 )
                 trans_condition = self.type_node(
-                    condition, trans_context, BoolTypeNode(None, span=condition.span)
+                    condition,
+                    trans_context,
+                    original_fun_context,
+                    BoolTypeNode(None, span=condition.span),
                 )
                 return transformation_then + transformation_else + trans_condition
 
@@ -589,7 +605,11 @@ class Typer:
         return context
 
     def unify(
-        self, type_one: TypeNode, type_two: TypeNode, left_to_right: bool = False
+        self,
+        type_one: TypeNode,
+        type_two: TypeNode,
+        error_factory: UnificationError = defaultUnifyErrorFactory,
+        left_to_right: bool = False,
     ) -> List[Tuple[str, TypeNode]]:
         # Goal: Return a list of tuples, each tuple is a substitution from left to right
         if isinstance(type_one, IntTypeNode) and isinstance(type_two, IntTypeNode):
@@ -643,7 +663,7 @@ class Typer:
 
         print(type_one.span)
         print(type_two.span)
-        raise Exception("Failed to unify", type_one, "and", type_two)
+        raise error_factory(type_one, type_two, self.program, self.current_function)
 
 
 class SubstitutionTransformer(NodeTransformer):

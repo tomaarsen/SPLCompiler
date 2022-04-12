@@ -1,16 +1,18 @@
 import re
 from typing import List
 
-from compiler.error import EmptyQuoteError, ScannerException
+from compiler.error.error import ErrorRaiser
 from compiler.token import Token
 from compiler.util import Span
 
-from compiler.error import (  # isort:skip
+from compiler.error.scannerError import (  # isort:skip
     DanglingMultiLineCommentError,
-    ErrorRaiser,
+    EmptyQuoteError,
     LonelyQuoteError,
+    ScannerException,
     UnexpectedCharacterError,
     UnmatchableTokenError,
+    ScannerException,
 )
 
 

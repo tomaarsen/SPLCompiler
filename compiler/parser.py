@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
+from compiler.error.error import ErrorRaiser
 from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.grammar_parser import NT
 from compiler.token import Token
@@ -21,9 +22,8 @@ from compiler.tree.tree import (  # isort:skip
     WhileNode,
 )
 
-from compiler.error import (  # isort:skip
+from compiler.error.parserError import (  # isort:skip
     ClosedWrongBracketError,
-    ErrorRaiser,
     OpenedWrongBracketError,
     ParseError,
     ParserException,
