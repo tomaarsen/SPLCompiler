@@ -1,0 +1,8 @@
+double(n){
+    return n + n;
+}
+
+foo(a) {
+    var double = double(a);
+    return double;
+}

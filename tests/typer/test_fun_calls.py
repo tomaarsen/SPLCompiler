@@ -1,9 +1,6 @@
 from pprint import pprint
 
-import pytest
-
-from compiler import Parser, Scanner, Token, Type, Typer
-from tests.test_util import open_file
+from tests.typer.util import type_tree
 
 from compiler.tree.tree import (  # isort:skip
     CharTypeNode,
@@ -15,20 +12,6 @@ from compiler.tree.tree import (  # isort:skip
     SPLNode,
     VarDeclNode,
 )
-
-
-def type_tree(filename: str) -> Node:
-    program: str = open_file(filename)
-
-    scanner = Scanner(program)
-    tokens = scanner.scan()
-
-    parser = Parser(program)
-    tree = parser.parse(tokens)
-
-    typer = Typer(program)
-    typer.type(tree)
-    return tree
 
 
 def test_defined_1():
