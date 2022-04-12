@@ -214,7 +214,7 @@ class Boolean:
 class ReturnTransformer(NodeTransformer):
     def traverse_statements(self, stmts: List[StmtNode], reachable: Boolean) -> None:
         for i, stmt in enumerate(stmts, start=1):
-            self.generic_visit(stmt, reachable=reachable)
+            self.visit_children(stmt, reachable=reachable)
             if not reachable:
                 if stmts[i:]:
                     # TODO: This is where we delete unreachable code, add a warning.
@@ -270,7 +270,7 @@ class ReturnTransformer(NodeTransformer):
     ) -> ReturnNode:
         # Code directly after this Return statement is *not* reachable
         # TODO: This line might not be needed
-        self.generic_visit(node, reachable=reachable)
+        self.visit_children(node, reachable=reachable)
 
         reachable.set(False)
         return node

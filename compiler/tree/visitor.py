@@ -12,10 +12,10 @@ class NodeVisitor:
     def visit(self, node: Node | Token, *args, **kwargs):
         """Visit a node."""
         method = "visit_" + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_visit)
+        visitor = getattr(self, method, self.visit_children)
         return visitor(node, *args, **kwargs)
 
-    def generic_visit(self, node: Node | Token, *args, **kwargs):
+    def visit_children(self, node: Node | Token, *args, **kwargs):
         """Called if no explicit visitor function exists for a node."""
         if isinstance(node, Token):
             return
@@ -33,7 +33,7 @@ class NodeTransformer(NodeVisitor):
     For transforming our AST
     """
 
-    def generic_visit(self, node: Node | Token, *args, **kwargs):
+    def visit_children(self, node: Node | Token, *args, **kwargs):
         if isinstance(node, Token):
             return node
 
@@ -67,10 +67,10 @@ class YieldVisitor(NodeVisitor):
     def visit(self, node: Node | Token, *args, **kwargs):
         """Visit a node."""
         method = "visit_" + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_visit)
+        visitor = getattr(self, method, self.visit_children)
         yield from visitor(node, *args, **kwargs)
 
-    def generic_visit(self, node: Node | Token, *args, **kwargs):
+    def visit_children(self, node: Node | Token, *args, **kwargs):
         """Called if no explicit visitor function exists for a node."""
         if isinstance(node, Token):
             return

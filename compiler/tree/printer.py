@@ -190,7 +190,7 @@ class Printer(YieldVisitor):
             yield from self.visit(node.operand)
             yield Token(")", Type.RRB)
         else:
-            yield from self.generic_visit(node)
+            yield from self.visit_children(node)
 
     def visit_TupleNode(self, node: TupleNode, **kwargs) -> Iterator[Token]:
         yield Token("(", Type.LRB)
