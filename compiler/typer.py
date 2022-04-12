@@ -543,7 +543,7 @@ class Typer:
                         case Type.FST | Type.SND:
                             left = PolymorphicTypeNode.fresh()
                             right = PolymorphicTypeNode.fresh()
-                            var_exp_type = TupleNode(left=left, right=right)
+                            var_exp_type = TupleNode(left=left, right=right, span=None)
                             trans = self.unify(variable_type, var_exp_type)
                             var_context = self.apply_trans_context(trans, var_context)
                             fun_context = self.apply_trans_context(trans, fun_context)
@@ -554,7 +554,7 @@ class Typer:
 
                         case Type.HD | Type.TL:
                             element = PolymorphicTypeNode.fresh()
-                            var_exp_type = ListNode(element)
+                            var_exp_type = ListNode(element, span=None)
                             trans = self.unify(variable_type, var_exp_type)
                             var_context = self.apply_trans_context(trans, var_context)
                             fun_context = self.apply_trans_context(trans, fun_context)
