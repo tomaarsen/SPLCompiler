@@ -3,5 +3,6 @@ double(n){
 }
 
 foo(a) {
-    return double(a);
+    var double = double(a);
+    return double;
 }
