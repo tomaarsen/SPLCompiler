@@ -2,4 +2,7 @@ id(n){
     return n;
 }
 
-var b = id('a');
+main(){
+    var b = id('a');
+    return b;
+}

@@ -4,11 +4,12 @@ from typing import List
 from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.grammar_parser import NT
 from compiler.token import Token
-from compiler.tree.visitor import NodeTransformer
+from compiler.tree.visitor import Boolean, NodeTransformer, NodeVisitor
 from compiler.type import Type
 from compiler.util import Span
 
 from compiler.tree.tree import (  # isort:skip
+    FunCallNode,
     FunDeclNode,
     IfElseNode,
     Node,
@@ -16,6 +17,7 @@ from compiler.tree.tree import (  # isort:skip
     ReturnNode,
     SPLNode,
     StmtNode,
+    VarDeclNode,
     WhileNode,
 )
 
@@ -98,7 +100,13 @@ class Parser:
 
         # If there were no issues, then we convert this parse tree into a more abstract variant
         # TODO: Prune tree to remove statements after `return`, and throw warning if there are any
-        tree = self.return_path(tree)
+        transformer = ReturnTransformer()
+        transformer.visit(tree)
+
+        # Ensure that global variable declarations do not call functions
+        transformer = GlobalVisitor()
+        transformer.visit(tree)
+
         return tree
 
     def match_parentheses(self, tokens: List[Token]) -> None:
@@ -179,39 +187,14 @@ class Parser:
 
         return tokens
 
-    def return_path(self, tree: Node) -> Node:
-        transformer = ReturnTransformer()
-        transformer.visit(tree)
-        return tree
-
-
-@dataclass
-class Boolean:
-    """
-    An instanced wrapper of a `bool` that can be passed along a function,
-    modified deeper in the call stack, and then those changes can be read
-    up higher.
-
-    >>> def func(bl: Boolean):
-    >>>     bl.set(False)
-    >>> bl = Boolean(True)
-    >>> bl
-    Boolean(boolean=True)
-    >>> func(bl)
-    >>> bl
-    Boolean(boolean=False)
-    """
-
-    boolean: bool
-
-    def set(self, boolean: bool) -> None:
-        self.boolean = boolean
-
-    def __bool__(self) -> bool:
-        return self.boolean
-
 
 class ReturnTransformer(NodeTransformer):
+    """
+    Perform two steps:
+    1. Delete unreachable dead code after a return statement.
+    2. Insert an ReturnNode after every function that does not end every branch with a return.
+    """
+
     def traverse_statements(self, stmts: List[StmtNode], reachable: Boolean) -> None:
         for i, stmt in enumerate(stmts, start=1):
             self.visit_children(stmt, reachable=reachable)
@@ -274,3 +257,23 @@ class ReturnTransformer(NodeTransformer):
 
         reachable.set(False)
         return node
+
+
+class GlobalVisitor(NodeVisitor):
+    """
+    Perform one step: Ensure that globals are constants
+    1. For all variable declarations that are made *outside* of functions,
+       throw an error if that global calls a function.
+
+    NOTE: Globals are only defined on lines that follow *after* the declaration
+    """
+
+    def visit_FunCallNode(self, node: FunCallNode, *args, **kwargs):
+        # Every SPL program is a list of function and global variable declarations.
+        # If we disallow visiting into functions, then every occurrence of a function
+        # call will be in the declaration of a global variable - which we want to avoid:
+        raise Exception("The declaration of a global cannot include a function call.")
+
+    def visit_FunDeclNode(self, node: FunDeclNode, *args, **kwargs):
+        # Don't visit deeper into functions
+        return

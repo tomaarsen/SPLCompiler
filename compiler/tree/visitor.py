@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pprint import pprint
 
 from compiler.token import Token
@@ -82,3 +83,29 @@ class YieldVisitor(NodeVisitor):
 
             elif isinstance(value, (Node, Token)):
                 yield from self.visit(value, *args, **kwargs)
+
+
+@dataclass
+class Boolean:
+    """
+    An instanced wrapper of a `bool` that can be passed along a function,
+    modified deeper in the call stack, and then those changes can be read
+    up higher.
+
+    >>> def func(bl: Boolean):
+    >>>     bl.set(False)
+    >>> bl = Boolean(True)
+    >>> bl
+    Boolean(boolean=True)
+    >>> func(bl)
+    >>> bl
+    Boolean(boolean=False)
+    """
+
+    boolean: bool
+
+    def set(self, boolean: bool) -> None:
+        self.boolean = boolean
+
+    def __bool__(self) -> bool:
+        return self.boolean

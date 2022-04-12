@@ -1,10 +1,7 @@
-var x = id('a');
-
-id(n){
-    return n;
+double(n){
+    return n + n;
 }
 
 foo(a) {
-    var y = id('a');
-    return id(12);
+    return double(a);
 }

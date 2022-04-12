@@ -271,7 +271,10 @@ def test_defined_7():
         return n;
     }
 
-    Char b = id('a');
+    main() -> Char {
+        var b = id('a');
+        return b;
+    }
     """
     tree = type_tree("data/custom/typerError/fun_calls/defined_7.spl")
 
@@ -284,7 +287,12 @@ def test_defined_7():
                         ret_type=PolymorphicTypeNode() as poly_two,
                     )
                 ),
-                VarDeclNode(type=CharTypeNode()),
+                FunDeclNode(
+                    type=FunTypeNode(
+                        types=[],
+                        ret_type=CharTypeNode(),
+                    )
+                ),
             ]
         ):
             assert poly_one == poly_two
@@ -530,7 +538,11 @@ def test_undefined_7():
     """
     Expected:
 
-    Char b = id('a');
+    main(){
+        var b = id('a');
+        return b;
+    }
+
     id(n) :: b -> b {
         return n;
     }
@@ -540,7 +552,12 @@ def test_undefined_7():
     match tree:
         case SPLNode(
             body=[
-                VarDeclNode(type=CharTypeNode()),
+                FunDeclNode(
+                    type=FunTypeNode(
+                        types=[],
+                        ret_type=CharTypeNode(),
+                    )
+                ),
                 FunDeclNode(
                     type=FunTypeNode(
                         types=[PolymorphicTypeNode() as poly_one],

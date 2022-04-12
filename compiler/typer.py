@@ -95,7 +95,7 @@ class Typer:
                     raise Exception(f"Unknown variable {tree.text}")
 
                 context_type = context[tree.text]
-                return self.unify(context_type, exp_type)
+                return self.unify(exp_type, context_type)
 
             case SPLNode():
                 transformations = []
@@ -203,7 +203,6 @@ class Typer:
                         trans += self.type_node(
                             fc_tree, context | fc_context, fc_exp_type
                         )
-                        # breakpoint()
                     del self.fun_calls[tree.id.text]
 
                 return trans
@@ -423,13 +422,21 @@ class Typer:
                         fresh = PolymorphicTypeNode.fresh()
                         trans = self.type_node(call_arg, context, fresh)
                         call_arg_type = self.apply_trans(fresh, trans)
+                        # TODO: Should we also return fresh -> other
                         return_trans += trans
 
                         # local_trans += self.unify(decl_arg_type, call_arg_type)
-                        trans = self.unify(decl_arg_type, call_arg_type)
-                        return_trans += [t for t in trans if t[0] == fresh]
-                        local_trans += [t for t in trans if t[0] != fresh]
+                        trans = self.unify(
+                            decl_arg_type, call_arg_type, left_to_right=True
+                        )
+                        # return_trans += [t for t in trans if t[0] == fresh]
+                        # local_trans += [t for t in trans if t[0] != fresh]
                         # local_trans += trans
+                        for left, right, left_to_right in trans:
+                            if left_to_right:
+                                local_trans += [(left, right)]
+                            else:
+                                return_trans += [(left, right)]
 
                     # Get the return type using both transformation types
                     ret_type = self.apply_trans(
@@ -437,6 +444,7 @@ class Typer:
                     )
                     return_trans += self.unify(exp_type, ret_type)
 
+                    # print("FunCall stats:")
                     # pprint(context)
                     # pprint(return_trans)
                     # pprint(local_trans)
@@ -517,66 +525,23 @@ class Typer:
     def apply_trans(
         self, node: TypeNode, trans: List[Tuple[PolymorphicTypeNode, TypeNode]]
     ) -> TypeNode:
-        # sub_transformer = SubstitutionTransformer()
-        # pprint(node)
-        # pprint(trans)
-        # if isinstance(node, PolymorphicTypeNode) and node.id == 7:
-        #     breakpoint()
-        # node = sub_transformer.visit(node, trans)
-        # pprint(node)
-        # print()
-        # breakpoint()
-        self.i += 1
-        match node:
-            case FunTypeNode():
-                node.types = [self.apply_trans(node, trans) for node in node.types]
-                node.ret_type = self.apply_trans(node.ret_type, trans)
-
-            case ListNode():
-                node.body = self.apply_trans(node.body, trans)
-
-            case TupleNode():
-                node.left = self.apply_trans(node.left, trans)
-                node.right = self.apply_trans(node.right, trans)
-
-            # case IntTypeNode():
-            #     if isinstance(left_sub, IntTypeNode):
-            #         node = right_sub
-
-            # case CharTypeNode():
-            #     if isinstance(left_sub, CharTypeNode):
-            #         node = right_sub
-
-            # case BoolTypeNode():
-            #     if isinstance(left_sub, BoolTypeNode):
-            #         node = right_sub
-
-            # case VoidTypeNode():
-            #     if isinstance(left_sub, VoidTypeNode):
-            #         node = right_sub
-
-            case PolymorphicTypeNode():
-                for left_sub, right_sub in trans:
-                    if left_sub == node:
-                        node = right_sub
-        return node
+        sub_transformer = SubstitutionTransformer()
+        return sub_transformer.visit(node, trans)
 
     def apply_trans_context(
         self,
         trans: List[Tuple[PolymorphicTypeNode, TypeNode]],
         context: Dict[str, TypeNode],
     ) -> Dict[str, TypeNode]:
-        # print(trans, context)
 
         if trans:
             for var_name, var_type in context.items():
                 context[var_name] = self.apply_trans(var_type, trans)
 
-        # print(context)
         return context
 
     def unify(
-        self, type_one: TypeNode, type_two: TypeNode
+        self, type_one: TypeNode, type_two: TypeNode, left_to_right: bool = False
     ) -> List[Tuple[str, TypeNode]]:
         # Goal: Return a list of tuples, each tuple is a substitution from left to right
         if isinstance(type_one, IntTypeNode) and isinstance(type_two, IntTypeNode):
@@ -597,6 +562,8 @@ class Typer:
         # If left is very general, e.g. "a", and right is specific, e.g. "Int", then map "a" to "Int"
         # TODO: Fail case
         if isinstance(type_one, PolymorphicTypeNode):
+            if left_to_right:
+                return [(type_one, type_two, True)]
             return [(type_one, type_two)]
 
         if isinstance(type_two, PolymorphicTypeNode):
@@ -604,6 +571,8 @@ class Typer:
             # if left_to_right:
             #     return []
 
+            if left_to_right:
+                return [(type_two, type_one, False)]
             return [(type_two, type_one)]
 
         if isinstance(type_one, ListNode) and isinstance(type_two, ListNode):
@@ -629,19 +598,13 @@ class Typer:
         raise Exception("Failed to unify", type_one, "and", type_two)
 
 
-"""
 class SubstitutionTransformer(NodeTransformer):
     def visit_PolymorphicTypeNode(
         self,
         node: PolymorphicTypeNode,
         trans: List[Tuple[PolymorphicTypeNode, TypeNode]],
     ) -> Node:
-        # pprint(node)
-        # pprint(trans)
         for left_sub, right_sub in trans:
             if node == left_sub:
-                # breakpoint()
                 return right_sub
-        # breakpoint()
         return node
-"""
