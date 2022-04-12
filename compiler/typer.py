@@ -122,9 +122,8 @@ class Typer:
                 arg_context = {}
                 arg_trans = []
 
-                # # If this function was already called, and thus is context, use those values
-                # if tree.id.text in context:
-                #     fun_type = context[tree.id.text]
+                if tree.id.text in fun_context:
+                    raise Exception(f"Redefined the {tree.id.text!r} function")
 
                 #     if len(tree.args.items) != len(fun_type.types):
                 #         raise Exception("Wrong number of arguments")
