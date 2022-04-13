@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+from tokenize import Token
 from typing import Tuple
 
 from compiler.error.error import CompilerError, CompilerException, ErrorRaiser
-from compiler.tree.tree import FunDeclNode, TypeNode
+from compiler.tree.tree import FunDeclNode, ReturnNode, TypeNode
+from compiler.util import Span
 
 
 class TyperException(CompilerException):
@@ -33,38 +35,49 @@ class defaultUnifyErrorFactory(UnificationError):
 
 
 # Cannot unify the return types
+@dataclass
 class returnUnifyErrorFactory(UnificationError):
-    def __str__(self) -> str:
-        lines = f"[{self.function.span.col[0]}-{self.function.span.col[1]}]"
-        message = f"Failed to match return type {str(self.type_one)} with expected return type {str(self.type_two)}.\n\
-        Error occurred in function {self.function.id.text} defined on lines {lines}"
-        # CompilerError()
-        # breakpoint()
-
-
-class TypeError(UnificationError):
-    # If span = ln = 0 and col=0 --> inserted by us
+    token: ReturnNode
 
     @staticmethod
-    def lines(span) -> Tuple[int]:
-        if span.multiline:
-            return f"on lines [{span.start_ln}-{span.end_ln}]"
-        return f"on line [{span.start_ln}]"
+    def capitalize_first_char(string: str):
+        return string[0].upper() + string[1:]
+
+    @property
+    def is_inferred(self):
+        return (
+            self.token.span.start_col == self.token.span.end_col
+            and self.token.span.ln[0] == self.token.span.ln[1]
+        )
 
     def __str__(self) -> str:
-        compilerError = CompilerError(
-            program=self.program,
-            span=self.type_one.span if self.type_two is None else self.type_two.span,
+        # Lines on which the function is defined on
+        lines = f"[{self.function.span.ln[0]}-{self.function.span.ln[1]}]"
+        # Did we insert the return type?
+        return_type_one = (
+            f"return type `{self.type_one}` on line [{self.type_one.span.start_ln}]"
+            if self.type_one.span.start_col != self.type_one.span.end_col
+            else f"inferred return type `{self.type_one}`"
         )
-        str_type_one = (
-            "an inserted Void" if self.type_one is None else str(self.type_one)
+        return_type_two = (
+            f"return type `{self.type_two}` on line [{self.type_two.span.start_ln}]"
+            if self.type_two.span.start_col != self.type_two.span.end_col
+            else f"inferred return type `{self.type_two}`"
         )
-        str_type_two = (
-            "an inserted Void" if self.type_two is None else str(self.type_two)
+        # Create the error message
+        before = f"Expected {return_type_one} for function `{self.function.id.text}`, but got {return_type_two}."
+        after = (
+            f"Error occurred in function `{self.function.id.text}` defined on lines {lines}.\n"
+            f"{returnUnifyErrorFactory.capitalize_first_char(return_type_one)} cannot be matched with {return_type_two}."
         )
-        line_type_one = "" if self.type_one is None else self.lines(self.type_one.span)
-        line_type_two = "" if self.type_two is None else self.lines(self.type_two.span)
 
-        return compilerError.create_error(
-            before=f"Type error: failed to unify {str_type_one} {line_type_one} with {str_type_two} {line_type_two}."
-        )
+        # Highlight the function name if the return type is inferred, else highlight the return.
+        if self.is_inferred:
+            span = Span(
+                line_no=(self.function.span.start_ln, self.function.span.start_ln),
+                span=self.function.span.col,
+            )
+        else:
+            span = self.token.span
+
+        return CompilerError(self.program, span).create_error(before, after)

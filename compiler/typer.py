@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import partial
 from pprint import pprint
 from typing import Any, Dict, List, Tuple
 
@@ -9,7 +10,6 @@ from compiler.type import Type
 from compiler.util import Span
 
 from compiler.error.typerError import (  # isort:skip
-    TypeError,
     TyperException,
     UnificationError,
     defaultUnifyErrorFactory,
@@ -245,7 +245,7 @@ class Typer:
                 trans = self.unify(
                     exp_type,
                     VoidTypeNode(None, span=tree.span),
-                    returnUnifyErrorFactory,
+                    partial(returnUnifyErrorFactory, token=tree),
                 )
                 return trans
 
