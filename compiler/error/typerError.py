@@ -64,19 +64,19 @@ class returnUnifyErrorFactory(UnificationError):
         lines = f"[{self.function.span.ln[0]}-{self.function.span.ln[1]}]"
         # Did we insert the return type?
         return_type_one = (
-            f"return type `{self.type_one}` defined on line [{self.type_one.span.start_ln}]"
+            f"return type '{self.type_one}' defined on line [{self.type_one.span.start_ln}]"
             if self.type_one.span.start_col != self.type_one.span.end_col
-            else f"inferred return type `{self.type_one}`"
+            else f"inferred return type '{self.type_one}'"
         )
         return_type_two = (
-            f"return type `{self.type_two}` defined on line [{self.type_two.span.start_ln}]"
+            f"return type '{self.type_two}' defined on line [{self.type_two.span.start_ln}]"
             if self.type_two.span.start_col != self.type_two.span.end_col
-            else f"inferred return type `{self.type_two}`"
+            else f"inferred return type '{self.type_two}'"
         )
         # Create the error message
-        before = f"Expected {return_type_one} for function `{self.function.id.text}`, but got {return_type_two}."
+        before = f"Expected {return_type_one} for function '{self.function.id.text}', but got {return_type_two}."
         after = (
-            f"Error occurred in function `{self.function.id.text}` defined on lines {lines}.\n"
+            f"Error occurred in function '{self.function.id.text}' defined on lines {lines}.\n"
             f"{returnUnifyErrorFactory.capitalize_first_char(return_type_one)} cannot be matched with {return_type_two}."
         )
 

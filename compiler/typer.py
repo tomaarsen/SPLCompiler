@@ -72,6 +72,7 @@ class Typer:
         }
         trans = self.type_node(tree, var_context, fun_context, ft)
         self.apply_trans(tree, trans)
+        # ErrorRaiser.ERRORS = ErrorRaiser.ERRORS[:5]
         ErrorRaiser.raise_all(TyperException)
         return tree
 
@@ -142,12 +143,15 @@ class Typer:
 
                 if tree.id.text in fun_context:
                     FunctionRedefinitionError(self.program, tree)
+                    return []
 
                 fresh_types = []
                 args = set()
                 if tree.args:
                     for token in tree.args.items:
                         if token.text in args:
+                            # breakpoint()
+                            # print(tree.args)
                             raise Exception(
                                 f"Function {tree.id.text!r} has multiple function parameters with the same name: {token.text!r}."
                             )
@@ -200,8 +204,11 @@ class Typer:
                 # )
                 trans = self.unify(exp_type, inferred_type)
 
-                # Compare the inferred type with the developed-supplied type, if any
+                # Compare the inferred type with the developer-supplied type, if any (type checking)
                 if tree.type:
+                    # TODO: Error
+                    # If we crash here, we know that the inferred type does not equal the type as provided by the programmer
+                    # breakpoint()
                     trans += self.unify(tree.type, inferred_type)
 
                 # Reset function arguments
@@ -322,6 +329,8 @@ class Typer:
                     # trans = self.type_node(tree.body, context, body_exp_type)
                     # return self.unify(exp_type, ListNode(self.apply_trans(body_exp_type, trans)))
                     # breakpoint()
+
+                    # We only get here if the parser fails
                     raise Exception("List body should not be filled at this stage")
                 else:
                     return self.unify(
@@ -329,44 +338,36 @@ class Typer:
                     )
 
             case Op2Node():
-                if tree.operator.type == Type.COLON:
-                    left_exp_type = PolymorphicTypeNode.fresh()
-                    right_exp_type = ListNode(left_exp_type, span=tree.right.span)
-                    output_exp_type = right_exp_type
+                match tree.operator.type:
+                    case Type.COLON:
+                        left_exp_type = PolymorphicTypeNode.fresh()
+                        right_exp_type = ListNode(left_exp_type, span=tree.right.span)
+                        output_exp_type = right_exp_type
 
-                elif tree.operator.type in (
-                    Type.PLUS,
-                    Type.MINUS,
-                    Type.STAR,
-                    Type.SLASH,
-                    Type.PERCENT,
-                ):
-                    left_exp_type = IntTypeNode(None, span=tree.left.span)
-                    right_exp_type = left_exp_type
-                    output_exp_type = left_exp_type
+                    case (
+                        Type.PLUS | Type.MINUS | Type.STAR | Type.SLASH | Type.PERCENT
+                    ):
+                        left_exp_type = IntTypeNode(None, span=tree.left.span)
+                        right_exp_type = left_exp_type
+                        output_exp_type = left_exp_type
 
-                elif tree.operator.type in (
-                    Type.LEQ,
-                    Type.GEQ,
-                    Type.LT,
-                    Type.GT,
-                ):
-                    left_exp_type = IntTypeNode(None, span=tree.left.span)
-                    right_exp_type = left_exp_type
-                    output_exp_type = BoolTypeNode(None, span=tree.span)
+                    case (Type.LEQ | Type.GEQ | Type.LT | Type.GT):
+                        left_exp_type = IntTypeNode(None, span=tree.left.span)
+                        right_exp_type = left_exp_type
+                        output_exp_type = BoolTypeNode(None, span=tree.span)
 
-                elif tree.operator.type in (Type.OR, Type.AND):
-                    left_exp_type = BoolTypeNode(None, span=tree.left.span)
-                    right_exp_type = left_exp_type
-                    output_exp_type = left_exp_type
+                    case (Type.OR | Type.AND):
+                        left_exp_type = BoolTypeNode(None, span=tree.left.span)
+                        right_exp_type = left_exp_type
+                        output_exp_type = left_exp_type
 
-                elif tree.operator.type in (Type.DEQUALS, Type.NEQ):
-                    left_exp_type = PolymorphicTypeNode.fresh()
-                    right_exp_type = left_exp_type
-                    output_exp_type = BoolTypeNode(None, span=tree.span)
-
-                else:
-                    raise Exception("Incorrect Op2Node")
+                    case (Type.DEQUALS | Type.NEQ):
+                        left_exp_type = PolymorphicTypeNode.fresh()
+                        right_exp_type = left_exp_type
+                        output_exp_type = BoolTypeNode(None, span=tree.span)
+                    case _:
+                        # Op2 node not yet supported
+                        raise Exception("Incorrect Op2Node")
 
                 trans = self.type_node(
                     tree.left, var_context, fun_context, left_exp_type, **kwargs
@@ -649,7 +650,7 @@ class Typer:
         self,
         type_one: TypeNode,
         type_two: TypeNode,
-        error_factory: UnificationError = defaultUnifyErrorFactory(),
+        error_factory: UnificationError = defaultUnifyErrorFactory,
         left_to_right: bool = False,
     ) -> List[Tuple[str, TypeNode]]:
         # Goal: Return a list of tuples, each tuple is a substitution from left to right
@@ -731,8 +732,10 @@ class Typer:
             type_two = self.apply_trans(type_two, trans)
             transformations += trans
             return transformations
-        # TODO fix
-        error_factory(type_one, type_two, self.program, self.current_function)
+
+        error_factory().build_and_raise(
+            type_one, type_two, self.program, self.current_function
+        )
 
 
 class SubstitutionTransformer(NodeTransformer):

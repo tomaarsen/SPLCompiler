@@ -5,11 +5,42 @@ from tests.test_util import open_file
 
 # program = open_file("data/given/valid/SumProduct.spl")
 # program = open_file("data/typer_test.spl")
-program = """
-    f(a, a) {
-        return a;
-    }
+# program = """
+# foo(a, b, c) :: Int (b, a) c -> a {
+#     return (b, a);
+# }
 
+# """
+
+# program = """
+
+#     [Int] x = [Int];
+# """
+
+
+# program = """
+#     g() {
+#         return f(1);
+#     }
+#     f() {
+#         return x;
+#     }
+#     f() {
+#         return;
+#     }
+
+#     f(a) {
+#         return a;
+#     }
+#
+#
+# """
+
+# TODO:
+program = """
+    f(x) {
+        return g(x);
+    }
 """
 
 scanner = Scanner(program)

@@ -188,9 +188,6 @@ class PolymorphicTypeNode(Node):
     def fresh(cls):
         return cls(None)
 
-    def __str__(self) -> str:
-        return "polymorphic"
-
 
 @dataclass
 class VariableNode(Node):
