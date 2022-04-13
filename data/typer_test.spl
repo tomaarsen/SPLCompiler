@@ -1,8 +1,7 @@
-double(n){
-    return n + n;
+foo(a, b, c) :: a (b, a) ([c], d) -> c { 
+    return (a, b);
 }
 
-foo(a) {
-    var double = double(a);
-    return double;
+bar(a, b) :: a b -> Bool {
+    return a == b;
 }

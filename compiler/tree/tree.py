@@ -20,6 +20,14 @@ class Node:
         printer = Printer()
         return printer.print(self)
 
+    def __contains__(self, element: Node) -> bool:
+        if self == element:
+            return True
+        return any(
+            child and isinstance(child, Node) and element in child
+            for field_name, child in self.iter_fields()
+        )
+
     def iter_fields(self, **kwargs) -> Iterator[Token]:
         # Yield the dataclass field.
         # Throws a TypeError if self is not a dataclass, just ignore if so

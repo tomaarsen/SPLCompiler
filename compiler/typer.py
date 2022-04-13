@@ -125,28 +125,6 @@ class Typer:
                 if tree.id.text in fun_context:
                     raise Exception(f"Redefined the {tree.id.text!r} function")
 
-                #     if len(tree.args.items) != len(fun_type.types):
-                #         raise Exception("Wrong number of arguments")
-
-                #     for token, var_type in zip(tree.args.items, fun_type.types):
-                #         arg_context[token.text] = var_type
-
-                if tree.type:
-                    if tree.args:
-                        if len(tree.args.items) != len(tree.type.types):
-                            raise Exception("Wrong number of arguments")
-
-                        for token, var_type in zip(tree.args.items, tree.type.types):
-                            if token.text in arg_context:
-                                arg_trans += self.unify(
-                                    arg_context[token.text], var_type
-                                )
-                            arg_context[token.text] = self.apply_trans(
-                                var_type, arg_trans
-                            )
-
-                    fun_context[tree.id.text] = tree.type
-
                 if not arg_context:
                     fresh_types = []
                     if tree.args:
@@ -188,18 +166,15 @@ class Typer:
                     fun_context = self.apply_trans_context(trans, fun_context)
                     # transformations += trans
 
-                # Place in tree
-                tree.type = fun_context[tree.id.text]
-
+                inferred_type = fun_context[tree.id.text]
                 # transformations += self.unify(
                 #     self.apply_trans(exp_type, transformations), tree.type
                 # )
-                trans = self.unify(exp_type, tree.type)
+                trans = self.unify(exp_type, inferred_type)
 
-                # breakpoint()
-
-                # Place in global context
-                # context[tree.id.text] = context_copy[tree.id.text]
+                # Compare the inferred type with the developed-supplied type, if any
+                if tree.type:
+                    trans += self.unify(tree.type, inferred_type)
 
                 # Reset function arguments
                 for token in list(var_context.keys()):
@@ -222,6 +197,9 @@ class Typer:
                             fc_exp_type,
                         )
                     del self.fun_calls[tree.id.text]
+
+                # Place in tree
+                tree.type = inferred_type
 
                 return trans
 
@@ -261,6 +239,7 @@ class Typer:
                 return trans
 
             case TupleNode():
+                # TODO: Should we return these if they occur in trans?
                 left_fresh = PolymorphicTypeNode.fresh()
                 right_fresh = PolymorphicTypeNode.fresh()
 
@@ -611,17 +590,14 @@ class Typer:
             return []
 
         # If left is very general, e.g. "a", and right is specific, e.g. "Int", then map "a" to "Int"
-        # TODO: Fail case
-        if isinstance(type_one, PolymorphicTypeNode):
+        # NOTE: If type_one in type_two, then we have an error (e.g. we want to go from a -> (a, b), which is recursive)
+        # We can abuse this to get a more precise error, but I'm not sure whether that's helpful
+        if isinstance(type_one, PolymorphicTypeNode) and type_one not in type_two:
             if left_to_right:
                 return [(type_one, type_two, True)]
             return [(type_one, type_two)]
 
-        if isinstance(type_two, PolymorphicTypeNode):
-            # If we only want to update left based on right, then we just want to return [] here
-            # if left_to_right:
-            #     return []
-
+        if isinstance(type_two, PolymorphicTypeNode) and type_two not in type_one:
             if left_to_right:
                 return [(type_two, type_one, False)]
             return [(type_two, type_one)]
@@ -631,18 +607,45 @@ class Typer:
 
         if isinstance(type_one, TupleNode) and isinstance(type_two, TupleNode):
             before = self.unify(type_one.left, type_two.left)
+            type_one = self.apply_trans(type_one, before)
+            type_two = self.apply_trans(type_two, before)
+
             after = self.unify(type_one.right, type_two.right)
+            type_one = self.apply_trans(type_one, after)
+            type_two = self.apply_trans(type_two, after)
             return before + after
 
         if isinstance(type_one, FunTypeNode) and isinstance(type_two, FunTypeNode):
             if len(type_one.types) != len(type_two.types):
                 raise Exception("Different number of arguments")
 
-            trans = []
-            for _type_one, _type_two in zip(type_one.types, type_two.types):
-                trans += self.unify(_type_one, _type_two)
-            trans += self.unify(type_one.ret_type, type_two.ret_type)
-            return trans
+            # print("Before")
+            # print(type_one)
+            # print(type_two)
+            # print()
+
+            transformations = []
+            for i in range(len(type_one.types)):
+                _type_one = type_one.types[i]
+                _type_two = type_two.types[i]
+                trans = self.unify(_type_one, _type_two)
+                # if trans:
+                #     print(trans[0][0], "->", trans[0][1])
+                type_one = self.apply_trans(type_one, trans)
+                type_two = self.apply_trans(type_two, trans)
+
+                # print(f"After index {i}")
+                # print(type_one)
+                # print(type_two)
+                # print()
+                transformations += trans
+
+            trans = self.unify(type_one.ret_type, type_two.ret_type)
+            # breakpoint()
+            type_one = self.apply_trans(type_one, trans)
+            type_two = self.apply_trans(type_two, trans)
+            transformations += trans
+            return transformations
 
         print(type_one.span)
         print(type_two.span)
