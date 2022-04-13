@@ -70,6 +70,13 @@ class Typer:
         }
         trans = self.type_node(tree, var_context, fun_context, ft)
         self.apply_trans(tree, trans)
+
+        # Make sure that all function calls have been taken care of by function declarations
+        if len(self.fun_calls):
+            raise Exception(
+                f"The following functions are used, but have not been defined: {list(self.fun_calls.keys())!r}"
+            )
+
         ErrorRaiser.raise_all(TyperException)
         return tree
 
