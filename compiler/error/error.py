@@ -1,11 +1,8 @@
 import sys
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import Tuple
 
 from compiler.grammar_parser import NT
-from compiler.token import Token
-from compiler.tree.tree import TypeNode
-from compiler.type import Type
 from compiler.util import Span
 
 
@@ -22,23 +19,14 @@ class CompilerException(Exception):
     pass
 
 
-class ScannerException(CompilerException):
-    pass
-
-
-class ParserException(CompilerException):
-    pass
-
-
-class TyperException(CompilerException):
-    pass
-
-
 class ErrorRaiser:
     ERRORS = []
 
     @staticmethod
     def __combine_errors__() -> None:
+        # TODO: fix this and prevent circular import
+        from compiler.error.scannerError import UnexpectedCharacterError
+
         # Check if we have any consecutive UnexpectedCharacterError
         # First sort on line_no, and then on start of the error in the line
         # If error object has no span attribute, then sort it on top
@@ -175,150 +163,18 @@ class CompilerError:
                 return ""
 
 
-class UnmatchableTokenError(CompilerError):
-    def __str__(self) -> str:
-        return self.create_error(
-            f"Unexpected lack of token match on line {self.lines}."
-        )
-
-
-class UnexpectedCharacterError(CompilerError):
-    def __str__(self) -> str:
-        multiple_unexpected_chars = self.length > 1
-        return self.create_error(
-            f"Unexpected character{'s' if multiple_unexpected_chars else ''} {self.error_chars!r} on line {self.lines}."
-        )
-
-
-class DanglingMultiLineCommentError(CompilerError):
-    def __str__(self) -> str:
-        return self.create_error(
-            f"Found dangling multiline comment on line {self.lines}."
-        )
-
-
-class LonelyQuoteError(CompilerError):
-    def __str__(self) -> str:
-        return self.create_error(f"Found lonely quote on line {self.lines}.")
-
-
-class EmptyQuoteError(CompilerError):
-    def __str__(self) -> str:
-        return self.create_error(f"Found empty quote on line {self.lines}.")
-
-
-# Failed to unify these two types
-@dataclass
-class UnificationError:
-    type_one: TypeNode
-    type_two: TypeNode
-    program: str
-
-    def __post_init__(self) -> None:
-        # class Span:
-        # ln: Tuple[int, int]
-        # col: Tuple[int, int]
-        ErrorRaiser.ERRORS.append(self)
-        ErrorRaiser.raise_all(TyperException)
-
-
-class TypeError(UnificationError):
-    # If span = ln = 0 and col=0 --> inserted by us
-
-    @staticmethod
-    def lines(span) -> Tuple[int]:
-        if span.multiline:
-            return f"on lines [{span.start_ln}-{span.end_ln}]"
-        return f"on line [{span.start_ln}]"
-
-    def __str__(self) -> str:
-        compilerError = CompilerError(
-            program=self.program,
-            span=self.type_one.span if self.type_two is None else self.type_two.span,
-        )
-        str_type_one = (
-            "an inserted Void" if self.type_one is None else str(self.type_one)
-        )
-        str_type_two = (
-            "an inserted Void" if self.type_two is None else str(self.type_two)
-        )
-        line_type_one = "" if self.type_one is None else self.lines(self.type_one.span)
-        line_type_two = "" if self.type_two is None else self.lines(self.type_two.span)
-
-        return compilerError.create_error(
-            before=f"Type error: failed to unify {str_type_one} {line_type_one} with {str_type_two} {line_type_two}."
-        )
-
-
-# Compiler errors from which we cannot recover
+# General compiler errors from which we cannot recover
 @dataclass
 class CompilerStringError:
     error_message: str
+    stage: CompilerException
 
     # Add the error to the list, and immediately raise it
     def __post_init__(self) -> None:
         ErrorRaiser.ERRORS.append(self)
-        ErrorRaiser.raise_all(TyperException)
+        ErrorRaiser.raise_all(self.stage)
 
 
 class UnrecoverableError(CompilerError):
     def __str__(self) -> str:
         return self.error_message
-
-
-@dataclass
-class BracketMismatchError(CompilerError):
-    bracket: Type
-
-    def __str__(self) -> str:
-        return self.create_error(
-            f"Bracket mismatch with {str(self.bracket)} on line {self.lines}"
-        )
-
-
-class UnclosedBracketError(BracketMismatchError):
-    def __str__(self) -> str:
-        return self.create_error(
-            f"The {str(self.bracket)} bracket on line {self.lines} was never closed."
-        )
-
-
-class UnopenedBracketError(BracketMismatchError):
-    def __str__(self) -> str:
-        return self.create_error(
-            f"The {str(self.bracket)} bracket on line {self.lines} was never opened."
-        )
-
-
-class ClosedWrongBracketError(BracketMismatchError):
-    def __str__(self) -> str:
-        return self.create_error(
-            f"The {str(self.bracket)} bracket on line {self.lines} closes the wrong type of bracket."
-        )
-
-
-class OpenedWrongBracketError(BracketMismatchError):
-    def __str__(self) -> str:
-        return self.create_error(
-            f"The {str(self.bracket)} bracket on line {self.lines} opens the wrong type of bracket."
-        )
-
-
-@dataclass
-class ParseError(CompilerError):
-    nt: NT
-    expected: List
-    got: Token
-
-    def __str__(self) -> str:
-        after = ""
-        if isinstance(self.expected[0], Type):
-            after = f"Expected {self.expected[0].article_str()}"
-            if self.got:
-                after += f", but got {self.got.text!r} instead"
-            after += f" on line {self.span.end_ln} column {self.span.end_col}."
-
-        return self.create_error(
-            f"Syntax error detected when expecting {self.str_nt} on line{'s' if self.span.multiline else ''} {self.lines}",
-            after=after if after else "",
-        )
