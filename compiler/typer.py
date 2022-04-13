@@ -134,11 +134,17 @@ class Typer:
                     raise Exception(f"Redefined the {tree.id.text!r} function")
 
                 fresh_types = []
+                args = set()
                 if tree.args:
                     for token in tree.args.items:
+                        if token.text in args:
+                            raise Exception(
+                                f"Function {tree.id.text!r} has multiple function parameters with the same name: {token.text!r}."
+                            )
                         fresh = PolymorphicTypeNode.fresh()
                         var_context[token.text] = fresh
                         fresh_types.append(fresh)
+                        args.add(token.text)
 
                 ret_type = PolymorphicTypeNode.fresh()
                 fun_context[tree.id.text] = FunTypeNode(
