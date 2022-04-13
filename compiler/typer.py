@@ -3,15 +3,17 @@ from functools import partial
 from pprint import pprint
 from typing import Any, Dict, List, Tuple
 
-from compiler.error.error import ErrorRaiser
+from compiler.error.error import ErrorRaiser, UnrecoverableError
 from compiler.token import Token
 from compiler.tree.visitor import NodeTransformer
 from compiler.type import Type
 from compiler.util import Span
 
 from compiler.error.typerError import (  # isort:skip
+    FunctionRedefinitionError,
     TyperException,
     UnificationError,
+    VariableError,
     defaultUnifyErrorFactory,
     returnUnifyErrorFactory,
 )
@@ -78,18 +80,25 @@ class Typer:
         var_context: Dict[str, TypeNode],
         fun_context: Dict[str, TypeNode],
         exp_type: TypeNode,
+        error_factory: UnificationError = defaultUnifyErrorFactory,
     ) -> Node:
         match tree:
 
             case Token(type=Type.DIGIT):
                 # If tree is e.g. `12`:
-                return self.unify(exp_type, IntTypeNode(None, span=tree.span))
+                return self.unify(
+                    exp_type, IntTypeNode(None, span=tree.span), error_factory
+                )
 
             case Token(type=Type.TRUE) | Token(type=Type.FALSE):
-                return self.unify(exp_type, BoolTypeNode(None, span=tree.span))
+                return self.unify(
+                    exp_type, BoolTypeNode(None, span=tree.span), error_factory
+                )
 
             case Token(type=Type.CHARACTER):
-                return self.unify(exp_type, CharTypeNode(None, span=tree.span))
+                return self.unify(
+                    exp_type, CharTypeNode(None, span=tree.span), error_factory
+                )
 
             case Token(type=Type.ID):
                 # If tree is e.g. `a`:
@@ -105,10 +114,11 @@ class Typer:
                 # Note: This is a simplified version, no replacement with fresh variables
                 # TODO: Check if tree.text in context
                 if tree.text not in var_context:
-                    raise Exception(f"Unknown variable {tree.text}")
+                    VariableError(self.program, tree)
+                    return []
 
                 context_type = var_context[tree.text]
-                return self.unify(exp_type, context_type)
+                return self.unify(exp_type, context_type, error_factory)
 
             case SPLNode():
                 transformations = []
@@ -132,7 +142,7 @@ class Typer:
                 arg_trans = []
 
                 if tree.id.text in fun_context:
-                    raise Exception(f"Redefined the {tree.id.text!r} function")
+                    FunctionRedefinitionError(self.program, tree)
 
                 #     if len(tree.args.items) != len(fun_type.types):
                 #         raise Exception("Wrong number of arguments")
@@ -239,13 +249,19 @@ class Typer:
 
             case ReturnNode():
                 if tree.exp:
-                    trans = self.type_node(tree.exp, var_context, fun_context, exp_type)
+                    trans = self.type_node(
+                        tree.exp,
+                        var_context,
+                        fun_context,
+                        exp_type,
+                        returnUnifyErrorFactory(tree),
+                    )
                     return trans
 
                 trans = self.unify(
                     exp_type,
                     VoidTypeNode(None, span=tree.span),
-                    partial(returnUnifyErrorFactory, token=tree),
+                    returnUnifyErrorFactory(tree),
                 )
                 return trans
 
@@ -584,7 +600,7 @@ class Typer:
                 # breakpoint()
                 return trans
 
-        raise Exception(f"Node had no handler\n\n{tree}")
+        UnrecoverableError(f"Node had no handler\n\n{tree}", TyperException)
 
     def apply_trans(
         self, node: TypeNode, trans: List[Tuple[PolymorphicTypeNode, TypeNode]]
@@ -608,7 +624,7 @@ class Typer:
         self,
         type_one: TypeNode,
         type_two: TypeNode,
-        error_factory: UnificationError = defaultUnifyErrorFactory,
+        error_factory: UnificationError = defaultUnifyErrorFactory(),
         left_to_right: bool = False,
     ) -> List[Tuple[str, TypeNode]]:
         # Goal: Return a list of tuples, each tuple is a substitution from left to right
@@ -663,7 +679,9 @@ class Typer:
 
         print(type_one.span)
         print(type_two.span)
-        raise error_factory(type_one, type_two, self.program, self.current_function)
+        error_factory.build_and_raise(
+            type_one, type_two, self.program, self.current_function
+        )
 
 
 class SubstitutionTransformer(NodeTransformer):
