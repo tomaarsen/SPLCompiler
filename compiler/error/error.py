@@ -24,8 +24,7 @@ class ErrorRaiser:
 
     @staticmethod
     def __combine_errors__() -> None:
-        # TODO: fix this and prevent circular import
-        from compiler.error.scannerError import UnexpectedCharacterError
+        from compiler.error.scanner_error import UnexpectedCharacterError
 
         # Check if we have any consecutive UnexpectedCharacterError
         # First sort on line_no, and then on start of the error in the line

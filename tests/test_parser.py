@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from compiler.error.parserError import ParserException
+from compiler.error.parser_error import ParserException
 from compiler.parser import Parser
 from compiler.scanner import Scanner
 from compiler.tree.tree import SPLNode

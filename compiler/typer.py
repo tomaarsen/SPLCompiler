@@ -9,13 +9,13 @@ from compiler.tree.visitor import Boolean, NodeTransformer
 from compiler.type import Type
 from compiler.util import Span
 
-from compiler.error.typerError import (  # isort:skip
+from compiler.error.typer_error import (  # isort:skip
     FunctionRedefinitionError,
     TyperException,
     UnificationError,
     VariableError,
-    defaultUnifyErrorFactory,
-    returnUnifyErrorFactory,
+    DefaultUnifyErrorFactory,
+    ReturnUnifyErrorFactory,
 )
 
 from compiler.tree.tree import (  # isort:skip
@@ -89,7 +89,7 @@ class Typer:
         var_context: Dict[str, TypeNode],
         fun_context: Dict[str, TypeNode],
         exp_type: TypeNode,
-        error_factory: UnificationError = defaultUnifyErrorFactory,
+        error_factory: UnificationError = DefaultUnifyErrorFactory,
         **kwargs,
     ) -> Node:
         match tree:
@@ -261,7 +261,7 @@ class Typer:
                         var_context,
                         fun_context,
                         exp_type,
-                        returnUnifyErrorFactory(tree),
+                        ReturnUnifyErrorFactory(tree),
                         return_funcall=True,
                         **kwargs,
                     )
@@ -270,7 +270,7 @@ class Typer:
                 trans = self.unify(
                     exp_type,
                     VoidTypeNode(None, span=tree.span),
-                    returnUnifyErrorFactory(tree),
+                    ReturnUnifyErrorFactory(tree),
                 )
                 return trans
 
@@ -657,7 +657,7 @@ class Typer:
         self,
         type_one: TypeNode,
         type_two: TypeNode,
-        error_factory: UnificationError = defaultUnifyErrorFactory,
+        error_factory: UnificationError = DefaultUnifyErrorFactory,
         left_to_right: bool = False,
     ) -> List[Tuple[str, TypeNode]]:
         # Goal: Return a list of tuples, each tuple is a substitution from left to right

@@ -22,7 +22,7 @@ from compiler.tree.tree import (  # isort:skip
     WhileNode,
 )
 
-from compiler.error.parserError import (  # isort:skip
+from compiler.error.parser_error import (  # isort:skip
     ClosedWrongBracketError,
     OpenedWrongBracketError,
     ParseError,
@@ -272,6 +272,7 @@ class GlobalVisitor(NodeVisitor):
         # Every SPL program is a list of function and global variable declarations.
         # If we disallow visiting into functions, then every occurrence of a function
         # call will be in the declaration of a global variable - which we want to avoid:
+        # TODO: Change exception
         raise Exception("The declaration of a global cannot include a function call.")
 
     def visit_FunDeclNode(self, node: FunDeclNode, *args, **kwargs):
