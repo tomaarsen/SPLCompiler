@@ -51,7 +51,7 @@ RIGHT_ATTACHED_TOKENS = {
 
 
 class PrintingInfo(Enum):
-    # SPACE = auto()
+    SPACE = auto()
     NEWLINE = auto()
     # INDENT = auto()
     # UNINDENT = auto()
@@ -72,6 +72,8 @@ class Printer(YieldVisitor):
         for token in self.visit(tree):
             if token == PrintingInfo.NEWLINE:
                 program += "\n"
+            elif token == PrintingInfo.SPACE:
+                last_token = token
             else:
                 # Modify depth before this token
                 if token.type == Type.RCB:  # }
@@ -90,6 +92,7 @@ class Printer(YieldVisitor):
                 if (
                     program
                     and program[-1] == " "
+                    and last_token != PrintingInfo.SPACE
                     and (
                         token.type in RIGHT_ATTACHED_TOKENS
                         or (
@@ -213,6 +216,7 @@ class Printer(YieldVisitor):
     def visit_FunTypeNode(self, node: FunTypeNode, **kwargs) -> Iterator[Token]:
         for _type in node.types:
             yield from self.visit(_type)
+            yield PrintingInfo.SPACE
         yield Token("->", Type.ARROW)
         yield from self.visit(node.ret_type)
 

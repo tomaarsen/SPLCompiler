@@ -32,6 +32,14 @@ def valid_files() -> List[str]:
     return [file for file in glob("data/given/valid/*.spl", recursive=True)]
 
 
+def valid_typed_files() -> List[str]:
+    return [
+        file
+        for file in glob("data/given/valid/*.spl", recursive=True)
+        if not file.endswith(("arguments.spl", "sieve.spl", "SumProduct.spl"))
+    ]
+
+
 def parserError_files() -> List[str]:
     return [
         file
@@ -46,6 +54,11 @@ def file(request) -> str:
 
 @pytest.fixture(scope="session", params=valid_files())
 def valid_file(request) -> str:
+    return request.param
+
+
+@pytest.fixture(scope="session", params=valid_typed_files())
+def valid_typed_file(request) -> str:
     return request.param
 
 

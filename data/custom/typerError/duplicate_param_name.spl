@@ -1,0 +1,4 @@
+// How about foo(a, a, a) { ... }
+fun(a, a, a){
+    return a;
+}
