@@ -3,7 +3,7 @@ from pprint import pprint
 from compiler import Parser, Scanner, Typer
 from tests.test_util import open_file
 
-# program = open_file("data/given/valid/brainfuck.spl")
+# program = open_file("data/given/valid/SumProduct.spl")
 program = open_file("data/typer_test.spl")
 
 scanner = Scanner(program)

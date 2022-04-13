@@ -5,3 +5,5 @@ foo(a, b, c) :: a (b, a) ([c], d) -> c {
 bar(a, b) :: a b -> Bool {
     return a == b;
 }
+
+// How about foo(a, a, a) { ... }
