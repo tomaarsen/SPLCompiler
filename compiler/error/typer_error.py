@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from numpy import void
-
 from compiler.error.error import CompilerError, CompilerException, ErrorRaiser
 from compiler.token import Token
 from compiler.tree.tree import FunDeclNode, ReturnNode, TypeNode
