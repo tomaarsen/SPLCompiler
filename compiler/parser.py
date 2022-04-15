@@ -72,18 +72,23 @@ class Parser:
             # The partial production that failed to match
             expected = error.remaining
             # What we got instead of being able to match the partial production
-            got = tokens[error.end]
+            got = tokens[error.end] if error.end < len(tokens) else None
 
             # Track whether the received token and the expected token are on the same line
             sameline = False
             # Get a span of the error tokens, if possible
             if error_tokens:
                 error_tokens_span = error_tokens[0].span and error_tokens[-1].span
-                if got.span.start_ln == error_tokens_span.end_ln:
+                if got and got.span.start_ln == error_tokens_span.end_ln:
                     sameline = True
-            else:
+            elif got:
                 error_tokens_span = Span(
                     got.span.start_ln, (got.span.start_col, got.span.start_col)
+                )
+            else:
+                error_tokens_span = Span(
+                    tokens[-1].span.start_ln,
+                    (tokens[-1].span.start_col, tokens[-1].span.start_col),
                 )
 
             ParseError(
