@@ -1,6 +1,6 @@
 SPL       ::= ( VarDecl | FunDecl )*
 VarDecl   ::= ( 'var' | Type ) 'id'  '=' Exp ';'
-FunDecl   ::= 'id' '(' [ FArgs ] ')' [ '::' FunType ] '{' VarDecl* Stmt+ '}'
+FunDecl   ::= 'id' '(' [ FArgs ] ')' [ '::' FunType ] '{' VarDecl* Stmt* '}'
 RetType   ::= Type
             | 'Void'
 FunType   ::= Type* '->' RetType

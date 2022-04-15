@@ -3,7 +3,7 @@ from pprint import pprint
 from compiler import Parser, Scanner, Typer
 from tests.test_util import open_file
 
-# program = open_file("data/given/valid/SumProduct.spl")
+program = open_file("data/given/valid/list.spl")
 # program = open_file("data/typer_test.spl")
 # program = """
 # foo(a, b, c) :: Int (b, a) c -> a {
@@ -36,12 +36,16 @@ from tests.test_util import open_file
 #
 # """
 
-# TODO:
-program = """
-    f(x) {
-        return g(x);
-    }
-"""
+# # TODO:
+# program = """
+# f() {
+#     return;
+# }
+
+# main() {
+#     var x = f();
+# }
+# """
 
 scanner = Scanner(program)
 tokens = scanner.scan()

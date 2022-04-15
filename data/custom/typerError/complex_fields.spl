@@ -1,0 +1,9 @@
+equals(a, b){
+	var c = a.hd.fst;
+	var d = a.hd.fst.hd;
+	var e = a.hd.fst;
+	var f = a.hd.fst.tl.hd;
+	if (isEmpty(a) && isEmpty(b)) { return True; }
+	if (isEmpty(a) || isEmpty(b)) { return False; }
+	return (a.hd == b.hd) && equals (a.tl, b.tl);	
+}
