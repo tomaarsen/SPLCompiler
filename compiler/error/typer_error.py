@@ -33,7 +33,7 @@ class UnificationError:
         ErrorRaiser.raise_all(TyperException)
 
 
-class defaultUnifyErrorFactory(UnificationError):
+class DefaultUnifyErrorFactory(UnificationError):
     # TODO: improve this
     def __str__(self) -> str:
         # breakpoint()
@@ -42,7 +42,7 @@ class defaultUnifyErrorFactory(UnificationError):
 
 # Cannot unify the return types
 @dataclass
-class returnUnifyErrorFactory(UnificationError):
+class ReturnUnifyErrorFactory(UnificationError):
     token: ReturnNode
 
     @staticmethod
@@ -77,7 +77,7 @@ class returnUnifyErrorFactory(UnificationError):
         before = f"Expected {return_type_one} for function '{self.function.id.text}', but got {return_type_two}."
         after = (
             f"Error occurred in function '{self.function.id.text}' defined on lines {lines}.\n"
-            f"{returnUnifyErrorFactory.capitalize_first_char(return_type_one)} cannot be matched with {return_type_two}."
+            f"{ReturnUnifyErrorFactory.capitalize_first_char(return_type_one)} cannot be matched with {return_type_two}."
         )
 
         # Highlight the function name if the return type is inferred, else highlight the return.

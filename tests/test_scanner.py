@@ -1,7 +1,7 @@
 import pytest
 
 from compiler import Scanner, Token, Type
-from compiler.error.scannerError import ScannerException
+from compiler.error.scanner_error import ScannerException
 from tests.test_util import open_file
 
 

@@ -5,7 +5,7 @@ from compiler.error.error import ErrorRaiser
 from compiler.token import Token
 from compiler.util import Span
 
-from compiler.error.scannerError import (  # isort:skip
+from compiler.error.scanner_error import (  # isort:skip
     DanglingMultiLineCommentError,
     EmptyQuoteError,
     LonelyQuoteError,
