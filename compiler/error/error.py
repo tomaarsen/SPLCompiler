@@ -112,12 +112,31 @@ class CompilerError:
             final_line = ""
             # If this line contains denotated spans:
             if i >= self.span.start_ln and i <= self.span.end_ln:
-                # Before:
-                final_line = f"-> {i}. {line[:self.span.start_col]}"
-                # During the denotated area
-                final_line += f"{Colors.RED}{line[self.span.start_col:self.span.end_col]}{Colors.ENDC}"
-                # Optionally, after
-                final_line += line[self.span.end_col :]
+                # First line
+                if i == self.span.start_ln:
+                    # Do not color outside of span on first line
+                    final_line += f"   {i}. {line[:self.span.start_col]}"
+
+                    # If we have more than 1 line, color the remaining line
+                    if self.span.multiline:
+                        final_line += (
+                            f"{Colors.RED}{line[self.span.start_col:]}{Colors.ENDC}"
+                        )
+                    # If there is one line, color up until the correct col
+                    else:
+                        final_line += f"{Colors.RED}{line[self.span.start_col:self.span.end_col]}{Colors.ENDC}"
+                        final_line += line[self.span.end_col :]
+
+                # Color lines (if any) that are in between the first and last line
+                elif i > self.span.start_ln and i < self.span.end_ln:
+                    final_line += f"   {i}. {Colors.RED}{line}{Colors.ENDC}"
+                # The last line, of a multiline
+                else:
+                    final_line += (
+                        f"   {i}. {Colors.RED}{line[:self.span.end_col]}{Colors.ENDC}"
+                    )
+                    final_line += line[self.span.end_col :]
+
             else:
                 final_line += f"   {i}. {line}"
             final_error_lines.append(final_line)

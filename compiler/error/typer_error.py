@@ -48,9 +48,9 @@ class DefaultUnifyErrorFactory(UnificationError):
     def __str__(self) -> str:
         # Error occurred outside of a function
         if self.function == None:
-            return f"Failed to match type {str(self.type_one)} with expected type {str(self.type_two)}."
+            return f"Failed to match type {str(self.type_two)} with expected type {str(self.type_one)}."
 
-        before = f"Failed to match type {str(self.type_one)} with expected type {str(self.type_two)} in function {self.function.id.text}."
+        before = f"Failed to match type {str(self.type_two)} with expected type {str(self.type_one)} in function {self.function.id.text}."
         span = Span(
             line_no=(self.function.span.start_ln, self.function.span.start_ln),
             span=self.function.span.col,
@@ -63,18 +63,9 @@ class BinaryOperationError(UnificationError):
     binary_op: Op2Node
 
     def __str__(self) -> str:
-        span = Span(
-            line_no=(
-                self.binary_op.left.span.start_ln,
-                self.binary_op.right.span.end_ln,
-            ),
-            span=(
-                self.binary_op.left.span.start_col,
-                self.binary_op.right.span.end_col,
-            ),
-        )
+        span = self.binary_op.left.span & self.binary_op.right.span
         compiler_error = CompilerError(self.program, span)
-        before = f"Cannot match type {str(self.type_one)!r} with expected type {str(self.type_two)!r} for binary operation {str(self.binary_op.operator)!r} on {compiler_error.lines}."
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for binary operation {str(self.binary_op.operator)!r} on {compiler_error.lines}."
 
         return compiler_error.create_error(before)
 

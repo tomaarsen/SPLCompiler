@@ -211,6 +211,7 @@ class Op2Node(Node):
             self.left = value
             self.span = value.span & self.span
         elif isinstance(self.left, Op2Node):
+            self.span = value.span & self.span
             self.left.assign_left(value)
         else:
             raise Exception()
