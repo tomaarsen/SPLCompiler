@@ -20,3 +20,6 @@ class Token:
         if not isinstance(__o, Token):
             return False
         return self.text == __o.text and self.type == __o.type
+
+    def __str__(self) -> str:
+        return self.text

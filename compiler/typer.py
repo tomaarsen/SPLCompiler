@@ -10,12 +10,17 @@ from compiler.type import Type
 from compiler.util import Span
 
 from compiler.error.typer_error import (  # isort:skip
+    BinaryOperationError,
     FunctionRedefinitionError,
+    RedefinitionOfVariableError,
     TyperException,
     UnificationError,
+    UsageOfUndefinedFunctionError,
     VariableError,
     DefaultUnifyErrorFactory,
     ReturnUnifyErrorFactory,
+    WrongNumberOfArgumentsCallError,
+    WrongNumberOfArgumentsDeclError,
 )
 
 from compiler.tree.tree import (  # isort:skip
@@ -75,10 +80,15 @@ class Typer:
         # TODO: ErrorRaiser.ERRORS = ErrorRaiser.ERRORS[:5]
 
         # Make sure that all function calls have been taken care of by function declarations
-        if len(self.fun_calls):
-            raise Exception(
-                f"The following functions are used, but have not been defined: {list(self.fun_calls.keys())!r}"
-            )
+        for fun_name, fun_calls in self.fun_calls.items():
+            # The function with name, fun_name, can be called multiple times
+            for fun_call in fun_calls:
+                fun_call_node = fun_call[0]
+                UsageOfUndefinedFunctionError(self.program, fun_call_node)
+        # if len(self.fun_calls):
+        #     raise Exception(
+        #         f"The following functions are used, but have not been defined: {list(self.fun_calls.keys())!r}"
+        #     )
 
         ErrorRaiser.raise_all(TyperException)
         return tree
@@ -157,11 +167,9 @@ class Typer:
                 if tree.args:
                     for token in tree.args.items:
                         if token.text in args:
-                            # breakpoint()
-                            # print(tree.args)
-                            raise Exception(
-                                f"Function {tree.id.text!r} has multiple function parameters with the same name: {token.text!r}."
-                            )
+                            WrongNumberOfArgumentsDeclError(self.program, token, tree)
+                            return []
+
                         fresh = PolymorphicTypeNode.fresh()
                         var_context[token.text] = fresh
                         fresh_types.append(fresh)
@@ -338,7 +346,7 @@ class Typer:
                     # breakpoint()
 
                     # We only get here if the parser fails
-                    raise Exception("List body should not be filled at this stage")
+                    UnrecoverableError("Error while typing the body of a list node.")
                 else:
                     return self.unify(
                         exp_type, ListNode(PolymorphicTypeNode.fresh(), span=tree.span)
@@ -373,8 +381,9 @@ class Typer:
                         right_exp_type = left_exp_type
                         output_exp_type = BoolTypeNode(None, span=tree.span)
                     case _:
-                        # Op2 node not yet supported
-                        raise Exception("Incorrect Op2Node")
+                        UnrecoverableError(
+                            f"The binary operator {tree.operator.type} is not supported by the typer of this compiler."
+                        )
 
                 trans = self.type_node(
                     tree.left, var_context, fun_context, left_exp_type, **kwargs
@@ -386,6 +395,7 @@ class Typer:
                     var_context,
                     fun_context,
                     self.apply_trans(right_exp_type, trans),
+                    BinaryOperationError(tree),
                     **kwargs,
                 )
                 trans += self.unify(
@@ -416,7 +426,8 @@ class Typer:
             case VarDeclNode():
 
                 if tree.id.text in var_context:
-                    raise Exception("Redefinition of global variable is not allowed")
+                    RedefinitionOfVariableError(self.program, tree)
+                    return []
 
                 match tree.type:
                     case Token(type=Type.VAR):
@@ -426,7 +437,9 @@ class Typer:
                     case None:
                         expr_exp_type = PolymorphicTypeNode.fresh()
                     case _:
-                        raise Exception("Incorrect VarDecl type")
+                        UnrecoverableError(
+                            f"The variable declaration type {tree.type} is not allowed."
+                        )
 
                 trans = self.type_node(
                     tree.exp,
@@ -535,7 +548,13 @@ class Typer:
 
                     if tree.args:
                         if len(tree.args.items) != len(fun_type.types):
-                            raise Exception("Wrong number of arguments")
+                            WrongNumberOfArgumentsCallError(
+                                self.program,
+                                tree,
+                                len(fun_type.types),
+                                len(tree.args.items),
+                            )
+                            return []
 
                         for call_arg, decl_arg_type in zip(
                             tree.args.items, fun_type.types
@@ -594,9 +613,9 @@ class Typer:
                         tree.id, var_context, fun_context, exp_type, **kwargs
                     )
 
-                # breakpoint()
                 if tree.id.text not in var_context:
-                    raise Exception("Undefined variable")
+                    VariableError(self.program, tree.id)
+                    return []
 
                 variable_type = var_context[tree.id.text]
                 # trans = []
@@ -626,7 +645,9 @@ class Typer:
                             variable_type = self.apply_trans(picked, trans)
 
                         case _:
-                            raise Exception("Unreachable compiler code")
+                            UnrecoverableError(
+                                f"The field {field.type} is not supported."
+                            )
 
                 trans = self.unify(exp_type, variable_type)
                 # context = self.apply_trans_context(trans, context)
@@ -657,9 +678,12 @@ class Typer:
         self,
         type_one: TypeNode,
         type_two: TypeNode,
-        error_factory: UnificationError = DefaultUnifyErrorFactory,
+        error_factory: UnificationError = None,
         left_to_right: bool = False,
     ) -> List[Tuple[str, TypeNode]]:
+
+        print(type(type_one), type(type_two))
+
         # Goal: Return a list of tuples, each tuple is a substitution from left to right
         if isinstance(type_one, IntTypeNode) and isinstance(type_two, IntTypeNode):
             return []
@@ -740,8 +764,15 @@ class Typer:
             transformations += trans
             return transformations
 
-        error_factory().build_and_raise(
-            type_one, type_two, self.program, self.current_function
+        if not isinstance(error_factory, UnificationError):
+            # breakpoint()
+            error_factory = DefaultUnifyErrorFactory()
+
+        error_factory.build_and_raise(
+            type_one=type_one,
+            type_two=type_two,
+            program=self.program,
+            function=self.current_function,
         )
 
 

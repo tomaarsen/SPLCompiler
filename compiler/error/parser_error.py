@@ -17,35 +17,35 @@ class BracketMismatchError(CompilerError):
 
     def __str__(self) -> str:
         return self.create_error(
-            f"Bracket mismatch with {str(self.bracket)} on line {self.lines}"
+            f"Bracket mismatch with {str(self.bracket)} on {self.lines}"
         )
 
 
 class UnclosedBracketError(BracketMismatchError):
     def __str__(self) -> str:
         return self.create_error(
-            f"The {str(self.bracket)} bracket on line {self.lines} was never closed."
+            f"The {str(self.bracket)} bracket on {self.lines} was never closed."
         )
 
 
 class UnopenedBracketError(BracketMismatchError):
     def __str__(self) -> str:
         return self.create_error(
-            f"The {str(self.bracket)} bracket on line {self.lines} was never opened."
+            f"The {str(self.bracket)} bracket on {self.lines} was never opened."
         )
 
 
 class ClosedWrongBracketError(BracketMismatchError):
     def __str__(self) -> str:
         return self.create_error(
-            f"The {str(self.bracket)} bracket on line {self.lines} closes the wrong type of bracket."
+            f"The {str(self.bracket)} bracket on {self.lines} closes the wrong type of bracket."
         )
 
 
 class OpenedWrongBracketError(BracketMismatchError):
     def __str__(self) -> str:
         return self.create_error(
-            f"The {str(self.bracket)} bracket on line {self.lines} opens the wrong type of bracket."
+            f"The {str(self.bracket)} bracket on {self.lines} opens the wrong type of bracket."
         )
 
 
@@ -64,6 +64,6 @@ class ParseError(CompilerError):
             after += f" on line {self.span.end_ln} column {self.span.end_col}."
 
         return self.create_error(
-            f"Syntax error detected when expecting {self.str_nt} on line{'s' if self.span.multiline else ''} {self.lines}",
+            f"Syntax error detected when expecting {self.str_nt} on {self.lines}",
             after=after if after else "",
         )

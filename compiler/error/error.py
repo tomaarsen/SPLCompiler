@@ -86,8 +86,8 @@ class CompilerError:
     @property
     def lines(self) -> Tuple[int]:
         if self.span.multiline:
-            return f"[{self.span.start_ln}-{self.span.end_ln}]"
-        return f"[{self.span.start_ln}]"
+            return f"lines [{self.span.start_ln}-{self.span.end_ln}]"
+        return f"line [{self.span.start_ln}]"
 
     @property
     def length(self) -> int:
