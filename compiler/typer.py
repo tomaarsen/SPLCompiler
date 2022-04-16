@@ -15,6 +15,7 @@ from compiler.error.typer_error import (  # isort:skip
     FieldUnifyErrorFactory,
     FunCallUnifyErrorFactory,
     FunctionRedefinitionError,
+    FunctionSignatureTypeError,
     IfConditionUnifyErrorFactory,
     RedefinitionOfVariableError,
     TyperException,
@@ -231,10 +232,10 @@ class Typer:
 
                 # Compare the inferred type with the developer-supplied type, if any (type checking)
                 if tree.type:
-                    # TODO: Error
                     # If we crash here, we know that the inferred type does not equal the type as provided by the programmer
-                    # breakpoint()
-                    trans += self.unify(tree.type, inferred_type)
+                    trans += self.unify(
+                        tree.type, inferred_type, FunctionSignatureTypeError(tree)
+                    )
 
                 # Reset function arguments
                 for token in list(var_context.keys()):

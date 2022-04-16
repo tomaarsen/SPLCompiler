@@ -56,11 +56,7 @@ class DefaultUnifyErrorFactory(UnificationError):
             return f"Failed to match type {str(self.type_two)!r} with expected type {str(self.type_one)!r}."
 
         before = f"Failed to match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} in function {self.function.id.text!r}."
-        span = Span(
-            line_no=(self.function.span.start_ln, self.function.span.start_ln),
-            span=self.function.span.col,
-        )
-        return self.create_error(before, span)
+        return self.create_error(before, self.function.id.span)
 
 
 @dataclass
@@ -171,13 +167,20 @@ class ReturnUnifyErrorFactory(UnificationError):
             after += (
                 "\nThe 'Void' type was inferred because of a missing return statement."
             )
-            span = Span(
-                line_no=(self.function.span.start_ln, self.function.span.start_ln),
-                span=self.function.span.col,
-            )
+            span = self.function.id.span
         else:
             span = self.token.span
         return self.create_error(before, span, after)
+
+
+@dataclass
+class FunctionSignatureTypeError(UnificationError):
+    function: FunDeclNode
+
+    def __str__(self) -> str:
+        before = f"The given function type of the function {str(self.function.id)!r} does not match the inferred type on {self.function.type.span.lines_str}."
+        after = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r}."
+        return self.create_error(before, self.function.type.span, after)
 
 
 # Errors that occur within the type_node function of the Typer
@@ -188,9 +191,9 @@ class TypeNodeError:
     def __post_init__(self):
         ErrorRaiser.ERRORS.append(self)
 
-    def create_error(self, before: str, span: Span) -> str:
+    def create_error(self, before: str, span: Span, after: str = "") -> str:
         return CompilerError(self.program, span).create_error(
-            before, class_name="TypeError"
+            before, after, "TypeError"
         )
 
 
@@ -229,11 +232,7 @@ class DuplicateArgumentsDeclError(TypeNodeError):
             ]
         )
         before = f"Parameter {self.token.text!r} can only occur once as an argument, but it was given {num_of_duplicate}x in the function {self.function.id.text!r}."
-        span = Span(
-            line_no=(self.function.span.start_ln, self.function.span.start_ln),
-            span=self.function.span.col,
-        )
-        return self.create_error(before, span)
+        return self.create_error(before, self.function.args.span)
 
 
 @dataclass

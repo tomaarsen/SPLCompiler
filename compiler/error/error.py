@@ -72,7 +72,7 @@ class CompilerStringError:
     # Add the error to the list, and immediately raise it
     def __post_init__(self) -> None:
         ErrorRaiser.ERRORS.append(self)
-        ErrorRaiser.raise_all(self.stage)
+        Communicator.communicate(self.stage)
 
 
 class UnrecoverableError(CompilerError):
