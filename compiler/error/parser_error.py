@@ -17,7 +17,7 @@ class BracketMismatchError(CompilerError):
 
     def __str__(self) -> str:
         return self.create_error(
-            f"Bracket mismatch with {str(self.bracket)} on {self.lines}"
+            f"Bracket mismatch with {str(self.bracket)} on {self.lines}."
         )
 
 
@@ -64,6 +64,6 @@ class ParseError(CompilerError):
             after += f" on line {self.span.end_ln} column {self.span.end_col}."
 
         return self.create_error(
-            f"Syntax error detected when expecting {self.str_nt} on {self.lines}",
-            after=after if after else "",
+            f"Syntax error detected when expecting {self.str_nt} on {self.lines}.",
+            after,
         )

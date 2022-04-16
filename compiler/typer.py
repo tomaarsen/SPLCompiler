@@ -10,16 +10,23 @@ from compiler.type import Type
 from compiler.util import Span
 
 from compiler.error.typer_error import (  # isort:skip
-    BinaryOperationError,
+    BinaryUnifyErrorFactory,
+    FieldUnifyErrorFactory,
+    FunCallUnifyErrorFactory,
     FunctionRedefinitionError,
+    IfConditionUnifyErrorFactory,
     RedefinitionOfVariableError,
     TyperException,
+    UnaryUnifyErrorFactory,
     UnificationError,
     UsageOfUndefinedFunctionError,
+    VariableDeclarationUnifyErrorFactory,
     VariableError,
     DefaultUnifyErrorFactory,
     ReturnUnifyErrorFactory,
+    WhileConditionUnifyErrorFactory,
     WrongNumberOfArgumentsCallError,
+    DuplicateArgumentsDeclError,
     WrongNumberOfArgumentsDeclError,
 )
 
@@ -85,10 +92,6 @@ class Typer:
             for fun_call in fun_calls:
                 fun_call_node = fun_call[0]
                 UsageOfUndefinedFunctionError(self.program, fun_call_node)
-        # if len(self.fun_calls):
-        #     raise Exception(
-        #         f"The following functions are used, but have not been defined: {list(self.fun_calls.keys())!r}"
-        #     )
 
         ErrorRaiser.raise_all(TyperException)
         return tree
@@ -152,6 +155,7 @@ class Typer:
                 return transformations
 
             case FunDeclNode():
+                # Remember the current function for more precise error messaging
                 self.current_function = tree
                 # fresh_types = [get_fresh_type() for _ in tree.args.items]
                 # context.extend(list(zip(tree.args.items, fresh_types)))
@@ -167,7 +171,7 @@ class Typer:
                 if tree.args:
                     for token in tree.args.items:
                         if token.text in args:
-                            WrongNumberOfArgumentsDeclError(self.program, token, tree)
+                            DuplicateArgumentsDeclError(self.program, token, tree)
                             return []
 
                         fresh = PolymorphicTypeNode.fresh()
@@ -179,7 +183,9 @@ class Typer:
                 fun_context[tree.id.text] = FunTypeNode(
                     fresh_types,
                     ret_type,
-                    span=Span(tree.id.span.start_ln, (-1, -1)),
+                    span=Span(tree.id.span.start_ln, (-1, -1))
+                    if tree.type == None
+                    else tree.type.span,
                 )
 
                 # transformations = arg_trans
@@ -253,6 +259,8 @@ class Typer:
                 # Place in tree
                 tree.type = inferred_type
 
+                # We are now out of the function, so no need to remember it
+                self.current_function = None
                 return trans
 
             case StmtNode():
@@ -334,6 +342,7 @@ class Typer:
                     self.apply_trans(
                         TupleNode(left_fresh, right_fresh, span=tree.span), trans
                     ),
+                    error_factory,
                 )
 
                 return trans
@@ -346,7 +355,9 @@ class Typer:
                     # breakpoint()
 
                     # We only get here if the parser fails
-                    UnrecoverableError("Error while typing the body of a list node.")
+                    UnrecoverableError(
+                        f"Error while typing the body of a list node on line [{tree.body.span.start_ln}]."
+                    )
                 else:
                     return self.unify(
                         exp_type, ListNode(PolymorphicTypeNode.fresh(), span=tree.span)
@@ -386,7 +397,12 @@ class Typer:
                         )
 
                 trans = self.type_node(
-                    tree.left, var_context, fun_context, left_exp_type, **kwargs
+                    tree.left,
+                    var_context,
+                    fun_context,
+                    left_exp_type,
+                    BinaryUnifyErrorFactory(tree),
+                    **kwargs,
                 )
                 var_context = self.apply_trans_context(trans, var_context)
                 fun_context = self.apply_trans_context(trans, fun_context)
@@ -395,12 +411,13 @@ class Typer:
                     var_context,
                     fun_context,
                     self.apply_trans(right_exp_type, trans),
-                    BinaryOperationError(tree),
+                    BinaryUnifyErrorFactory(tree),
                     **kwargs,
                 )
                 trans += self.unify(
                     self.apply_trans(exp_type, trans),
                     self.apply_trans(output_exp_type, trans),
+                    BinaryUnifyErrorFactory(tree),
                 )
                 return trans
 
@@ -413,13 +430,19 @@ class Typer:
                     output_exp_type = IntTypeNode(None, span=tree.span)
 
                 trans = self.type_node(
-                    tree.operand, var_context, fun_context, operand_exp_type, **kwargs
+                    tree.operand,
+                    var_context,
+                    fun_context,
+                    operand_exp_type,
+                    UnaryUnifyErrorFactory(tree),
+                    **kwargs,
                 )
                 var_context = self.apply_trans_context(trans, var_context)
                 fun_context = self.apply_trans_context(trans, fun_context)
                 trans += self.unify(
                     self.apply_trans(exp_type, trans),
                     self.apply_trans(output_exp_type, trans),
+                    UnaryUnifyErrorFactory(tree),
                 )
                 return trans
 
@@ -446,6 +469,7 @@ class Typer:
                     var_context,
                     fun_context,
                     expr_exp_type,
+                    VariableDeclarationUnifyErrorFactory(tree),
                     return_funcall=True,
                     **kwargs,
                 )
@@ -497,6 +521,7 @@ class Typer:
                     trans_context,
                     original_fun_context,
                     BoolTypeNode(None, span=condition.span),
+                    IfConditionUnifyErrorFactory(tree),
                     **kwargs,
                 )
                 return transformation_then + transformation_else + trans_condition
@@ -528,6 +553,7 @@ class Typer:
                     original_var_context,
                     original_fun_context,
                     BoolTypeNode(None, span=condition.span),
+                    WhileConditionUnifyErrorFactory(tree),
                     **kwargs,
                 )
 
@@ -571,7 +597,10 @@ class Typer:
                             # local_trans += self.unify(decl_arg_type, call_arg_type)
 
                             trans = self.unify(
-                                decl_arg_type, call_arg_type, left_to_right=True
+                                decl_arg_type,
+                                call_arg_type,
+                                FunCallUnifyErrorFactory(tree),
+                                left_to_right=True,
                             )
                             # return_trans += [t for t in trans if t[0] == fresh]
                             # local_trans += [t for t in trans if t[0] != fresh]
@@ -625,7 +654,11 @@ class Typer:
                             left = PolymorphicTypeNode.fresh()
                             right = PolymorphicTypeNode.fresh()
                             var_exp_type = TupleNode(left=left, right=right, span=None)
-                            trans = self.unify(var_exp_type, variable_type)
+                            trans = self.unify(
+                                var_exp_type,
+                                variable_type,
+                                FieldUnifyErrorFactory(tree),
+                            )
                             var_context = self.apply_trans_context(trans, var_context)
                             fun_context = self.apply_trans_context(trans, fun_context)
 
@@ -636,7 +669,11 @@ class Typer:
                         case Type.HD | Type.TL:
                             element = PolymorphicTypeNode.fresh()
                             var_exp_type = ListNode(element, span=None)
-                            trans = self.unify(var_exp_type, variable_type)
+                            trans = self.unify(
+                                var_exp_type,
+                                variable_type,
+                                FieldUnifyErrorFactory(tree),
+                            )
                             var_context = self.apply_trans_context(trans, var_context)
                             fun_context = self.apply_trans_context(trans, fun_context)
 
@@ -715,17 +752,22 @@ class Typer:
             return [(type_two, type_one)]
 
         if isinstance(type_one, ListNode) and isinstance(type_two, ListNode):
-            return self.unify(type_one.body, type_two.body, left_to_right=left_to_right)
+            return self.unify(
+                type_one.body, type_two.body, error_factory, left_to_right=left_to_right
+            )
 
         if isinstance(type_one, TupleNode) and isinstance(type_two, TupleNode):
             before = self.unify(
-                type_one.left, type_two.left, left_to_right=left_to_right
+                type_one.left, type_two.left, error_factory, left_to_right=left_to_right
             )
             type_one = self.apply_trans(type_one, before)
             type_two = self.apply_trans(type_two, before)
 
             after = self.unify(
-                type_one.right, type_two.right, left_to_right=left_to_right
+                type_one.right,
+                type_two.right,
+                error_factory,
+                left_to_right=left_to_right,
             )
             type_one = self.apply_trans(type_one, after)
             type_two = self.apply_trans(type_two, after)
@@ -733,7 +775,13 @@ class Typer:
 
         if isinstance(type_one, FunTypeNode) and isinstance(type_two, FunTypeNode):
             if len(type_one.types) != len(type_two.types):
-                raise Exception("Different number of arguments")
+                WrongNumberOfArgumentsDeclError(
+                    self.program,
+                    self.current_function,
+                    len(type_two.types),
+                    len(type_one.types),
+                )
+                return []
 
             # print("Before")
             # print(type_one)
@@ -744,7 +792,9 @@ class Typer:
             for i in range(len(type_one.types)):
                 _type_one = type_one.types[i]
                 _type_two = type_two.types[i]
-                trans = self.unify(_type_one, _type_two, left_to_right=left_to_right)
+                trans = self.unify(
+                    _type_one, _type_two, error_factory, left_to_right=left_to_right
+                )
                 # if trans:
                 #     print(trans[0][0], "->", trans[0][1])
                 type_one = self.apply_trans(type_one, trans)
@@ -757,7 +807,10 @@ class Typer:
                 transformations += trans
 
             trans = self.unify(
-                type_one.ret_type, type_two.ret_type, left_to_right=left_to_right
+                type_one.ret_type,
+                type_two.ret_type,
+                error_factory,
+                left_to_right=left_to_right,
             )
             # breakpoint()
             type_one = self.apply_trans(type_one, trans)
@@ -766,15 +819,15 @@ class Typer:
             return transformations
 
         if not isinstance(error_factory, UnificationError):
-            # breakpoint()
             error_factory = DefaultUnifyErrorFactory()
 
-        error_factory.build_and_raise(
+        error_factory.build(
             type_one=type_one,
             type_two=type_two,
             program=self.program,
             function=self.current_function,
         )
+        return []
 
 
 class SubstitutionTransformer(NodeTransformer):

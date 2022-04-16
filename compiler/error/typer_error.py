@@ -1,19 +1,20 @@
 from dataclasses import dataclass
-from time import sleep
-from typing import Tuple
 
 from compiler.error.error import CompilerError, CompilerException, ErrorRaiser
 from compiler.token import Token
 from compiler.util import Span
 
 from compiler.tree.tree import (  # isort:skip
-    CommaListNode,
     FunCallNode,
     FunDeclNode,
+    IfElseNode,
+    Op1Node,
     Op2Node,
     ReturnNode,
     TypeNode,
     VarDeclNode,
+    VariableNode,
+    WhileNode,
 )
 
 
@@ -21,14 +22,14 @@ class TyperException(CompilerException):
     pass
 
 
-# Failed to unify two types, the error is raised immediately
+# Failed to unify two types
 class UnificationError:
     type_one = None
     type_two = None
     program = ""
     function = None
 
-    def build_and_raise(
+    def build(
         self,
         type_one: TypeNode,
         type_two: TypeNode,
@@ -40,7 +41,6 @@ class UnificationError:
         self.program = program
         self.function = function
         ErrorRaiser.ERRORS.append(self)
-        ErrorRaiser.raise_all(TyperException)
 
 
 # This class should be avoided at all cost, since the error is very generic.
@@ -48,9 +48,9 @@ class DefaultUnifyErrorFactory(UnificationError):
     def __str__(self) -> str:
         # Error occurred outside of a function
         if self.function == None:
-            return f"Failed to match type {str(self.type_two)} with expected type {str(self.type_one)}."
+            return f"Failed to match type {str(self.type_two)!r} with expected type {str(self.type_one)!r}."
 
-        before = f"Failed to match type {str(self.type_two)} with expected type {str(self.type_one)} in function {self.function.id.text}."
+        before = f"Failed to match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} in function {self.function.id.text!r}."
         span = Span(
             line_no=(self.function.span.start_ln, self.function.span.start_ln),
             span=self.function.span.col,
@@ -59,18 +59,82 @@ class DefaultUnifyErrorFactory(UnificationError):
 
 
 @dataclass
-class BinaryOperationError(UnificationError):
+class UnaryUnifyErrorFactory(UnificationError):
+    unary_op: Op1Node
+
+    def __str__(self) -> str:
+        span = self.unary_op.operand.span & self.unary_op.operator.span
+        compiler_error = CompilerError(self.program, span)
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for unary operation {str(self.unary_op.operator)!r} on {compiler_error.lines}."
+        return compiler_error.create_error(before)
+
+
+@dataclass
+class BinaryUnifyErrorFactory(UnificationError):
     binary_op: Op2Node
 
     def __str__(self) -> str:
-        span = self.binary_op.left.span & self.binary_op.right.span
-        compiler_error = CompilerError(self.program, span)
+        compiler_error = CompilerError(self.program, self.binary_op.span)
         before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for binary operation {str(self.binary_op.operator)!r} on {compiler_error.lines}."
 
         return compiler_error.create_error(before)
 
 
-# Cannot unify the return types
+@dataclass
+class VariableDeclarationUnifyErrorFactory(UnificationError):
+    var_decl: VarDeclNode
+
+    def __str__(self) -> str:
+        compiler_error = CompilerError(self.program, self.var_decl.span)
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for variable declaration on {compiler_error.lines}."
+
+        return compiler_error.create_error(before)
+
+
+@dataclass
+class IfConditionUnifyErrorFactory(UnificationError):
+    if_else: IfElseNode
+
+    def __str__(self) -> str:
+        compiler_error = CompilerError(self.program, self.if_else.cond.span)
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for if-statement condition on {compiler_error.lines}."
+
+        return compiler_error.create_error(before)
+
+
+@dataclass
+class WhileConditionUnifyErrorFactory(UnificationError):
+    while_: WhileNode
+
+    def __str__(self) -> str:
+        compiler_error = CompilerError(self.program, self.while_.cond.span)
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for while condition on {compiler_error.lines}."
+
+        return compiler_error.create_error(before)
+
+
+@dataclass
+class FunCallUnifyErrorFactory(UnificationError):
+    fun_call: FunCallNode
+
+    def __str__(self) -> str:
+        compiler_error = CompilerError(self.program, self.fun_call.args.span)
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} in the function call to {str(self.fun_call.func)!r} on {compiler_error.lines}."
+
+        return compiler_error.create_error(before)
+
+
+@dataclass
+class FieldUnifyErrorFactory(UnificationError):
+    var: VariableNode
+
+    def __str__(self) -> str:
+        compiler_error = CompilerError(self.program, self.var.span)
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} when applying {str(self.var.field)!r} on {compiler_error.lines}."
+
+        return compiler_error.create_error(before)
+
+
 @dataclass
 class ReturnUnifyErrorFactory(UnificationError):
     token: ReturnNode
@@ -152,15 +216,11 @@ class FunctionRedefinitionError(TypeNodeError):
             f"The function {self.token.id.text!r} cannot be defined more than once."
         )
 
-        span = Span(
-            line_no=(self.token.span.start_ln, self.token.span.start_ln),
-            span=self.token.span.col,
-        )
-        return CompilerError(self.program, span).create_error(before)
+        return CompilerError(self.program, self.token.id.span).create_error(before)
 
 
 @dataclass
-class WrongNumberOfArgumentsDeclError(TypeNodeError):
+class DuplicateArgumentsDeclError(TypeNodeError):
     token: Token
     function: FunDeclNode
 
@@ -193,6 +253,30 @@ class WrongNumberOfArgumentsCallError(TypeNodeError):
 
 
 @dataclass
+class WrongNumberOfArgumentsDeclError(TypeNodeError):
+    function: FunDeclNode
+    num_of_args: int
+    num_of_type_args: int
+
+    def __str__(self) -> str:
+        span = self.function.id.span & self.function.args.span & self.function.type.span
+        compiler_error = CompilerError(self.program, span)
+        arg_str = (
+            f"{self.num_of_type_args} arguments"
+            if self.num_of_args > 1
+            else f"{self.num_of_args} argument"
+        )
+        arg_type_str = (
+            f"{self.num_of_type_args} arguments"
+            if self.num_of_type_args > 1
+            else f"{self.num_of_num_of_type_argsargs} argument"
+        )
+        before = f"The function {str(self.function.id)!r} has {arg_str}, but its type signature expects {arg_type_str} on {compiler_error.lines}."
+
+        return compiler_error.create_error(before)
+
+
+@dataclass
 class RedefinitionOfVariableError(TypeNodeError):
     var_decl: VarDeclNode
 
@@ -207,4 +291,13 @@ class UsageOfUndefinedFunctionError(TypeNodeError):
 
     def __str__(self) -> str:
         before = f"Function call to {self.function.func.text!r} on line {self.function.span.start_ln} is not allowed, because {self.function.func.text!r} is not defined."
+        return CompilerError(self.program, self.function.span).create_error(before)
+
+
+@dataclass
+class GlobalFunctionCallError(TypeNodeError):
+    function: FunCallNode
+
+    def __str__(self) -> str:
+        before = f"Function call to {self.function.func.text!r} on line {self.function.span.start_ln} is not allowed, because the call is made in a global context."
         return CompilerError(self.program, self.function.span).create_error(before)

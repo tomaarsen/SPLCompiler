@@ -115,7 +115,7 @@ class CompilerError:
                 # First line
                 if i == self.span.start_ln:
                     # Do not color outside of span on first line
-                    final_line += f"   {i}. {line[:self.span.start_col]}"
+                    final_line += f"-> {i}. {line[:self.span.start_col]}"
 
                     # If we have more than 1 line, color the remaining line
                     if self.span.multiline:
@@ -129,11 +129,11 @@ class CompilerError:
 
                 # Color lines (if any) that are in between the first and last line
                 elif i > self.span.start_ln and i < self.span.end_ln:
-                    final_line += f"   {i}. {Colors.RED}{line}{Colors.ENDC}"
+                    final_line += f"-> {i}. {Colors.RED}{line}{Colors.ENDC}"
                 # The last line, of a multiline
                 else:
                     final_line += (
-                        f"   {i}. {Colors.RED}{line[:self.span.end_col]}{Colors.ENDC}"
+                        f"-> {i}. {Colors.RED}{line[:self.span.end_col]}{Colors.ENDC}"
                     )
                     final_line += line[self.span.end_col :]
 

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import List
 
 from compiler.error.error import ErrorRaiser
+from compiler.error.typer_error import GlobalFunctionCallError
 from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.grammar_parser import NT
 from compiler.token import Token
@@ -104,7 +105,7 @@ class Parser:
         transformer.visit(tree)
 
         # Ensure that global variable declarations do not call functions
-        transformer = GlobalVisitor()
+        transformer = GlobalVisitor(self.og_program)
         transformer.visit(tree)
 
         return tree
@@ -259,7 +260,9 @@ class ReturnTransformer(NodeTransformer):
         return node
 
 
+@dataclass
 class GlobalVisitor(NodeVisitor):
+    program: str
     """
     Perform one step: Ensure that globals are constants
     1. For all variable declarations that are made *outside* of functions,
@@ -272,8 +275,7 @@ class GlobalVisitor(NodeVisitor):
         # Every SPL program is a list of function and global variable declarations.
         # If we disallow visiting into functions, then every occurrence of a function
         # call will be in the declaration of a global variable - which we want to avoid:
-        # TODO: Change exception
-        raise Exception("The declaration of a global cannot include a function call.")
+        GlobalFunctionCallError(self.program, node)
 
     def visit_FunDeclNode(self, node: FunDeclNode, *args, **kwargs):
         # Don't visit deeper into functions
