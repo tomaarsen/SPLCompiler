@@ -1,0 +1,5 @@
+var b = id('a');
+
+id(n){
+    return n;
+}

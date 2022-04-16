@@ -285,6 +285,37 @@ def test_defined_7():
             raise Exception("Did not match expected typing scheme.")
 
 
+def test_defined_8():
+    """
+    Expected:
+
+    id(n) :: a -> a {
+        return n;
+    }
+
+    Char b = id('a');
+    """
+    tree = type_tree("data/custom/typerError/fun_calls/defined_8.spl")
+
+    match tree:
+        case SPLNode(
+            body=[
+                FunDeclNode(
+                    type=FunTypeNode(
+                        types=[PolymorphicTypeNode() as poly_one],
+                        ret_type=PolymorphicTypeNode() as poly_two,
+                    )
+                ),
+                VarDeclNode(type=CharTypeNode()),
+            ]
+        ):
+            assert poly_one == poly_two
+
+        case _:
+            print(tree)
+            raise Exception("Did not match expected typing scheme.")
+
+
 def test_undefined_1():
     """
     Expected:
@@ -541,6 +572,37 @@ def test_undefined_7():
                         ret_type=CharTypeNode(),
                     )
                 ),
+                FunDeclNode(
+                    type=FunTypeNode(
+                        types=[PolymorphicTypeNode() as poly_one],
+                        ret_type=PolymorphicTypeNode() as poly_two,
+                    )
+                ),
+            ]
+        ):
+            assert poly_one == poly_two
+
+        case _:
+            print(tree)
+            raise Exception("Did not match expected typing scheme.")
+
+
+def test_undefined_8():
+    """
+    Expected:
+
+    Char b = id('a');
+
+    id(n) :: a -> a {
+        return n;
+    }
+    """
+    tree = type_tree("data/custom/typerError/fun_calls/undefined_8.spl")
+
+    match tree:
+        case SPLNode(
+            body=[
+                VarDeclNode(type=CharTypeNode()),
                 FunDeclNode(
                     type=FunTypeNode(
                         types=[PolymorphicTypeNode() as poly_one],

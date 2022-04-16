@@ -105,8 +105,8 @@ class Parser:
         transformer.visit(tree)
 
         # Ensure that global variable declarations do not call functions
-        transformer = GlobalVisitor(self.og_program)
-        transformer.visit(tree)
+        # transformer = GlobalVisitor(self.og_program)
+        # transformer.visit(tree)
 
         return tree
 
