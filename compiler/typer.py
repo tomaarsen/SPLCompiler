@@ -145,7 +145,10 @@ class Typer:
 
             case SPLNode():
                 transformations = []
-                for expression in tree.body:
+                declarations = [
+                    decl for decl in tree.body if isinstance(decl, VarDeclNode)
+                ] + [decl for decl in tree.body if isinstance(decl, FunDeclNode)]
+                for expression in declarations:
                     trans = self.type_node(
                         expression, var_context, fun_context, get_fresh_type(), **kwargs
                     )
