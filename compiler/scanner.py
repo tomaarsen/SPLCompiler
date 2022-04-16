@@ -1,6 +1,7 @@
 import re
 from typing import List
 
+from compiler.error.communicator import Communicator
 from compiler.error.error import ErrorRaiser
 from compiler.token import Token
 from compiler.util import Span
@@ -96,7 +97,7 @@ class Scanner:
         ]
 
         # Raise all errors, if any, that may have accumulated during `scan_line`.
-        ErrorRaiser.raise_all(ScannerException)
+        Communicator.communicate(ScannerException)
         return tokens
 
     def scan_line(self, line: str, line_no) -> List[Token]:

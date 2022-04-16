@@ -31,6 +31,12 @@ class Span:
     def multiline(self) -> bool:
         return self.start_ln != self.end_ln
 
+    @property
+    def lines_str(self) -> str:
+        if self.multiline:
+            return f"lines [{self.start_ln}-{self.end_ln}]"
+        return f"line [{self.start_ln}]"
+
     def __init__(self, line_no: int | Tuple[int, int], span: Tuple[int, int]) -> None:
         if isinstance(line_no, int):
             self.ln = (line_no, line_no)
@@ -78,3 +84,11 @@ operator_precedence = {
 }
 
 right_associative = (Type.COLON,)
+
+
+class Colors:
+    RED = "\033[31m"
+    ENDC = "\033[m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"

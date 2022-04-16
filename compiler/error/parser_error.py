@@ -15,37 +15,35 @@ class ParserException(CompilerException):
 class BracketMismatchError(CompilerError):
     bracket: Type
 
-    def __str__(self) -> str:
-        return self.create_error(
-            f"Bracket mismatch with {str(self.bracket)} on {self.lines}."
-        )
+    def create_error(self, before):
+        return super().create_error(before, class_name="BracketError")
 
 
 class UnclosedBracketError(BracketMismatchError):
     def __str__(self) -> str:
         return self.create_error(
-            f"The {str(self.bracket)} bracket on {self.lines} was never closed."
+            f"The {str(self.bracket)} bracket on {self.span.lines_str} was never closed."
         )
 
 
 class UnopenedBracketError(BracketMismatchError):
     def __str__(self) -> str:
         return self.create_error(
-            f"The {str(self.bracket)} bracket on {self.lines} was never opened."
+            f"The {str(self.bracket)} bracket on {self.span.lines_str} was never opened."
         )
 
 
 class ClosedWrongBracketError(BracketMismatchError):
     def __str__(self) -> str:
         return self.create_error(
-            f"The {str(self.bracket)} bracket on {self.lines} closes the wrong type of bracket."
+            f"The {str(self.bracket)} bracket on {self.span.lines_str} closes the wrong type of bracket."
         )
 
 
 class OpenedWrongBracketError(BracketMismatchError):
     def __str__(self) -> str:
         return self.create_error(
-            f"The {str(self.bracket)} bracket on {self.lines} opens the wrong type of bracket."
+            f"The {str(self.bracket)} bracket on {self.span.lines_str} opens the wrong type of bracket."
         )
 
 
@@ -61,9 +59,10 @@ class ParseError(CompilerError):
             after = f"Expected {self.expected[0].article_str()}"
             if self.got:
                 after += f", but got {self.got.text!r} instead"
-            after += f" on line {self.span.end_ln} column {self.span.end_col}."
+            after += f" on {self.span.lines_str} column {self.span.end_col}."
 
         return self.create_error(
-            f"Syntax error detected when expecting {self.str_nt} on {self.lines}.",
+            f"Expected {self.str_nt} on {self.span.lines_str}.",
             after,
+            class_name="SyntaxError",
         )

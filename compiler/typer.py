@@ -3,6 +3,7 @@ from functools import partial
 from pprint import pprint
 from typing import Any, Dict, List, Tuple
 
+from compiler.error.communicator import Communicator
 from compiler.error.error import ErrorRaiser, UnrecoverableError
 from compiler.token import Token
 from compiler.tree.visitor import Boolean, NodeTransformer
@@ -93,7 +94,7 @@ class Typer:
                 fun_call_node = fun_call[0]
                 UsageOfUndefinedFunctionError(self.program, fun_call_node)
 
-        ErrorRaiser.raise_all(TyperException)
+        Communicator.communicate(TyperException)
         return tree
 
     def type_node(
@@ -722,8 +723,6 @@ class Typer:
         error_factory: UnificationError = None,
         left_to_right: bool = False,
     ) -> List[Tuple[str, TypeNode]]:
-
-        print(type(type_one), type(type_two))
 
         # Goal: Return a list of tuples, each tuple is a substitution from left to right
         if isinstance(type_one, IntTypeNode) and isinstance(type_two, IntTypeNode):

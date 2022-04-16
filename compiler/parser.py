@@ -1,8 +1,13 @@
-from dataclasses import dataclass
-from typing import List
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Dict, List
 
+from urllib3 import Retry
+
+from compiler.error.communicator import Communicator
 from compiler.error.error import ErrorRaiser
 from compiler.error.typer_error import GlobalFunctionCallError
+from compiler.error.warning import DeadCodeRemovalWarning
 from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.grammar_parser import NT
 from compiler.token import Token
@@ -52,7 +57,7 @@ class Parser:
         """
         tokens = self.match_parentheses(tokens)
         # At this stage we should no longer have bracket errors
-        ErrorRaiser.raise_all(ParserException)
+        Communicator.communicate(ParserException)
 
         grammar = Grammar(tokens)
         tree = grammar.parse(nt=NT.SPL)
@@ -95,13 +100,13 @@ class Parser:
                 got if sameline else None,
             )
 
-            ErrorRaiser.raise_all(ParserException)
+            Communicator.communicate(ParserException)
 
             return tree
 
         # If there were no issues, then we convert this parse tree into a more abstract variant
         # TODO: Prune tree to remove statements after `return`, and throw warning if there are any
-        transformer = ReturnTransformer()
+        transformer = ReturnTransformer(self.og_program)
         transformer.visit(tree)
 
         # Ensure that global variable declarations do not call functions
@@ -189,7 +194,9 @@ class Parser:
         return tokens
 
 
+@dataclass
 class ReturnTransformer(NodeTransformer):
+    program: str
     """
     Perform two steps:
     1. Delete unreachable dead code after a return statement.
@@ -201,8 +208,7 @@ class ReturnTransformer(NodeTransformer):
             self.visit_children(stmt, reachable=reachable)
             if not reachable:
                 if stmts[i:]:
-                    # TODO: This is where we delete unreachable code, add a warning.
-                    # print(f"Deleting dead code: {stmts[i:]}")
+                    DeadCodeRemovalWarning(self.program, stmts[i - 1], stmts[i:])
                     del stmts[i:]
                 break
 
