@@ -265,20 +265,19 @@ class WrongNumberOfArgumentsDeclError(TypeNodeError):
 
     def __str__(self) -> str:
         span = self.function.id.span & self.function.args.span & self.function.type.span
-        compiler_error = CompilerError(self.program, span)
         arg_str = (
-            f"{self.num_of_type_args} arguments"
+            f"{self.num_of_args} arguments"
             if self.num_of_args > 1
             else f"{self.num_of_args} argument"
         )
         arg_type_str = (
             f"{self.num_of_type_args} arguments"
             if self.num_of_type_args > 1
-            else f"{self.num_of_num_of_type_argsargs} argument"
+            else f"{self.num_of_type_args} argument"
         )
         before = f"The function {str(self.function.id)!r} has {arg_str}, but its type signature expects {arg_type_str} on {span.lines_str}."
 
-        return compiler_error.create_error(before)
+        return self.create_error(before, span)
 
 
 @dataclass
