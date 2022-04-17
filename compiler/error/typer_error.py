@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import List
 
 from compiler.error.error import CompilerError, CompilerException, ErrorRaiser
 from compiler.token import Token
@@ -8,6 +9,7 @@ from compiler.tree.tree import (  # isort:skip
     FunCallNode,
     FunDeclNode,
     IfElseNode,
+    Node,
     Op1Node,
     Op2Node,
     ReturnNode,
@@ -314,3 +316,27 @@ class VoidAssignmentError(TypeNodeError):
     def __str__(self) -> str:
         before = f"Cannot assign type 'Void' to a variable on {self.var_decl.span.lines_str}."
         return self.create_error(before, self.var_decl.span)
+
+
+@dataclass
+class PolymorphicTypeCheckError(TypeNodeError):
+    function: FunDeclNode
+    original_types: List[Node]
+    inferred_types: List[Node]
+
+    @staticmethod
+    def node_list_to_str(nodes: List[Node], is_original: bool = False) -> str:
+        is_multiple = len(nodes) > 1
+        message = "types " if is_multiple else "type "
+        message += "for the arguments '" if is_original else "'"
+        message += "".join([f"{str(node)}, " for node in nodes[:-1]])
+        message += f"{str(nodes[-1])}'"
+        return message
+
+    def __str__(self) -> str:
+        before = f"The given {self.node_list_to_str(self.original_types, True)} do not match the inferred {self.node_list_to_str(self.inferred_types)} for function {str(self.function.id)!r} on {self.function.id.span.lines_str}."
+        span = self.original_types[0].span
+        for type in self.original_types[1:]:
+            span &= type.span
+
+        return self.create_error(before, span)

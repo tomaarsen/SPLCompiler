@@ -153,6 +153,7 @@ class PolymorphicTypeNode(Node):
 
     def __init__(self, name=None, span=None) -> None:
         self._token = None
+        self.name = name
         self.span = span
         self.id = PolymorphicTypeNode.id
         PolymorphicTypeNode.id += 1
@@ -187,6 +188,9 @@ class PolymorphicTypeNode(Node):
     @classmethod
     def fresh(cls):
         return cls(None)
+
+    def __hash__(self):
+        return hash(int(self.id))
 
 
 @dataclass

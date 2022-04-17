@@ -1,3 +1,4 @@
+import copy
 from collections import defaultdict
 from functools import partial
 from pprint import pprint
@@ -17,6 +18,7 @@ from compiler.error.typer_error import (  # isort:skip
     FunctionRedefinitionError,
     FunctionSignatureTypeError,
     IfConditionUnifyErrorFactory,
+    PolymorphicTypeCheckError,
     RedefinitionOfVariableError,
     TyperException,
     UnaryUnifyErrorFactory,
@@ -166,6 +168,10 @@ class Typer:
                 self.current_function = tree
                 # fresh_types = [get_fresh_type() for _ in tree.args.items]
                 # context.extend(list(zip(tree.args.items, fresh_types)))
+                if tree.type:
+                    original_tree_type = copy.copy(tree.type.types)
+                else:
+                    original_tree_type = None
 
                 original_context = var_context.copy()
 
@@ -262,6 +268,16 @@ class Typer:
                             **fc_kwargs,
                         )
                     del self.fun_calls[tree.id.text]
+
+                # If the programmer has specified a type signature:
+                if original_tree_type:
+                    # Check whether for instance the programmar specified a b, but we inferrred a a
+                    if len(set(original_tree_type)) != len(set(inferred_type.types)):
+                        # The inferred types do not match the given types by the programmar.
+                        PolymorphicTypeCheckError(
+                            self.program, tree, original_tree_type, inferred_type.types
+                        )
+                        return []
 
                 # Place in tree
                 tree.type = inferred_type
