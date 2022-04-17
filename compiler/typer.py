@@ -27,6 +27,7 @@ from compiler.error.typer_error import (  # isort:skip
     VariableError,
     DefaultUnifyErrorFactory,
     ReturnUnifyErrorFactory,
+    VoidAssignmentError,
     WhileConditionUnifyErrorFactory,
     WrongNumberOfArgumentsCallError,
     DuplicateArgumentsDeclError,
@@ -479,6 +480,11 @@ class Typer:
                     return_funcall=True,
                     **kwargs,
                 )
+
+                # We cannot make an assignment of type void
+                if any([isinstance(x[1], VoidTypeNode) for x in trans]):
+                    VoidAssignmentError(self.program, tree)
+                    return []
 
                 # Place in global context
                 var_context[tree.id.text] = expr_exp_type

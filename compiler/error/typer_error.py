@@ -306,3 +306,12 @@ class GlobalFunctionCallError(TypeNodeError):
     def __str__(self) -> str:
         before = f"Function call to {self.function.func.text!r} on line {self.function.span.start_ln} is not allowed, because the call is made in a global context."
         return self.create_error(before, self.function.span)
+
+
+@dataclass
+class VoidAssignmentError(TypeNodeError):
+    var_decl: VarDeclNode
+
+    def __str__(self) -> str:
+        before = f"Cannot assign type 'Void' to a variable on {self.var_decl.span.lines_str}."
+        return self.create_error(before, self.var_decl.span)
