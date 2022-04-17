@@ -22,6 +22,7 @@ from compiler.error.typer_error import (  # isort:skip
     UnaryUnifyErrorFactory,
     UnificationError,
     UsageOfUndefinedFunctionError,
+    VariableAssignmentUnifyErrorFactory,
     VariableDeclarationUnifyErrorFactory,
     VariableError,
     DefaultUnifyErrorFactory,
@@ -317,6 +318,7 @@ class Typer:
                 trans += self.unify(
                     self.apply_trans(expr_exp_type, trans),
                     self.apply_trans(assignment_exp_type, trans),
+                    VariableAssignmentUnifyErrorFactory(tree),
                 )
 
                 # TODO: We dont use exp_type. Does that matter?
@@ -468,7 +470,6 @@ class Typer:
                         UnrecoverableError(
                             f"The variable declaration type {tree.type} is not allowed."
                         )
-
                 trans = self.type_node(
                     tree.exp,
                     var_context,
@@ -621,7 +622,7 @@ class Typer:
                         ret_type = self.apply_trans(
                             fun_type.ret_type, return_trans + local_trans
                         )
-                        return_trans += self.unify(exp_type, ret_type)
+                        return_trans += self.unify(exp_type, ret_type, error_factory)
 
                     # if tree.args.items[0].text == "l":
                     #     print("FunCall stats:")

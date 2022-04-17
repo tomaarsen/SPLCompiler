@@ -11,6 +11,7 @@ from compiler.tree.tree import (  # isort:skip
     Op1Node,
     Op2Node,
     ReturnNode,
+    StmtAssNode,
     TypeNode,
     VarDeclNode,
     VariableNode,
@@ -85,6 +86,15 @@ class VariableDeclarationUnifyErrorFactory(UnificationError):
     def __str__(self) -> str:
         before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for variable declaration on {self.var_decl.span.lines_str}."
         return self.create_error(before, self.var_decl.span)
+
+
+@dataclass
+class VariableAssignmentUnifyErrorFactory(UnificationError):
+    stmt_ass: StmtAssNode
+
+    def __str__(self) -> str:
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for variable assignment on {self.stmt_ass.span.lines_str}."
+        return self.create_error(before, self.stmt_ass.span)
 
 
 @dataclass
