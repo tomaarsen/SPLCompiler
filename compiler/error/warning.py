@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List
 
 from compiler.error.communicator import Communicator, WarningRaiser
-from compiler.tree.tree import StmtNode
+from compiler.tree.tree import FunDeclNode, StmtNode
 from compiler.util import Colors, Span
 
 
@@ -41,3 +41,12 @@ class DeadCodeRemovalWarning(Warning):
             return self.create_message(span_limited, before)
         # Else: do not show after line with an arrow
         return self.create_message(span_limited, before, n_after=0)
+
+
+@dataclass
+class InsertedReturnWarning(Warning):
+    function: FunDeclNode
+
+    def __str__(self) -> str:
+        before = f"Added an empty return statement at the end of function {str(self.function.id)!r}."
+        return self.create_message(self.function.id.span, before)

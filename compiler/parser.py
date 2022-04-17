@@ -1,19 +1,20 @@
 from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Dict, List
-
-from urllib3 import Retry
+from dataclasses import dataclass
+from typing import List
 
 from compiler.error.communicator import Communicator
-from compiler.error.error import ErrorRaiser
 from compiler.error.typer_error import GlobalFunctionCallError
-from compiler.error.warning import DeadCodeRemovalWarning
 from compiler.grammar import ALLOW_EMPTY, Grammar
 from compiler.grammar_parser import NT
 from compiler.token import Token
 from compiler.tree.visitor import Boolean, NodeTransformer, NodeVisitor
 from compiler.type import Type
 from compiler.util import Span
+
+from compiler.error.warning import (  # isort:skip
+    DeadCodeRemovalWarning,
+    InsertedReturnWarning,
+)
 
 from compiler.tree.tree import (  # isort:skip
     FunCallNode,
@@ -223,6 +224,7 @@ class ReturnTransformer(NodeTransformer):
             col = max(node.span.end_col - 1, 0)
             span = Span(node.span.end_ln, (col, col))
             node.stmt.append(StmtNode(ReturnNode(None, span=span), span=span))
+            InsertedReturnWarning(self.program, node)
 
         return node
 
