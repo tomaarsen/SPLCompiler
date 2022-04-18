@@ -319,6 +319,15 @@ class VoidAssignmentError(TypeNodeError):
 
 
 @dataclass
+class VoidReturnError(TypeNodeError):
+    return_: ReturnNode
+
+    def __str__(self) -> str:
+        before = f"Cannot return type 'Void' on {self.return_.span.lines_str}."
+        return self.create_error(before, self.return_.span)
+
+
+@dataclass
 class PolymorphicTypeCheckError(TypeNodeError):
     function: FunDeclNode
     original_types: List[Node]

@@ -30,6 +30,7 @@ from compiler.error.typer_error import (  # isort:skip
     DefaultUnifyErrorFactory,
     ReturnUnifyErrorFactory,
     VoidAssignmentError,
+    VoidReturnError,
     WhileConditionUnifyErrorFactory,
     WrongNumberOfArgumentsCallError,
     DuplicateArgumentsDeclError,
@@ -304,6 +305,12 @@ class Typer:
                         return_funcall=True,
                         **kwargs,
                     )
+
+                    # We cannot return a variable of type Void
+                    if any([isinstance(x[1], VoidTypeNode) for x in trans]):
+                        VoidReturnError(self.program, tree)
+                        return []
+
                     return trans
 
                 trans = self.unify(
