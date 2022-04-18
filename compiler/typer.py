@@ -272,13 +272,27 @@ class Typer:
 
                 # If the programmer has specified a type signature:
                 if original_tree_type:
-                    # Check whether for instance the programmar specified a b, but we inferrred a a
-                    if len(set(original_tree_type)) != len(set(inferred_type.types)):
-                        # The inferred types do not match the given types by the programmar.
-                        PolymorphicTypeCheckError(
-                            self.program, tree, original_tree_type, inferred_type.types
-                        )
-                        return []
+                    # Loop over the original types specified by the programmer, and the inferred types
+                    # Check that there are no inconsistencies,
+                    seen = {}
+                    for og, inf in zip(original_tree_type, inferred_type.types):
+                        if not (
+                            isinstance(og, PolymorphicTypeNode)
+                            or isinstance(inf, PolymorphicTypeNode)
+                        ):
+                            continue
+
+                        if inf.id in seen:
+                            if seen[inf.id] != og.id:
+                                PolymorphicTypeCheckError(
+                                    self.program,
+                                    tree,
+                                    original_tree_type,
+                                    inferred_type.types,
+                                )
+                                return []
+                        else:
+                            seen[inf.id] = og.id
 
                 # Place in tree
                 tree.type = inferred_type
