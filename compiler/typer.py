@@ -276,9 +276,8 @@ class Typer:
                     # Check that there are no inconsistencies,
                     seen = {}
                     for og, inf in zip(original_tree_type, inferred_type.types):
-                        if not (
-                            isinstance(og, PolymorphicTypeNode)
-                            or isinstance(inf, PolymorphicTypeNode)
+                        if not isinstance(og, PolymorphicTypeNode) or not isinstance(
+                            inf, PolymorphicTypeNode
                         ):
                             continue
 
