@@ -338,7 +338,7 @@ class PolymorphicTypeCheckError(TypeNodeError):
         is_multiple = len(nodes) > 1
         message = "types " if is_multiple else "type "
         message += "for the arguments '" if is_original else "'"
-        message += "".join([f"{str(node)}, " for node in nodes[:-1]])
+        message += "".join([f"{str(node)} " for node in nodes[:-1]])
         message += f"{str(nodes[-1])}'"
         return message
 
