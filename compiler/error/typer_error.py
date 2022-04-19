@@ -158,7 +158,7 @@ class ReturnUnifyErrorFactory(UnificationError):
         return_type_one = (
             f"inferred return type '{self.type_one}'"
             if not self.type_one.span
-            or self.type_one.span.start_col != self.type_one.span.end_col
+            or self.type_one.span.start_col == self.type_one.span.end_col
             else f"return type '{self.type_one}' defined on line [{self.type_one.span.start_ln}]"
         )
         return_type_two = (
