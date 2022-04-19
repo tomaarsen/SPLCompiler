@@ -243,7 +243,9 @@ class Typer:
                 if tree.type:
                     # If we crash here, we know that the inferred type does not equal the type as provided by the programmer
                     trans += self.unify(
-                        tree.type, inferred_type, FunctionSignatureTypeError(tree)
+                        tree.type,
+                        inferred_type,
+                        FunctionSignatureTypeError(tree, inferred_type),
                     )
 
                 # Reset function arguments

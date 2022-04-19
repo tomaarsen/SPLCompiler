@@ -188,9 +188,10 @@ class ReturnUnifyErrorFactory(UnificationError):
 @dataclass
 class FunctionSignatureTypeError(UnificationError):
     function: FunDeclNode
+    inferred_type: TypeNode = None
 
     def __str__(self) -> str:
-        before = f"The given function type of the function {str(self.function.id)!r} does not match the inferred type on {self.function.type.span.lines_str}."
+        before = f"The given function type of the function {str(self.function.id)!r} does not match the inferred type {str(self.inferred_type)!r} on {self.function.type.span.lines_str}."
         after = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r}."
         return self.create_error(before, self.function.type.span, after)
 
