@@ -348,8 +348,11 @@ class Typer:
                 trans += self.type_node(
                     tree.id, var_context, fun_context, assignment_exp_type, **kwargs
                 )
-                # breakpoint()
-                # context = self.apply_trans_context(trans, context)
+
+                # We cannot make an assignment of type void
+                if any([isinstance(x[1], VoidTypeNode) for x in trans]):
+                    VoidAssignmentError(self.program, tree)
+                    return []
 
                 trans += self.unify(
                     self.apply_trans(expr_exp_type, trans),
