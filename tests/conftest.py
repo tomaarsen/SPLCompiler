@@ -40,10 +40,10 @@ def valid_typed_files() -> List[str]:
     ]
 
 
-def parserError_files() -> List[str]:
+def parser_error_files() -> List[str]:
     return [
         file
-        for file in glob("data/custom/parserError/ParseError_*.spl", recursive=True)
+        for file in glob("data/tests/parser_error/ParseError_*.spl", recursive=True)
     ]
 
 
@@ -62,6 +62,6 @@ def valid_typed_file(request) -> str:
     return request.param
 
 
-@pytest.fixture(scope="session", params=parserError_files())
+@pytest.fixture(scope="session", params=parser_error_files())
 def parser_error(request) -> str:
     return request.param

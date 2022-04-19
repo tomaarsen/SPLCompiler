@@ -4,7 +4,7 @@ from tests.typer.util import type_tree
 
 def test_void_assign():
     try:
-        type_tree("data/custom/typerError/void/assign.spl")
+        type_tree("data/tests/typer_error/void/assign.spl")
     except TyperException as e:
         assert "'Void'" in str(e)
         assert "assign" in str(e)
@@ -14,7 +14,7 @@ def test_void_assign():
 
 def test_void_fun_call_arg():
     try:
-        type_tree("data/custom/typerError/void/fun_call_arg.spl")
+        type_tree("data/tests/typer_error/void/fun_call_arg.spl")
     except TyperException as e:
         assert "'Void'" in str(e)
         assert "function call argument" in str(e)
@@ -23,7 +23,7 @@ def test_void_fun_call_arg():
 
 def test_void_op2():
     try:
-        type_tree("data/custom/typerError/void/op2.spl")
+        type_tree("data/tests/typer_error/void/op2.spl")
     except TyperException as e:
         assert "'Void'" in str(e)
         assert "binary operation" in str(e)
@@ -32,7 +32,7 @@ def test_void_op2():
 
 def test_void_return():
     try:
-        type_tree("data/custom/typerError/void/return.spl")
+        type_tree("data/tests/typer_error/void/return.spl")
     except TyperException as e:
         assert "'Void'" in str(e)
         assert "return" in str(e)
@@ -41,7 +41,7 @@ def test_void_return():
 
 def test_void_tuple():
     try:
-        type_tree("data/custom/typerError/void/tuple.spl")
+        type_tree("data/tests/typer_error/void/tuple.spl")
     except TyperException as e:
         assert "'Void'" in str(e)
         assert "tuple" in str(e)

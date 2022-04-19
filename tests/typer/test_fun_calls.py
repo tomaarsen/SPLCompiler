@@ -26,7 +26,7 @@ def test_defined_1():
         return id(a);
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/defined_1.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/defined_1.spl")
 
     match tree:
         case SPLNode(
@@ -66,7 +66,7 @@ def test_defined_2():
         return id(12);
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/defined_2.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/defined_2.spl")
 
     match tree:
         case SPLNode(
@@ -106,7 +106,7 @@ def test_defined_3():
         return id(a);
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/defined_3.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/defined_3.spl")
 
     match tree:
         case SPLNode(
@@ -144,7 +144,7 @@ def test_defined_4():
         return id(a) + 12;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/defined_4.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/defined_4.spl")
 
     match tree:
         case SPLNode(
@@ -182,7 +182,7 @@ def test_defined_5():
         return id(a - 12);
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/defined_5.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/defined_5.spl")
 
     match tree:
         case SPLNode(
@@ -220,7 +220,7 @@ def test_defined_6():
         return double(a);
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/defined_6.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/defined_6.spl")
 
     match tree:
         case SPLNode(
@@ -259,7 +259,7 @@ def test_defined_7():
         return b;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/defined_7.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/defined_7.spl")
 
     match tree:
         case SPLNode(
@@ -295,7 +295,7 @@ def test_defined_8():
 
     Char b = id('a');
     """
-    tree = type_tree("data/custom/typerError/fun_calls/defined_8.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/defined_8.spl")
 
     match tree:
         case SPLNode(
@@ -328,7 +328,7 @@ def test_undefined_1():
         return n;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/undefined_1.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/undefined_1.spl")
 
     match tree:
         case SPLNode(
@@ -368,7 +368,7 @@ def test_undefined_2():
         return n;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/undefined_2.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/undefined_2.spl")
 
     match tree:
         case SPLNode(
@@ -408,7 +408,7 @@ def test_undefined_3():
         return n;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/undefined_3.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/undefined_3.spl")
 
     match tree:
         case SPLNode(
@@ -446,7 +446,7 @@ def test_undefined_4():
         return n;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/undefined_4.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/undefined_4.spl")
 
     match tree:
         case SPLNode(
@@ -484,7 +484,7 @@ def test_undefined_5():
         return n;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/undefined_5.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/undefined_5.spl")
 
     match tree:
         case SPLNode(
@@ -522,7 +522,7 @@ def test_undefined_6():
         return n + n;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/undefined_6.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/undefined_6.spl")
 
     match tree:
         case SPLNode(
@@ -561,7 +561,7 @@ def test_undefined_7():
         return n;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/undefined_7.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/undefined_7.spl")
 
     match tree:
         case SPLNode(
@@ -597,7 +597,7 @@ def test_undefined_8():
         return n;
     }
     """
-    tree = type_tree("data/custom/typerError/fun_calls/undefined_8.spl")
+    tree = type_tree("data/tests/typer_error/fun_calls/undefined_8.spl")
 
     match tree:
         case SPLNode(

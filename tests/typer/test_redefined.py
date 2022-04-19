@@ -29,7 +29,7 @@ def test_redefined_1():
         return double;
     }
     """
-    tree = type_tree("data/custom/typerError/redefinitions/redefined_1.spl")
+    tree = type_tree("data/tests/typer_error/redefinitions/redefined_1.spl")
 
     match tree:
         case SPLNode(
@@ -61,7 +61,7 @@ def test_redefined_2():
     Expected to fail
     """
     try:
-        type_tree("data/custom/typerError/redefinitions/redefined_2.spl")
+        type_tree("data/tests/typer_error/redefinitions/redefined_2.spl")
     except Exception:  # TODO: Turn this into TyperException
         pass
     else:
@@ -73,7 +73,7 @@ def test_redefined_3():
     Expected to fail
     """
     try:
-        type_tree("data/custom/typerError/redefinitions/redefined_3.spl")
+        type_tree("data/tests/typer_error/redefinitions/redefined_3.spl")
     except Exception:  # TODO: Turn this into TyperException
         pass
     else:

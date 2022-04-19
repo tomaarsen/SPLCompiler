@@ -18,15 +18,15 @@ def test_typer(valid_typed_file: str):
 
 def test_duplicate_param_name():
     try:
-        type_tree("data/custom/typerError/duplicate_param_name.spl")
-    except Exception:  # TODO: TyperError/TyperException
+        type_tree("data/tests/typer_error/duplicate_param_name.spl")
+    except Exception:  # TODO: typer_error/TyperException
         pass
     else:
         assert False, "Duplicate parameter names in the same function should fail."
 
 
 def test_complex_fields():
-    tree = type_tree("data/custom/typerError/complex_fields.spl")
+    tree = type_tree("data/tests/typer_error/complex_fields.spl")
 
     match tree:
         case SPLNode(

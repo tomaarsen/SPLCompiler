@@ -91,7 +91,7 @@ def test_parser_error(parser_error: str):
 
 
 def test_ClosedWrongBracketError():
-    program: str = open_file("data/custom/parserError/ClosedWrongBracketError.spl")
+    program: str = open_file("data/tests/parser_error/ClosedWrongBracketError.spl")
 
     scanner = Scanner(program)
     tokens = scanner.scan()
@@ -107,7 +107,7 @@ def test_ClosedWrongBracketError():
 
 
 def test_UnopenedBracketError():
-    program: str = open_file("data/custom/parserError/UnopenedBracketError.spl")
+    program: str = open_file("data/tests/parser_error/UnopenedBracketError.spl")
 
     scanner = Scanner(program)
     tokens = scanner.scan()
@@ -125,7 +125,7 @@ def test_UnopenedBracketError():
 
 
 def test_OpenedWrongBracketError():
-    program: str = open_file("data/custom/parserError/OpenedWrongBracketError.spl")
+    program: str = open_file("data/tests/parser_error/OpenedWrongBracketError.spl")
 
     scanner = Scanner(program)
     tokens = scanner.scan()
@@ -142,7 +142,7 @@ def test_OpenedWrongBracketError():
 
 
 def test_UnclosedBracketError():
-    program: str = open_file("data/custom/parserError/UnclosedBracketError.spl")
+    program: str = open_file("data/tests/parser_error/UnclosedBracketError.spl")
 
     scanner = Scanner(program)
     tokens = scanner.scan()

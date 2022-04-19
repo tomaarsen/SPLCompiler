@@ -5,19 +5,19 @@ class ScannerException(CompilerException):
     pass
 
 
-class ScannerError(CompilerError):
+class scanner_error(CompilerError):
     def create_error(self, before: str):
-        return super().create_error(before, class_name="ScannerError")
+        return super().create_error(before, class_name="scanner_error")
 
 
-class UnmatchableTokenError(ScannerError):
+class UnmatchableTokenError(scanner_error):
     def __str__(self) -> str:
         return self.create_error(
             f"Unexpected lack of token match on {self.span.lines_str}."
         )
 
 
-class UnexpectedCharacterError(ScannerError):
+class UnexpectedCharacterError(scanner_error):
     def __str__(self) -> str:
         multiple_unexpected_chars = self.span.multiline
         return self.create_error(
@@ -25,18 +25,18 @@ class UnexpectedCharacterError(ScannerError):
         )
 
 
-class DanglingMultiLineCommentError(ScannerError):
+class DanglingMultiLineCommentError(scanner_error):
     def __str__(self) -> str:
         return self.create_error(
             f"Found dangling multiline comment on {self.span.lines_str}."
         )
 
 
-class LonelyQuoteError(ScannerError):
+class LonelyQuoteError(scanner_error):
     def __str__(self) -> str:
         return self.create_error(f"Found lonely quote on {self.span.lines_str}.")
 
 
-class EmptyQuoteError(ScannerError):
+class EmptyQuoteError(scanner_error):
     def __str__(self) -> str:
         return self.create_error(f"Found empty quote on {self.span.lines_str}.")
