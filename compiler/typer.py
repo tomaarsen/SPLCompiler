@@ -195,7 +195,7 @@ class Typer:
                     else tree.type.span,
                 )
 
-                # transformations = arg_trans
+                transformations = []
                 for var_decl in tree.var_decl:
                     trans = self.type_node(
                         var_decl,
@@ -205,7 +205,7 @@ class Typer:
                     )
                     var_context = self.apply_trans_context(trans, var_context)
                     fun_context = self.apply_trans_context(trans, fun_context)
-                    # transformations += trans
+                    transformations += trans
 
                 for stmt in tree.stmt:
                     # print(context[tree.id.text].ret_type)
@@ -222,18 +222,18 @@ class Typer:
                     # pprint(var_context)
                     # pprint(fun_context)
                     # breakpoint()
-                    # transformations += trans
+                    transformations += trans
 
                 inferred_type = fun_context[tree.id.text]
                 # transformations += self.unify(
                 #     self.apply_trans(exp_type, transformations), tree.type
                 # )
-                trans = self.unify(exp_type, inferred_type)
+                transformations += self.unify(exp_type, inferred_type)
 
                 # Compare the inferred type with the developer-supplied type, if any (type checking)
                 if tree.type:
                     # If we crash here, we know that the inferred type does not equal the type as provided by the programmer
-                    trans += self.unify(
+                    transformations += self.unify(
                         tree.type,
                         inferred_type,
                         FunctionSignatureTypeError(tree, inferred_type),
@@ -253,7 +253,7 @@ class Typer:
                         fc_fun_context,
                         fc_exp_type,
                     ) in self.fun_calls[tree.id.text]:
-                        trans += self.type_node(
+                        transformations += self.type_node(
                             fc_tree,
                             var_context | fc_var_context,
                             fun_context | fc_fun_context,
@@ -289,7 +289,7 @@ class Typer:
 
                 # We are now out of the function, so no need to remember it
                 self.current_function = None
-                return trans
+                return transformations
 
             case StmtNode():
                 # Pass expected type down, except with FunCall, as we don't want
@@ -520,13 +520,11 @@ class Typer:
                     VoidAssignmentError(self.program, tree)
                     return []
 
-                # Place in global context
+                # Place in tree & global context
+                tree.type = expr_exp_type
                 var_context[tree.id.text] = expr_exp_type
                 var_context = self.apply_trans_context(trans, var_context)
                 fun_context = self.apply_trans_context(trans, fun_context)
-
-                # Place in tree
-                tree.type = var_context[tree.id.text]
 
                 return trans
 
@@ -695,7 +693,7 @@ class Typer:
                     return []
 
                 variable_type = var_context[tree.id.text]
-                # trans = []
+                trans = []
                 for field in tree.field.fields:
                     match field.type:
                         case Type.FST | Type.SND:
@@ -705,39 +703,41 @@ class Typer:
                                 left=left,
                                 right=right,
                             )
-                            trans = self.unify(
+                            sub = self.unify(
                                 var_exp_type,
                                 variable_type,
                                 FieldUnifyErrorFactory(tree),
                             )
-                            var_context = self.apply_trans_context(trans, var_context)
-                            fun_context = self.apply_trans_context(trans, fun_context)
+                            var_context = self.apply_trans_context(sub, var_context)
+                            fun_context = self.apply_trans_context(sub, fun_context)
+                            trans += sub
 
                             # For next iteration
                             picked = left if field.type == Type.FST else right
-                            variable_type = self.apply_trans(picked, trans)
+                            variable_type = self.apply_trans(picked, sub)
 
                         case Type.HD | Type.TL:
                             element = PolymorphicTypeNode.fresh()
                             var_exp_type = ListNode(element)
-                            trans = self.unify(
+                            sub = self.unify(
                                 var_exp_type,
                                 variable_type,
                                 FieldUnifyErrorFactory(tree),
                             )
-                            var_context = self.apply_trans_context(trans, var_context)
-                            fun_context = self.apply_trans_context(trans, fun_context)
+                            var_context = self.apply_trans_context(sub, var_context)
+                            fun_context = self.apply_trans_context(sub, fun_context)
+                            trans += sub
 
                             # For next iteration
                             picked = var_exp_type if field.type == Type.TL else element
-                            variable_type = self.apply_trans(picked, trans)
+                            variable_type = self.apply_trans(picked, sub)
 
                         case _:
                             UnrecoverableError(
                                 f"The field {field.type} is not supported."
                             )
 
-                trans = self.unify(exp_type, variable_type)
+                trans += self.unify(exp_type, variable_type)
                 # context = self.apply_trans_context(trans, context)
                 # breakpoint()
                 return trans
@@ -876,5 +876,5 @@ class SubstitutionTransformer(NodeTransformer):
         for transformation in trans:
             left_sub, right_sub = transformation[:2]
             if node == left_sub:
-                return right_sub
+                node = right_sub
         return node
