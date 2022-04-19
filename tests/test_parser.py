@@ -87,8 +87,7 @@ def test_parser_error(parser_error: str):
     parser = Parser(program)
     with pytest.raises(ParserException) as excinfo:
         parser.parse(tokens)
-
-    assert "ParseError" in str(excinfo.value)
+    assert "SyntaxError" in str(excinfo.value)
 
 
 def test_ClosedWrongBracketError():
@@ -101,7 +100,7 @@ def test_ClosedWrongBracketError():
     with pytest.raises(ParserException) as excinfo:
         parser.parse(tokens)
     assert (
-        "ClosedWrongBracketError" in str(excinfo.value)
+        "BracketError" in str(excinfo.value)
         and "')'" in str(excinfo.value)
         and "-> 2. " in str(excinfo.value)
     )
@@ -119,7 +118,7 @@ def test_UnopenedBracketError():
         parser.parse(tokens)
         print(excinfo)
     assert (
-        "UnopenedBracketError" in str(excinfo.value)
+        "BracketError" in str(excinfo.value)
         and "'}'" in str(excinfo.value)
         and "-> 3. " in str(excinfo.value)
     )
@@ -136,7 +135,7 @@ def test_OpenedWrongBracketError():
     with pytest.raises(ParserException) as excinfo:
         parser.parse(tokens)
     assert (
-        "OpenedWrongBracketError" in str(excinfo.value)
+        "BracketError" in str(excinfo.value)
         and "'('" in str(excinfo.value)
         and "-> 2." in str(excinfo.value)
     )
@@ -153,7 +152,7 @@ def test_UnclosedBracketError():
     with pytest.raises(ParserException) as excinfo:
         parser.parse(tokens)
     assert (
-        "UnclosedBracketError" in str(excinfo.value)
+        "BracketError" in str(excinfo.value)
         and "'{'" in str(excinfo.value)
         and "-> 1. " in str(excinfo.value)
     )

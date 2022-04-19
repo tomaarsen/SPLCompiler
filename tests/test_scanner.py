@@ -60,7 +60,7 @@ def test_DanglingMultiLineCommentError_1():
 
     with pytest.raises(ScannerException) as excinfo:
         scanner.scan()
-    assert "DanglingMultiLineCommentError" in str(excinfo) and "-> 5. " in str(excinfo)
+    assert "ScannerError" in str(excinfo) and "-> 5. " in str(excinfo)
 
 
 def test_DanglingMultiLineCommentError_2():
@@ -71,7 +71,7 @@ def test_DanglingMultiLineCommentError_2():
 
     with pytest.raises(ScannerException) as excinfo:
         scanner.scan()
-    assert "DanglingMultiLineCommentError" in str(excinfo) and "-> 5. " in str(excinfo)
+    assert "ScannerError" in str(excinfo) and "-> 5. " in str(excinfo)
 
 
 def test_EmptyQuoteError():
@@ -80,7 +80,7 @@ def test_EmptyQuoteError():
 
     with pytest.raises(ScannerException) as excinfo:
         scanner.scan()
-    assert "EmptyQuoteError" in str(excinfo) and "-> 6. " in str(excinfo)
+    assert "ScannerError" in str(excinfo) and "-> 6. " in str(excinfo)
 
 
 def test_LonelyQuoteError_1():
@@ -89,7 +89,7 @@ def test_LonelyQuoteError_1():
 
     with pytest.raises(ScannerException) as excinfo:
         scanner.scan()
-    assert "LonelyQuoteError" in str(excinfo) and "-> 6. " in str(excinfo)
+    assert "ScannerError" in str(excinfo) and "-> 6. " in str(excinfo)
 
 
 def test_LonelyQuoteError_2():
@@ -98,7 +98,7 @@ def test_LonelyQuoteError_2():
 
     with pytest.raises(ScannerException) as excinfo:
         scanner.scan()
-    assert "LonelyQuoteError" in str(excinfo) and "-> 6. " in str(excinfo)
+    assert "ScannerError" in str(excinfo) and "-> 6. " in str(excinfo)
 
 
 def test_UnexpectedCharacterError_1():
@@ -108,7 +108,7 @@ def test_UnexpectedCharacterError_1():
     with pytest.raises(ScannerException) as excinfo:
         scanner.scan()
     assert (
-        "UnexpectedCharacterError" in str(excinfo)
+        "ScannerError" in str(excinfo)
         and "'~'" in str(excinfo)
         and "-> 4. " in str(excinfo)
     )
@@ -121,7 +121,7 @@ def test_UnexpectedCharacterError_2():
     with pytest.raises(ScannerException) as excinfo:
         scanner.scan()
     assert (
-        "UnexpectedCharacterError" in str(excinfo)
+        "ScannerError" in str(excinfo)
         and "'~~'" in str(excinfo)
         and "-> 4. " in str(excinfo)
     )
