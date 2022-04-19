@@ -23,7 +23,6 @@ from compiler.tree.factory import (  # isort:skip
     WhileFactory,
 )
 from compiler.tree.tree import (  # isort:skip
-    BasicTypeNode,
     BoolTypeNode,
     CharTypeNode,
     CommaListNode,

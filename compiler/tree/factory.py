@@ -293,11 +293,11 @@ class BasicTypeFactory(NodeFactory):
         assert len(self.c) == 1  # nosec
         match self.c[0]:
             case Token(type=Type.INT):
-                return IntTypeNode(self.c[0], span=self.span)
+                return IntTypeNode(span=self.span)
             case Token(type=Type.BOOL):
-                return BoolTypeNode(self.c[0], span=self.span)
+                return BoolTypeNode(span=self.span)
             case Token(type=Type.CHAR):
-                return CharTypeNode(self.c[0], span=self.span)
+                return CharTypeNode(span=self.span)
         raise Exception()
 
 
@@ -320,7 +320,7 @@ class RetTypeFactory(NodeFactory):
     def build(self):
         match self.c:
             case [Token(type=Type.VOID)]:
-                return VoidTypeNode(self.c[0], span=self.span)
+                return VoidTypeNode(span=self.span)
             case [_]:
                 return self.c[0]
         raise Exception()

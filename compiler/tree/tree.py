@@ -11,7 +11,7 @@ from compiler.util import Span
 
 @dataclass
 class Node:
-    span: Span = field(repr=False, kw_only=True, compare=False)
+    span: Span = field(repr=False, kw_only=True, compare=False, default=None)
 
     def __str__(self) -> str:
         from compiler.tree.printer import Printer
@@ -119,29 +119,25 @@ class VarDeclNode(Node):
 
 
 @dataclass
-class BasicTypeNode(Node):
-    token: Token
-
-
-class IntTypeNode(BasicTypeNode):
+class IntTypeNode(Node):
     def __str__(self) -> str:
         return "Int"
 
 
-class CharTypeNode(BasicTypeNode):
+@dataclass
+class CharTypeNode(Node):
     def __str__(self) -> str:
         return "Char"
 
 
-class BoolTypeNode(BasicTypeNode):
+@dataclass
+class BoolTypeNode(Node):
     def __str__(self) -> str:
         return "Bool"
 
 
 @dataclass
 class VoidTypeNode(Node):
-    token: Token
-
     def __str__(self) -> str:
         return "Void"
 
@@ -230,7 +226,9 @@ TypeNode = (
     FunTypeNode
     | ListNode
     | TupleNode
-    | BasicTypeNode
+    | IntTypeNode
+    | CharTypeNode
+    | BoolTypeNode
     | PolymorphicTypeNode
     | VoidTypeNode
 )

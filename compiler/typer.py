@@ -78,12 +78,11 @@ class Typer:
         var_context = {}
         fun_context = {
             "print": FunTypeNode(
-                [PolymorphicTypeNode.fresh()], VoidTypeNode(None, span=None), span=None
+                [PolymorphicTypeNode.fresh()],
+                VoidTypeNode(),
             ),
             "isEmpty": FunTypeNode(
-                [ListNode(PolymorphicTypeNode.fresh(), span=None)],
-                BoolTypeNode(None, span=None),
-                span=None,
+                [ListNode(PolymorphicTypeNode.fresh())], BoolTypeNode()
             ),
         }
         trans = self.type_node(tree, var_context, fun_context, ft)
@@ -113,19 +112,13 @@ class Typer:
 
             case Token(type=Type.DIGIT):
                 # If tree is e.g. `12`:
-                return self.unify(
-                    exp_type, IntTypeNode(None, span=tree.span), error_factory
-                )
+                return self.unify(exp_type, IntTypeNode(span=tree.span), error_factory)
 
             case Token(type=Type.TRUE) | Token(type=Type.FALSE):
-                return self.unify(
-                    exp_type, BoolTypeNode(None, span=tree.span), error_factory
-                )
+                return self.unify(exp_type, BoolTypeNode(span=tree.span), error_factory)
 
             case Token(type=Type.CHARACTER):
-                return self.unify(
-                    exp_type, CharTypeNode(None, span=tree.span), error_factory
-                )
+                return self.unify(exp_type, CharTypeNode(span=tree.span), error_factory)
 
             case Token(type=Type.ID):
                 # If tree is e.g. `a`:
@@ -319,7 +312,7 @@ class Typer:
                     )
 
                     # We cannot return a variable of type Void
-                    if any([isinstance(x[1], VoidTypeNode) for x in trans]):
+                    if any(VoidTypeNode() in x[1] for x in trans):
                         VoidReturnError(self.program, tree)
                         return []
 
@@ -327,7 +320,7 @@ class Typer:
 
                 trans = self.unify(
                     exp_type,
-                    VoidTypeNode(None, span=tree.span),
+                    VoidTypeNode(span=tree.span),
                     ReturnUnifyErrorFactory(tree),
                 )
                 return trans
@@ -350,7 +343,7 @@ class Typer:
                 )
 
                 # We cannot make an assignment of type void
-                if any([isinstance(x[1], VoidTypeNode) for x in trans]):
+                if any(VoidTypeNode() in x[1] for x in trans):
                     VoidAssignmentError(self.program, tree)
                     return []
 
@@ -419,24 +412,24 @@ class Typer:
                     case (
                         Type.PLUS | Type.MINUS | Type.STAR | Type.SLASH | Type.PERCENT
                     ):
-                        left_exp_type = IntTypeNode(None, span=tree.left.span)
+                        left_exp_type = IntTypeNode(span=tree.left.span)
                         right_exp_type = left_exp_type
                         output_exp_type = left_exp_type
 
                     case (Type.LEQ | Type.GEQ | Type.LT | Type.GT):
-                        left_exp_type = IntTypeNode(None, span=tree.left.span)
+                        left_exp_type = IntTypeNode(span=tree.left.span)
                         right_exp_type = left_exp_type
-                        output_exp_type = BoolTypeNode(None, span=tree.span)
+                        output_exp_type = BoolTypeNode(span=tree.span)
 
                     case (Type.OR | Type.AND):
-                        left_exp_type = BoolTypeNode(None, span=tree.left.span)
+                        left_exp_type = BoolTypeNode(span=tree.left.span)
                         right_exp_type = left_exp_type
                         output_exp_type = left_exp_type
 
                     case (Type.DEQUALS | Type.NEQ):
                         left_exp_type = PolymorphicTypeNode.fresh()
                         right_exp_type = left_exp_type
-                        output_exp_type = BoolTypeNode(None, span=tree.span)
+                        output_exp_type = BoolTypeNode(span=tree.span)
                     case _:
                         UnrecoverableError(
                             f"The binary operator {tree.operator.type} is not supported by the typer of this compiler."
@@ -469,11 +462,11 @@ class Typer:
 
             case Op1Node():
                 if tree.operator.type == Type.NOT:
-                    operand_exp_type = BoolTypeNode(None, span=tree.operand.span)
-                    output_exp_type = BoolTypeNode(None, span=tree.span)
+                    operand_exp_type = BoolTypeNode(span=tree.operand.span)
+                    output_exp_type = BoolTypeNode(span=tree.span)
                 elif tree.operator.type == Type.MINUS:
-                    operand_exp_type = IntTypeNode(None, span=tree.operand.span)
-                    output_exp_type = IntTypeNode(None, span=tree.span)
+                    operand_exp_type = IntTypeNode(span=tree.operand.span)
+                    output_exp_type = IntTypeNode(span=tree.span)
 
                 trans = self.type_node(
                     tree.operand,
@@ -520,7 +513,7 @@ class Typer:
                 )
 
                 # We cannot make an assignment of type void
-                if any([isinstance(x[1], VoidTypeNode) for x in trans]):
+                if any(VoidTypeNode() in x[1] for x in trans):
                     VoidAssignmentError(self.program, tree)
                     return []
 
@@ -570,7 +563,7 @@ class Typer:
                     condition,
                     trans_context,
                     original_fun_context,
-                    BoolTypeNode(None, span=condition.span),
+                    BoolTypeNode(span=condition.span),
                     IfConditionUnifyErrorFactory(tree),
                     **kwargs,
                 )
@@ -602,7 +595,7 @@ class Typer:
                     condition,
                     original_var_context,
                     original_fun_context,
-                    BoolTypeNode(None, span=condition.span),
+                    BoolTypeNode(span=condition.span),
                     WhileConditionUnifyErrorFactory(tree),
                     **kwargs,
                 )
@@ -703,7 +696,10 @@ class Typer:
                         case Type.FST | Type.SND:
                             left = PolymorphicTypeNode.fresh()
                             right = PolymorphicTypeNode.fresh()
-                            var_exp_type = TupleNode(left=left, right=right, span=None)
+                            var_exp_type = TupleNode(
+                                left=left,
+                                right=right,
+                            )
                             trans = self.unify(
                                 var_exp_type,
                                 variable_type,
@@ -718,7 +714,7 @@ class Typer:
 
                         case Type.HD | Type.TL:
                             element = PolymorphicTypeNode.fresh()
-                            var_exp_type = ListNode(element, span=None)
+                            var_exp_type = ListNode(element)
                             trans = self.unify(
                                 var_exp_type,
                                 variable_type,
@@ -769,19 +765,7 @@ class Typer:
         error_factory: UnificationError = None,
         left_to_right: bool = False,
     ) -> List[Tuple[str, TypeNode]]:
-
-        # Goal: Return a list of tuples, each tuple is a substitution from left to right
-        if isinstance(type_one, IntTypeNode) and isinstance(type_two, IntTypeNode):
-            return []
-
-        if isinstance(type_one, BoolTypeNode) and isinstance(type_two, BoolTypeNode):
-            return []
-
-        if isinstance(type_one, CharTypeNode) and isinstance(type_two, CharTypeNode):
-            return []
-
-        if isinstance(type_one, VoidTypeNode) and isinstance(type_two, VoidTypeNode):
-            return []
+        # Return a list of tuples, each tuple is a substitution from left to right
 
         if type_one == type_two:
             return []
