@@ -25,7 +25,6 @@ from compiler.tree.tree import (  # isort:skip
     StmtAssNode,
     StmtNode,
     TupleNode,
-    TypeNode,
     VarDeclNode,
     VariableNode,
     VoidTypeNode,

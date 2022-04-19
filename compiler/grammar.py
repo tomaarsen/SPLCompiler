@@ -159,7 +159,6 @@ class Grammar:
         }
 
         tree = trees_dict.get(nt, DefaultFactory())
-        matches = []
         for i, segment in enumerate(production):
             for error in self.potential_errors:
                 if error.active:

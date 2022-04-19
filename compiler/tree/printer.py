@@ -7,11 +7,9 @@ from compiler.type import Type
 from compiler.util import operator_precedence, right_associative
 
 from compiler.tree.tree import (  # isort:skip
-    BasicTypeNode,
     BoolTypeNode,
     CharTypeNode,
     CommaListNode,
-    FieldNode,
     FunCallNode,
     FunDeclNode,
     FunTypeNode,
@@ -27,7 +25,6 @@ from compiler.tree.tree import (  # isort:skip
     StmtNode,
     TupleNode,
     VarDeclNode,
-    VariableNode,
     VoidTypeNode,
     WhileNode,
 )

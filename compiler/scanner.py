@@ -2,7 +2,6 @@ import re
 from typing import List
 
 from compiler.error.communicator import Communicator
-from compiler.error.error import ErrorRaiser
 from compiler.token import Token
 from compiler.util import Span
 

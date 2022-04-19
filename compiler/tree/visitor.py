@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pprint import pprint
 
 from compiler.token import Token
 from compiler.tree.tree import Node

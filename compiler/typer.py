@@ -1,13 +1,11 @@
 import copy
 from collections import defaultdict
-from functools import partial
-from pprint import pprint
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 from compiler.error.communicator import Communicator
-from compiler.error.error import ErrorRaiser, UnrecoverableError
+from compiler.error.error import UnrecoverableError
 from compiler.token import Token
-from compiler.tree.visitor import Boolean, NodeTransformer
+from compiler.tree.visitor import NodeTransformer
 from compiler.type import Type
 from compiler.util import Span
 
@@ -40,7 +38,6 @@ from compiler.error.typer_error import (  # isort:skip
 from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
     CharTypeNode,
-    FieldNode,
     FunCallNode,
     FunDeclNode,
     FunTypeNode,

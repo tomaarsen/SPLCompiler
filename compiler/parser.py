@@ -1,4 +1,3 @@
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import List
 
@@ -20,12 +19,10 @@ from compiler.tree.tree import (  # isort:skip
     FunCallNode,
     FunDeclNode,
     IfElseNode,
-    Node,
     PolymorphicTypeNode,
     ReturnNode,
     SPLNode,
     StmtNode,
-    VarDeclNode,
     WhileNode,
 )
 
