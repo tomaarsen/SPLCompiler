@@ -23,14 +23,22 @@ class Communicator:
             max(0, span.start_ln - n_before - 1) : span.end_ln + n_after
         ]
         final_error_lines = []
-        for i, line in enumerate(error_lines, start=max(1, span.start_ln - n_before)):
+        start_line_no = max(1, span.start_ln - n_before)
+        end_line_no = start_line_no + len(error_lines) - 1
+        for i, line in enumerate(error_lines, start=start_line_no):
+            # Determine the number of spaces between e.g. '8.' and the code.
+            # See the * in the following example:
+            #    *8. var a = 12;
+            # -> *9. var b = 15;
+            #    10. fun(c, d) {
+            padding = " " * (len(str(end_line_no)) - len(str(i)))
             final_line = ""
             # If this line contains denotated spans:
             if i >= span.start_ln and i <= span.end_ln:
                 # First line
                 if i == span.start_ln:
                     # Do not color outside of span on first line
-                    final_line += f"-> {i}. {line[:span.start_col]}"
+                    final_line += f"-> {padding}{i}. {line[:span.start_col]}"
 
                     # If we have more than 1 line, color the remaining line
                     if span.multiline:
@@ -44,14 +52,16 @@ class Communicator:
 
                 # Color lines (if any) that are in between the first and last line
                 elif i > span.start_ln and i < span.end_ln:
-                    final_line += f"-> {i}. {color}{line}{Colors.ENDC}"
+                    final_line += f"-> {padding}{i}. {color}{line}{Colors.ENDC}"
                 # The last line, of a multiline
                 else:
-                    final_line += f"-> {i}. {color}{line[:span.end_col]}{Colors.ENDC}"
+                    final_line += (
+                        f"-> {padding}{i}. {color}{line[:span.end_col]}{Colors.ENDC}"
+                    )
                     final_line += line[span.end_col :]
 
             else:
-                final_line += f"   {i}. {line}"
+                final_line += f"   {padding}{i}. {line}"
             final_error_lines.append(final_line)
 
         message = (
