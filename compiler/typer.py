@@ -29,7 +29,10 @@ from compiler.error.typer_error import (  # isort:skip
     DefaultUnifyErrorFactory,
     ReturnUnifyErrorFactory,
     VoidAssignmentError,
+    VoidFunCallArgError,
+    VoidOp2Error,
     VoidReturnError,
+    VoidTupleError,
     WhileConditionUnifyErrorFactory,
     WrongNumberOfArgumentsCallError,
     DuplicateArgumentsDeclError,
@@ -107,7 +110,6 @@ class Typer:
         fun_context: Dict[str, TypeNode],
         exp_type: TypeNode,
         error_factory: UnificationError = DefaultUnifyErrorFactory,
-        **kwargs,
     ) -> Node:
         match tree:
 
@@ -148,7 +150,7 @@ class Typer:
                 ] + [decl for decl in tree.body if isinstance(decl, FunDeclNode)]
                 for expression in declarations:
                     trans = self.type_node(
-                        expression, var_context, fun_context, get_fresh_type(), **kwargs
+                        expression, var_context, fun_context, get_fresh_type()
                     )
                     var_context = self.apply_trans_context(trans, var_context)
                     fun_context = self.apply_trans_context(trans, fun_context)
@@ -200,7 +202,6 @@ class Typer:
                         var_context,
                         fun_context,
                         PolymorphicTypeNode.fresh(),
-                        **kwargs,
                     )
                     var_context = self.apply_trans_context(trans, var_context)
                     fun_context = self.apply_trans_context(trans, fun_context)
@@ -213,7 +214,6 @@ class Typer:
                         var_context,
                         fun_context,
                         fun_context[tree.id.text].ret_type,
-                        **kwargs,
                     )
                     var_context = self.apply_trans_context(trans, var_context)
                     fun_context = self.apply_trans_context(trans, fun_context)
@@ -252,14 +252,12 @@ class Typer:
                         fc_var_context,
                         fc_fun_context,
                         fc_exp_type,
-                        fc_kwargs,
                     ) in self.fun_calls[tree.id.text]:
                         trans += self.type_node(
                             fc_tree,
                             var_context | fc_var_context,
                             fun_context | fc_fun_context,
                             fc_exp_type,
-                            **fc_kwargs,
                         )
                     del self.fun_calls[tree.id.text]
 
@@ -294,11 +292,11 @@ class Typer:
                 return trans
 
             case StmtNode():
-                # Pass expected type down - this is the expected type of the return here,
-                # so all children of tree.stmt should ignore this, except ReturnNode
-                return self.type_node(
-                    tree.stmt, var_context, fun_context, exp_type, **kwargs
-                )
+                # Pass expected type down, except with FunCall, as we don't want
+                # FunCall to influence the return value of the function.
+                if isinstance(tree.stmt, FunCallNode):
+                    exp_type = PolymorphicTypeNode.fresh()
+                return self.type_node(tree.stmt, var_context, fun_context, exp_type)
 
             case ReturnNode():
                 if tree.exp:
@@ -308,8 +306,6 @@ class Typer:
                         fun_context,
                         exp_type,
                         ReturnUnifyErrorFactory(tree),
-                        return_funcall=True,
-                        **kwargs,
                     )
 
                     # We cannot return a variable of type Void
@@ -333,14 +329,12 @@ class Typer:
                     var_context,
                     fun_context,
                     expr_exp_type,
-                    return_funcall=True,
-                    **kwargs,
                 )
                 # context = self.apply_trans_context(trans, context)
 
                 assignment_exp_type = PolymorphicTypeNode.fresh()
                 trans += self.type_node(
-                    tree.id, var_context, fun_context, assignment_exp_type, **kwargs
+                    tree.id, var_context, fun_context, assignment_exp_type
                 )
 
                 # We cannot make an assignment of type void
@@ -365,16 +359,19 @@ class Typer:
                 right_fresh = PolymorphicTypeNode.fresh()
 
                 # Left side recursion
-                trans = self.type_node(
-                    tree.left, var_context, fun_context, left_fresh, **kwargs
-                )
+                trans = self.type_node(tree.left, var_context, fun_context, left_fresh)
                 var_context = self.apply_trans_context(trans, var_context)
                 fun_context = self.apply_trans_context(trans, fun_context)
 
                 # Right side recursion
                 trans += self.type_node(
-                    tree.right, var_context, fun_context, right_fresh, **kwargs
+                    tree.right, var_context, fun_context, right_fresh
                 )
+
+                # Left nor the right side of the tuple can be Void
+                if any(VoidTypeNode() in x[1] for x in trans):
+                    VoidTupleError(self.program, tree)
+                    return []
 
                 # Unification with expected type
                 trans += self.unify(
@@ -442,7 +439,6 @@ class Typer:
                     fun_context,
                     left_exp_type,
                     BinaryUnifyErrorFactory(tree),
-                    **kwargs,
                 )
                 var_context = self.apply_trans_context(trans, var_context)
                 fun_context = self.apply_trans_context(trans, fun_context)
@@ -452,8 +448,13 @@ class Typer:
                     fun_context,
                     self.apply_trans(right_exp_type, trans),
                     BinaryUnifyErrorFactory(tree),
-                    **kwargs,
                 )
+
+                # Void cannot be used in a binary operation
+                if any(VoidTypeNode() in x[1] for x in trans):
+                    VoidOp2Error(self.program, tree)
+                    return []
+
                 trans += self.unify(
                     self.apply_trans(exp_type, trans),
                     self.apply_trans(output_exp_type, trans),
@@ -475,10 +476,13 @@ class Typer:
                     fun_context,
                     operand_exp_type,
                     UnaryUnifyErrorFactory(tree),
-                    **kwargs,
                 )
                 var_context = self.apply_trans_context(trans, var_context)
                 fun_context = self.apply_trans_context(trans, fun_context)
+
+                # Void cannot be used in an unary operation, but we don't need to verify this,
+                # as the above self.type_node call already ensured that the operand is not Void.
+
                 trans += self.unify(
                     self.apply_trans(exp_type, trans),
                     self.apply_trans(output_exp_type, trans),
@@ -509,8 +513,6 @@ class Typer:
                     fun_context,
                     expr_exp_type,
                     VariableDeclarationUnifyErrorFactory(tree),
-                    return_funcall=True,
-                    **kwargs,
                 )
 
                 # We cannot make an assignment of type void
@@ -540,7 +542,7 @@ class Typer:
                 transformation_then = []
                 for expression in then_branch:
                     trans = self.type_node(
-                        expression, var_context, fun_context, original_sigma, **kwargs
+                        expression, var_context, fun_context, original_sigma
                     )
                     var_context = self.apply_trans_context(trans, var_context)
                     fun_context = self.apply_trans_context(trans, fun_context)
@@ -551,7 +553,7 @@ class Typer:
                 transformation_else = []
                 for expression in else_branch:
                     trans = self.type_node(
-                        expression, var_context, fun_context, sigma_else, **kwargs
+                        expression, var_context, fun_context, sigma_else
                     )
                     var_context = self.apply_trans_context(trans, var_context)
                     fun_context = self.apply_trans_context(trans, fun_context)
@@ -566,7 +568,6 @@ class Typer:
                     original_fun_context,
                     BoolTypeNode(span=condition.span),
                     IfConditionUnifyErrorFactory(tree),
-                    **kwargs,
                 )
                 return transformation_then + transformation_else + trans_condition
 
@@ -580,7 +581,7 @@ class Typer:
                 transformation_body = []
                 for expression in body:
                     trans = self.type_node(
-                        expression, var_context, fun_context, exp_type, **kwargs
+                        expression, var_context, fun_context, exp_type
                     )
                     var_context = self.apply_trans_context(trans, var_context)
                     fun_context = self.apply_trans_context(trans, fun_context)
@@ -598,17 +599,12 @@ class Typer:
                     original_fun_context,
                     BoolTypeNode(span=condition.span),
                     WhileConditionUnifyErrorFactory(tree),
-                    **kwargs,
                 )
 
                 return trans_condition
 
             case FunCallNode():
-                # self.i += 1
-                # print(self.i, end="\r")
-                # return self.type_node(tree, context, PolymorphicTypeNode.fresh())
 
-                # """
                 if tree.func.text in fun_context:
                     fun_type = fun_context[tree.func.text]
                     # The transformations that we want to return
@@ -626,13 +622,15 @@ class Typer:
                             )
                             return []
 
+                        # Track if there is a (Void) error at some point for any of the arguments
+                        error = False
                         for call_arg, decl_arg_type in zip(
                             tree.args.items, fun_type.types
                         ):
                             # Get the type of the argument
                             fresh = PolymorphicTypeNode.fresh()
                             trans = self.type_node(
-                                call_arg, var_context, fun_context, fresh, **kwargs
+                                call_arg, var_context, fun_context, fresh
                             )
                             call_arg_type = self.apply_trans(fresh, trans)
                             # TODO: Should we also return fresh -> other
@@ -646,21 +644,29 @@ class Typer:
                                 FunCallUnifyErrorFactory(tree),
                                 left_to_right=True,
                             )
-                            # return_trans += [t for t in trans if t[0] == fresh]
-                            # local_trans += [t for t in trans if t[0] != fresh]
-                            # local_trans += trans
+                            # We cannot use Void as a function call parameter
+                            if any(VoidTypeNode() in x[1] for x in trans):
+                                VoidFunCallArgError(self.program, call_arg)
+                                error = True
+                                continue
+
                             for left, right, left_to_right in trans:
                                 if left_to_right:
                                     local_trans += [(left, right)]
                                 else:
                                     return_trans += [(left, right)]
 
+                        # Return nothing if there was an error.
+                        # This prevents (unnecessary, useless) stacking errors
+                        if error:
+                            return []
+
                     # Get the return type using both transformation types
-                    if kwargs.get("return_funcall", False):
-                        ret_type = self.apply_trans(
-                            copy.deepcopy(fun_type.ret_type), return_trans + local_trans
-                        )
-                        return_trans += self.unify(exp_type, ret_type, error_factory)
+                    # if kwargs.get("return_funcall", False):
+                    ret_type = self.apply_trans(
+                        copy.deepcopy(fun_type.ret_type), return_trans + local_trans
+                    )
+                    return_trans += self.unify(exp_type, ret_type, error_factory)
 
                     # if tree.args.items[0].text == "l":
                     #     print("FunCall stats:")
@@ -675,16 +681,14 @@ class Typer:
 
                 else:
                     self.fun_calls[tree.func.text].append(
-                        (tree, var_context.copy(), fun_context.copy(), exp_type, kwargs)
+                        (tree, var_context.copy(), fun_context.copy(), exp_type)
                     )
                     return []
 
             case VariableNode():
                 # transformation is of type: Dict[str, TypeNode]
                 if not tree.field:
-                    return self.type_node(
-                        tree.id, var_context, fun_context, exp_type, **kwargs
-                    )
+                    return self.type_node(tree.id, var_context, fun_context, exp_type)
 
                 if tree.id.text not in var_context:
                     VariableError(self.program, tree.id)

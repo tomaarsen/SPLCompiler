@@ -1,0 +1,8 @@
+id(x){
+    return x;
+}
+
+main(x){
+    x = id(print() : []);
+    return;
+}

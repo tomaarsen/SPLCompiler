@@ -6,6 +6,7 @@ from compiler.token import Token
 from compiler.util import Span
 
 from compiler.tree.tree import (  # isort:skip
+    CommaListNode,
     FunCallNode,
     FunDeclNode,
     IfElseNode,
@@ -14,6 +15,7 @@ from compiler.tree.tree import (  # isort:skip
     Op2Node,
     ReturnNode,
     StmtAssNode,
+    TupleNode,
     TypeNode,
     VarDeclNode,
     VariableNode,
@@ -326,6 +328,33 @@ class VoidReturnError(TypeNodeError):
     def __str__(self) -> str:
         before = f"Cannot return type 'Void' on {self.return_.span.lines_str}."
         return self.create_error(before, self.return_.span)
+
+
+@dataclass
+class VoidTupleError(TypeNodeError):
+    tuple: TupleNode
+
+    def __str__(self) -> str:
+        before = f"Cannot place 'Void' in a tuple on {self.tuple.span.lines_str}."
+        return self.create_error(before, self.tuple.span)
+
+
+@dataclass
+class VoidOp2Error(TypeNodeError):
+    operation: Op2Node
+
+    def __str__(self) -> str:
+        before = f"Cannot use 'Void' in a binary operation on {self.operation.span.lines_str}."
+        return self.create_error(before, self.operation.span)
+
+
+@dataclass
+class VoidFunCallArgError(TypeNodeError):
+    args: CommaListNode
+
+    def __str__(self) -> str:
+        before = f"Cannot use 'Void' as a function call argument on {self.args.span.lines_str}."
+        return self.create_error(before, self.args.span)
 
 
 @dataclass
