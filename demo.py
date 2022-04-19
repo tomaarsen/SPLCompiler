@@ -115,12 +115,9 @@ program = open_file("data/given/valid/bool.spl")
 # """
 
 program = """
-
-
-f(x) :: Int -> Int{
-    var x = 1;
+fun(a, b, c, d) :: a a a a -> Bool {
+    return a == c && b == d;
 }
-
 """
 
 scanner = Scanner(program)
