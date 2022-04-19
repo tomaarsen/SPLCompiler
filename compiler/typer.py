@@ -1,5 +1,6 @@
 import copy
 from collections import defaultdict
+from pprint import pprint
 from typing import Dict, List, Tuple
 
 from compiler.error.communicator import Communicator
@@ -657,7 +658,7 @@ class Typer:
                     # Get the return type using both transformation types
                     if kwargs.get("return_funcall", False):
                         ret_type = self.apply_trans(
-                            fun_type.ret_type, return_trans + local_trans
+                            copy.deepcopy(fun_type.ret_type), return_trans + local_trans
                         )
                         return_trans += self.unify(exp_type, ret_type, error_factory)
 
