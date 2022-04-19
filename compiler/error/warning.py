@@ -2,8 +2,19 @@ from dataclasses import dataclass
 from typing import List
 
 from compiler.error.communicator import Communicator, WarningRaiser
-from compiler.tree.tree import FieldNode, FunCallNode, FunDeclNode, IfElseNode, ReturnNode, StmtAssNode, StmtNode, VarDeclNode, WhileNode
 from compiler.util import Colors, Span
+
+from compiler.tree.tree import (  # isort:skip
+    FieldNode,
+    FunCallNode,
+    FunDeclNode,
+    IfElseNode,
+    ReturnNode,
+    StmtAssNode,
+    StmtNode,
+    VarDeclNode,
+    WhileNode,
+)
 
 
 @dataclass
@@ -40,7 +51,7 @@ class DeadCodeRemovalWarning(Warning):
             return self.create_message(span_limited, before)
         # Else: do not show after line with an arrow
         return self.create_message(span_limited, before, n_after=0)
-    
+
     def str_stmt(self, stmt: StmtNode) -> str:
         match stmt.stmt:
             case FunCallNode():
