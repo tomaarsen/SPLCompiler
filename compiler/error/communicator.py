@@ -89,6 +89,7 @@ class Communicator:
             if len(WarningRaiser.WARNINGS) > 10:
                 omitting_multiple_warnings = len(WarningRaiser.WARNINGS) - 10 > 1
                 warnings += f"Showing 10 warnings, omitting {len(WarningRaiser.WARNINGS)-10} warning{'s' if omitting_multiple_warnings else ''}..."
+            WarningRaiser.WARNINGS.clear()
             print("\n", warnings)
 
         errors = "".join(["\n\n" + str(error) for error in ErrorRaiser.ERRORS[:10]])
