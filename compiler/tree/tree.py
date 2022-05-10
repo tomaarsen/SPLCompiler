@@ -46,6 +46,7 @@ class CommaListNode(Node):
 class FunCallNode(Node):
     func: Token
     args: Optional[CommaListNode]
+    ret_type: Optional[TypeNode] = field(default=None)
 
 
 @dataclass

@@ -660,10 +660,10 @@ class Typer:
                             return []
 
                     # Get the return type using both transformation types
-                    # if kwargs.get("return_funcall", False):
                     ret_type = self.apply_trans(
                         copy.deepcopy(fun_type.ret_type), return_trans + local_trans
                     )
+                    tree.ret_type = ret_type
                     return_trans += self.unify(exp_type, ret_type, error_factory)
 
                     # if tree.args.items[0].text == "l":

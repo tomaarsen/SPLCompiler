@@ -8,17 +8,26 @@ from compiler.tree.visitor import YieldVisitor
 from compiler.type import Type
 
 from compiler.tree.tree import (  # isort:skip
+    BoolTypeNode,
+    CharTypeNode,
+    FieldNode,
     FunCallNode,
     FunDeclNode,
+    FunTypeNode,
     IfElseNode,
+    IntTypeNode,
+    ListNode,
     Node,
     Op1Node,
     Op2Node,
+    PolymorphicTypeNode,
     ReturnNode,
     SPLNode,
     StmtAssNode,
     StmtNode,
     VarDeclNode,
+    VariableNode,
+    VoidTypeNode,
     WhileNode,
 )
 
@@ -181,9 +190,15 @@ class GeneratorYielder(YieldVisitor):
             yield from self.visit(node.args, *args, **kwargs)
 
         if node.func.text == "print":
-            # TODO: Determine type of whats being printed
-            # Print as integer
-            yield Line(Instruction.TRAP, 0)
+            # Determine type of whats being printed
+            match node.args.items[0]:
+                case Token(type=Type.CHARACTER) | FunCallNode(ret_type=CharTypeNode()):
+                    # Print as a character
+                    yield Line(Instruction.TRAP, 1)
+
+                case _:
+                    # Print as integer
+                    yield Line(Instruction.TRAP, 0)
 
             # No need to clean up the stack here, as TRAP already eats
             # up the one element that is being printed
@@ -268,14 +283,12 @@ class GeneratorYielder(YieldVisitor):
             # should never occur.
             raise Exception(f"Variable {node.id.id.text!r} does not exist")
 
-    def visit_FieldNode(self, node: Node | Token, *args, **kwargs):
+    def visit_FieldNode(self, node: FieldNode, *args, **kwargs):
+        # TODO
         yield from []
 
-    def visit_FunTypeNode(self, node: Node | Token, *args, **kwargs):
+    def visit_FunTypeNode(self, node: FunTypeNode, *args, **kwargs):
         yield from []
-
-    # def visit_StmtNode(self, node: StmtNode, *args, **kwargs):
-    #     yield from self.visit_children(node, *args, **kwargs)
 
     def visit_ReturnNode(self, node: ReturnNode, *args, in_main=False, **kwargs):
         # Recurse into children
@@ -291,25 +304,33 @@ class GeneratorYielder(YieldVisitor):
         if not in_main:
             yield Line(Instruction.RET, comment=str(node))
 
-    def visit_IntTypeNode(self, node: Node | Token, *args, **kwargs):
+    def visit_IntTypeNode(self, node: IntTypeNode, *args, **kwargs):
+        # No need to generate code for this node or its children
         yield from []
 
-    def visit_CharTypeNode(self, node: Node | Token, *args, **kwargs):
+    def visit_CharTypeNode(self, node: CharTypeNode, *args, **kwargs):
+        # No need to generate code for this node or its children
         yield from []
 
-    def visit_BoolTypeNode(self, node: Node | Token, *args, **kwargs):
+    def visit_BoolTypeNode(self, node: BoolTypeNode, *args, **kwargs):
+        # No need to generate code for this node or its children
         yield from []
 
-    def visit_VoidTypeNode(self, node: Node | Token, *args, **kwargs):
+    def visit_VoidTypeNode(self, node: VoidTypeNode, *args, **kwargs):
+        # No need to generate code for this node or its children
         yield from []
 
-    def visit_PolymorphicTypeNode(self, node: Node | Token, *args, **kwargs):
+    def visit_PolymorphicTypeNode(self, node: PolymorphicTypeNode, *args, **kwargs):
+        # No need to generate code for this node or its children
         yield from []
 
-    def visit_VariableNode(self, node: Node | Token, *args, **kwargs):
+    def visit_VariableNode(self, node: VariableNode, *args, **kwargs):
+        # TODO
         yield from []
 
-    def visit_ListNode(self, node: Node | Token, *args, **kwargs):
+    def visit_ListNode(self, node: ListNode, *args, **kwargs):
+        # No need to generate code for this node or its children,
+        # as this is only used in for Types
         yield from []
 
     def visit_Op2Node(self, node: Op2Node, *args, **kwargs):
@@ -399,6 +420,9 @@ class GeneratorYielder(YieldVisitor):
             case Token(type=Type.DIGIT):
                 # TODO: Disallow overflow somewhere?
                 yield Line(Instruction.LDC, int(node.text), comment=str(node))
+
+            case Token(type=Type.CHARACTER):
+                yield Line(Instruction.LDC, ord(node.text[1]), comment=str(node))
 
             case _:
                 raise NotImplementedError(repr(node))

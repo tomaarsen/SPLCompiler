@@ -31,8 +31,8 @@ with open(tempfile_path, "w") as f:
     f.write(ssm_code)
 out = subprocess.check_output(
     ["java", "-jar", "ssm.jar", "--cli", "--file", tempfile_path.name],
-    cwd="ssm"
     # ["java", "-jar", "ssm.jar", "--file", tempfile_path.name], cwd="ssm"
+    cwd="ssm",
 )
 print(out.decode())
 print("(0 is False, -1 is True)")
