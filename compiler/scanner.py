@@ -76,7 +76,7 @@ class Scanner:
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
                 (?P<CHARACTER_SLASH_ERROR>\'\\\')|
-                (?P<CHARACTER>)\'(?:\\b|\\f|\\n|\\r|\\t|\\v|\\\\|[ -~])\'|
+                (?P<CHARACTER>)\'(?:\\a|\\b|\\n|\\r|\\t|\\\\|[ -~])\'|
                 (?P<QUOTE_EMPTY_ERROR>\'\')|
                 (?P<QUOTE_LONELY_ERROR>\')|
                 (?P<SPACE>[\ \r\t\f\v\n])|
