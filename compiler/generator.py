@@ -190,15 +190,15 @@ class GeneratorYielder(YieldVisitor):
             yield from self.visit(node.args, *args, **kwargs)
 
         if node.func.text == "print":
-            # Determine type of whats being printed
+            # Naively determine type of whats being printed
             match node.args.items[0]:
                 case Token(type=Type.CHARACTER) | FunCallNode(ret_type=CharTypeNode()):
                     # Print as a character
-                    yield Line(Instruction.TRAP, 1)
+                    yield Line(Instruction.TRAP, 1, comment=str(node))
 
                 case _:
                     # Print as integer
-                    yield Line(Instruction.TRAP, 0)
+                    yield Line(Instruction.TRAP, 0, comment=str(node))
 
             # No need to clean up the stack here, as TRAP already eats
             # up the one element that is being printed
@@ -422,7 +422,11 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.LDC, int(node.text), comment=str(node))
 
             case Token(type=Type.CHARACTER):
-                yield Line(Instruction.LDC, ord(node.text[1]), comment=str(node))
+                # Get the character range. Can be larger than length 1 if '\\n' etc.
+                character = node.text[1:-1]
+                # Remove duplicate escaping, i.e. '\\n' -> '\n'
+                character = character.encode().decode("unicode_escape")
+                yield Line(Instruction.LDC, ord(character), comment=str(node))
 
             case _:
                 raise NotImplementedError(repr(node))
