@@ -10,6 +10,7 @@ from compiler.type import Type
 from compiler.tree.tree import (  # isort:skip
     FunCallNode,
     FunDeclNode,
+    IfElseNode,
     Node,
     Op1Node,
     Op2Node,
@@ -18,6 +19,7 @@ from compiler.tree.tree import (  # isort:skip
     StmtAssNode,
     StmtNode,
     VarDeclNode,
+    WhileNode,
 )
 
 
@@ -126,6 +128,8 @@ class GeneratorYielder(YieldVisitor):
             "arguments": [],
             "local": [],
         }
+        self.if_else_counter = 0
+        self.while_counter = 0
 
     def visit_SPLNode(self, node: SPLNode, *args, **kwargs):
         yield Line(Instruction.BRA, "main")
@@ -195,11 +199,49 @@ class GeneratorYielder(YieldVisitor):
             # Place the function return back on the stack
             yield Line(Instruction.LDR, "RR")
 
-    def visit_IfElseNode(self, node: Node | Token, *args, **kwargs):
-        yield from []
+    def visit_IfElseNode(self, node: IfElseNode, *args, **kwargs):
+        then_label = f"Then{self.if_else_counter}"
+        else_label = f"Else{self.if_else_counter}"
+        end_label = f"IfEnd{self.if_else_counter}"
+        self.if_else_counter += 1
+        # Condition
+        yield from self.visit(node.cond)
+        if node.else_body:
+            # Jump over the else body, if the condition is true
+            yield Line(Instruction.BRT, then_label)
+            # Execute the else branch
+            yield Line(label=else_label)
+            for stmt in node.else_body:
+                yield from self.visit(stmt)
+            # Jump over body
+            yield Line(Instruction.BRA, end_label)
+        else:
+            # Jump over then branch, if there is no else branch to execute
+            yield Line(Instruction.BRF, end_label)
 
-    def visit_WhileNode(self, node: Node | Token, *args, **kwargs):
-        yield from []
+        yield Line(label=then_label)
+        for stmt in node.body:
+            yield from self.visit(stmt)
+        yield Line(label=end_label)
+
+    def visit_WhileNode(self, node: WhileNode, *args, **kwargs):
+        condition_label = f"WhileCond{self.while_counter}"
+        body_label = f"WhileBody{self.while_counter}"
+        end_label = f"WhileEnd{self.while_counter}"
+        self.while_counter += 1
+
+        # Condition
+        yield Line(label=condition_label)
+        yield from self.visit(node.cond)
+        # Jump over while body if condition is false
+        yield Line(Instruction.BRF, end_label)
+        # While body
+        yield Line(label=body_label)
+        for stmt in node.body:
+            yield from self.visit(stmt)
+        # Jump back to condition
+        yield Line(Instruction.BRA, condition_label)
+        yield Line(label=end_label)
 
     def visit_StmtAssNode(self, node: StmtAssNode, *args, **kwargs):
         yield from self.visit(node.exp, *args, **kwargs)
