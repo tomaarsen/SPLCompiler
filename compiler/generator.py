@@ -15,7 +15,9 @@ from compiler.tree.tree import (  # isort:skip
     Op2Node,
     ReturnNode,
     SPLNode,
+    StmtAssNode,
     StmtNode,
+    VarDeclNode,
 )
 
 
@@ -46,7 +48,7 @@ class Instruction(Enum):
 
     ADD = auto()  # Addition
     MUL = auto()  # Multiplication
-    SUB = auto()  # Substitution
+    SUB = auto()  # Subtraction
     DIV = auto()  # Division
     MOD = auto()  # Modulo
     AND = auto()  # Bitwise AND
@@ -112,7 +114,7 @@ class Line:
     def __repr__(self) -> str:
         label = f"\n{self.label}:\t" if self.label else "\t"
         instruction = " ".join(str(instruction) for instruction in self.instruction)
-        comment = f" // {self.comment}" if self.comment else ""
+        comment = f"\t\t\t; {self.comment}" if self.comment else ""
         return label + instruction + comment
 
 
@@ -138,24 +140,33 @@ class GeneratorYielder(YieldVisitor):
         if node.args:
             self.variables["arguments"] = node.args.items
 
+        # Place the local variables on the stack
         for var_decl in node.var_decl:
-            yield from self.visit(var_decl, *args, **kwargs)
+            yield from self.visit(var_decl, *args, in_func=True, **kwargs)
+
+        # Store them locally
+        if node.var_decl:
+            yield Line(Instruction.STML, 1, len(node.var_decl))
 
         for stmt in node.stmt:
             yield from self.visit(stmt, *args, in_main=node.id.text == "main", **kwargs)
 
-        # Remove the function arguments again
+        # Remove the function and local arguments again
         self.variables["arguments"].clear()
+        self.variables["local"].clear()
 
-    def visit_VarDeclNode(self, node: Node | Token, *args, **kwargs):
-        """
-        If in function, then:
-        link 1
-        recurse into expression
-        otherwise:
-        TODO
-        """
-        yield from []
+    def visit_VarDeclNode(self, node: VarDeclNode, *args, in_func=False, **kwargs):
+        if in_func:
+            # Local variable definition
+            # No need to pass the in_func any deeper
+            yield from self.visit(node.exp, *args, **kwargs)
+
+            self.variables["local"].append(node.id)
+
+        else:
+            # Global variable definition
+            # TODO
+            yield from []
 
     # def visit_CommaListNode(self, node: Node | Token, *args, **kwargs):
     #     yield from []
@@ -190,8 +201,30 @@ class GeneratorYielder(YieldVisitor):
     def visit_WhileNode(self, node: Node | Token, *args, **kwargs):
         yield from []
 
-    def visit_StmtAssNode(self, node: Node | Token, *args, **kwargs):
-        yield from []
+    def visit_StmtAssNode(self, node: StmtAssNode, *args, **kwargs):
+        yield from self.visit(node.exp, *args, **kwargs)
+
+        if node.id.id in self.variables["local"]:
+            # Local variables are positive relative to MP, starting from 1
+            index = self.variables["local"].index(node.id.id)
+            offset = index + 1
+            yield Line(Instruction.STL, offset, comment=str(node))
+
+        elif node.id.id in self.variables["arguments"]:
+            # Index 0 means we need to get the first argument, so the furthest away one
+            # The last argument is at -2
+            index = self.variables["arguments"].index(node.id.id)
+            offset = index - 1 - len(self.variables["arguments"])
+            # Load the function argument using the offset from MP
+            yield Line(Instruction.STL, offset, comment=str(node))
+
+        elif node.id.id in self.variables["global"]:
+            pass
+
+        else:
+            # TODO: Implement a backup error saying that there is no such variable,
+            # should never occur.
+            raise Exception(f"Variable {node.id.id.text!r} does not exist")
 
     def visit_FieldNode(self, node: Node | Token, *args, **kwargs):
         yield from []
@@ -214,7 +247,7 @@ class GeneratorYielder(YieldVisitor):
         yield Line(Instruction.UNLINK)
         # Actually return, but only if we're not in main
         if not in_main:
-            yield Line(Instruction.RET)
+            yield Line(Instruction.RET, comment=str(node))
 
     def visit_IntTypeNode(self, node: Node | Token, *args, **kwargs):
         yield from []
@@ -243,10 +276,38 @@ class GeneratorYielder(YieldVisitor):
         yield from self.visit(node.right, *args, **kwargs)
 
         match node.operator:
+            # Boolean operations
             case Token(type=Type.AND):
-                yield Line(Instruction.AND)
+                yield Line(Instruction.AND, comment=str(node))
             case Token(type=Type.OR):
-                yield Line(Instruction.OR)
+                yield Line(Instruction.OR, comment=str(node))
+
+            # Arithmetic operations
+            case Token(type=Type.PLUS):
+                yield Line(Instruction.ADD, comment=str(node))
+            case Token(type=Type.MINUS):
+                yield Line(Instruction.SUB, comment=str(node))
+            case Token(type=Type.STAR):
+                yield Line(Instruction.MUL, comment=str(node))
+            case Token(type=Type.SLASH):
+                yield Line(Instruction.DIV, comment=str(node))
+            case Token(type=Type.PERCENT):
+                yield Line(Instruction.MOD, comment=str(node))
+
+            # Equality
+            case Token(type=Type.DEQUALS):
+                yield Line(Instruction.EQ, comment=str(node))
+            case Token(type=Type.NEQ):
+                yield Line(Instruction.NE, comment=str(node))
+            case Token(type=Type.LT):
+                yield Line(Instruction.LT, comment=str(node))
+            case Token(type=Type.GT):
+                yield Line(Instruction.GT, comment=str(node))
+            case Token(type=Type.LEQ):
+                yield Line(Instruction.LE, comment=str(node))
+            case Token(type=Type.GEQ):
+                yield Line(Instruction.GE, comment=str(node))
+
             case _:
                 raise NotImplementedError(repr(node.operator))
 
@@ -256,7 +317,7 @@ class GeneratorYielder(YieldVisitor):
 
         match node.operator:
             case Token(type=Type.NOT):
-                yield Line(Instruction.NOT)
+                yield Line(Instruction.NOT, comment=str(node))
             case _:
                 raise NotImplementedError(repr(node.operator))
 
@@ -265,19 +326,37 @@ class GeneratorYielder(YieldVisitor):
             case Token(type=Type.TRUE):
                 # True is encoded as -1
                 yield Line(Instruction.LDC, -1)
+
             case Token(type=Type.FALSE):
                 # True is encoded as 0
                 yield Line(Instruction.LDC, 0)
+
             case Token(type=Type.ID):
-                # TODO: Implement global and local variables
-                # Index 0 means we need to get the first argument, so the furthest away one
-                # The last argument is at -2
-                index = self.variables["arguments"].index(node)
-                offset = index - 1 - len(self.variables["arguments"])
-                # Load the function argument using the offset from MP
-                yield Line(Instruction.LDL, offset)
+                # TODO: Implement global variables
+                if node in self.variables["local"]:
+                    # Local variables are positive relative to MP, starting from 1
+                    index = self.variables["local"].index(node)
+                    offset = index + 1
+                    yield Line(Instruction.LDL, offset, comment=str(node))
+
+                elif node in self.variables["arguments"]:
+                    # Index 0 means we need to get the first argument, so the furthest away one
+                    # The last argument is at -2
+                    index = self.variables["arguments"].index(node)
+                    offset = index - 1 - len(self.variables["arguments"])
+                    # Load the function argument using the offset from MP
+                    yield Line(Instruction.LDL, offset, comment=str(node))
+
+                elif node in self.variables["global"]:
+                    pass
+                else:
+                    # TODO: Implement a backup error saying that there is no such variable,
+                    # should never occur.
+                    raise Exception(f"Variable {node.text!r} does not exist")
+
             case Token(type=Type.DIGIT):
                 # TODO: Disallow overflow somewhere?
-                yield Line(Instruction.LDC, int(node.text))
+                yield Line(Instruction.LDC, int(node.text), comment=str(node))
+
             case _:
                 raise NotImplementedError(repr(node))
