@@ -236,13 +236,13 @@ class ReturnTransformer(NodeTransformer):
         if reachable:
             # Traverse the "then" branch to see if that side is reachable
             self.traverse_statements(node.body, reachable)
-            left_reachable = reachable.boolean
+            left_reachable = reachable.var
 
             # Reset reachability to true, as we know the if-else can be reached,
             # so the else can be reached too.
             reachable.set(True)
             self.traverse_statements(node.else_body, reachable)
-            right_reachable = reachable.boolean
+            right_reachable = reachable.var
 
             # Only if both sides end with a return (and thus have reachable=False at the end),
             # then we get reachable=False for this if-else

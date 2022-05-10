@@ -21,5 +21,8 @@ class Token:
             return False
         return self.text == __o.text and self.type == __o.type
 
+    def __hash__(self) -> int:
+        return hash(self.text)
+
     def __str__(self) -> str:
         return self.text

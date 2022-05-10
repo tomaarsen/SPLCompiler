@@ -4,12 +4,13 @@ from pprint import pprint
 from typing import Tuple
 
 from compiler.token import Token
-from compiler.tree.visitor import YieldVisitor
+from compiler.tree.visitor import Variable, YieldVisitor
 from compiler.type import Type
 
 from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
     CharTypeNode,
+    CommaListNode,
     FieldNode,
     FunCallNode,
     FunDeclNode,
@@ -129,33 +130,124 @@ class Line:
         return label + instruction + comment
 
 
+STD_LIB = """
+_print_Bool:
+	link 0
+    ldl -2
+	brt _print_Bool_Then
+
+_print_Bool_Else:
+	ldc 70			; 'F'
+	trap 1			; print('F')
+	ldc 97			; 'a'
+	trap 1			; print('a')
+	ldc 108			; 'l'
+	trap 1			; print('l')
+	ldc 115			; 's'
+	trap 1			; print('s')
+	ldc 101			; 'e'
+	trap 1			; print('e')
+	bra _print_Bool_End
+
+_print_Bool_Then:
+	ldc 84			; 'T'
+	trap 1			; print('T')
+	ldc 114			; 'r'
+	trap 1			; print('r')
+	ldc 117			; 'u'
+	trap 1			; print('u')
+	ldc 101			; 'e'
+	trap 1			; print('e')
+
+_print_Bool_End:
+	unlink
+	ret			; return;
+"""
+
+
+class Generator:
+    def __init__(self, tree: SPLNode) -> None:
+        self.generator_yielder = GeneratorYielder()
+        # self.tree = self.add_std_lib(tree)
+        self.tree = tree
+
+    def generate(self) -> str:
+        ssm_code = "\n".join(
+            str(line) for line in self.generator_yielder.visit(self.tree)
+        )  # + STD_LIB
+        return ssm_code
+
+
 class GeneratorYielder(YieldVisitor):
     def __init__(self) -> None:
         super().__init__()
         self.variables = {
-            "global": [],
-            "arguments": [],
-            "local": [],
+            "global": {},
+            "arguments": {},
+            "local": {},
         }
         self.if_else_counter = 0
         self.while_counter = 0
+        self.functions = []
 
     def visit_SPLNode(self, node: SPLNode, *args, **kwargs):
-        yield Line(Instruction.BRA, "main")
-        yield from self.visit_children(node, *args, **kwargs)
+        # yield Line(Instruction.BRA, "main")
 
-    def visit_FunDeclNode(self, node: FunDeclNode, *args, **kwargs):
+        # fun_decls = {}
+        # for node in node.body:
+        #     match node:
+        #         case FunDeclNode():
+        #             fun_decls[node.id.text] = node
+
+        #         case VarDeclNode():
+        #             yield from self.visit(node, *args, **kwargs)
+
+        var_decls = [node for node in node.body if isinstance(node, VarDeclNode)]
+
+        yield Line(Instruction.LINK, len(var_decls))
+        yield Line(Instruction.LDR, "MP")
+        yield Line(Instruction.STR, "R5", comment="Globals Pointer (GP)")
+        for var_decl in var_decls:
+            yield from self.visit(var_decl, *args, **kwargs)
+        yield Line(Instruction.STML, 1, len(var_decls))
+
+        fun_decls = {
+            node.id.text: node for node in node.body if isinstance(node, FunDeclNode)
+        }
+        yield from self.visit(fun_decls["main"], *args, **kwargs)
+        yield Line(Instruction.HALT)
+
+        while self.functions:
+            function = self.functions.pop()
+            name = function["name"]
+            fun_type = function["type"]
+            # TODO: Make print implementations
+            if name == "print":
+                continue
+            fun_decl = fun_decls[name]
+            yield from self.visit(fun_decl, *args, fun_type=fun_type, **kwargs)
+
+    def visit_FunDeclNode(self, node: FunDeclNode, *args, fun_type=None, **kwargs):
         # Mark a label from this point onwards
-        yield Line(label=node.id)
+        label = node.id.text + (
+            "".join("_" + str(t) for t in fun_type.types) if fun_type else ""
+        )
+        # print(f"Defining {label}")
+        yield Line(label=label)
         # Link to conveniently move MP and SP
         yield Line(Instruction.LINK, len(node.var_decl))
         # Set the function arguments, this is the order that they are above the MP
         if node.args:
-            self.variables["arguments"] = node.args.items
+            self.variables["arguments"] = {
+                token: arg_type
+                for token, arg_type in zip(node.args.items, fun_type.types)
+            }
 
         # Place the local variables on the stack
         for var_decl in node.var_decl:
             yield from self.visit(var_decl, *args, in_func=True, **kwargs)
+
+        # pprint(self.variables)
 
         # Store them locally
         if node.var_decl:
@@ -169,43 +261,59 @@ class GeneratorYielder(YieldVisitor):
         self.variables["local"].clear()
 
     def visit_VarDeclNode(self, node: VarDeclNode, *args, in_func=False, **kwargs):
+        # No need to pass the in_func any deeper
+        exp_type = Variable(None)
+        yield from self.visit(node.exp, *args, exp_type=exp_type, **kwargs)
+
         if in_func:
             # Local variable definition
-            # No need to pass the in_func any deeper
-            yield from self.visit(node.exp, *args, **kwargs)
-
-            self.variables["local"].append(node.id)
+            self.variables["local"][node.id] = exp_type.var
 
         else:
             # Global variable definition
-            # TODO
-            yield from []
+            yield Line(Instruction.STH, comment=str(node))
+            self.variables["global"][node.id] = exp_type.var
 
-    # def visit_CommaListNode(self, node: Node | Token, *args, **kwargs):
-    #     yield from []
-
-    def visit_FunCallNode(self, node: FunCallNode, *args, **kwargs):
+    def visit_FunCallNode(self, node: FunCallNode, *args, exp_type=None, **kwargs):
         # First handle the function call arguments
+        self.functions.append({"name": node.func.text, "type": node.type})
+
+        arg_types = []
         if node.args:
-            yield from self.visit(node.args, *args, **kwargs)
+            for arg in node.args.items:
+                arg_type = Variable(None)
+                yield from self.visit(arg, *args, exp_type=arg_type, **kwargs)
+                arg_types.append(arg_type.var)
 
         if node.func.text == "print":
             # Naively determine type of whats being printed
-            match node.args.items[0]:
-                case Token(type=Type.CHARACTER) | FunCallNode(ret_type=CharTypeNode()):
+            match arg_types[0]:
+                case CharTypeNode():
                     # Print as a character
                     yield Line(Instruction.TRAP, 1, comment=str(node))
 
-                case _:
+                case IntTypeNode():
                     # Print as integer
                     yield Line(Instruction.TRAP, 0, comment=str(node))
+
+                case BoolTypeNode():
+                    # Print as integer
+                    # yield Line(Instruction.TRAP, 0, comment=str(node))
+                    yield Line(Instruction.BSR, "_print_Bool")
+
+                case _:
+                    # breakpoint()
+                    raise NotImplementedError(
+                        f"Printing {arg_types[0]} hasn't been implemented yet"
+                    )
 
             # No need to clean up the stack here, as TRAP already eats
             # up the one element that is being printed
         # TODO: isEmpty
         else:
             # Branch to the function that is being called
-            yield Line(Instruction.BSR, node.func.text)
+            label = node.func.text + "".join("_" + str(t) for t in node.type.types)
+            yield Line(Instruction.BSR, label, comment=str(node))
 
             # Clean up the stack that still has the function call arguments on it
             if node.args:
@@ -213,6 +321,11 @@ class GeneratorYielder(YieldVisitor):
 
             # Place the function return back on the stack
             yield Line(Instruction.LDR, "RR")
+
+            # Set the return value as the expression type, if requested higher
+            # on the tree
+            if exp_type:
+                exp_type.set(node.type.ret_type)
 
     def visit_IfElseNode(self, node: IfElseNode, *args, **kwargs):
         then_label = f"Then{self.if_else_counter}"
@@ -276,7 +389,14 @@ class GeneratorYielder(YieldVisitor):
             yield Line(Instruction.STL, offset, comment=str(node))
 
         elif node.id.id in self.variables["global"]:
-            pass
+            # Global variables are positive relative to Global Pointer (GP), starting from 1
+            index = list(self.variables["global"]).index(node.id.id)
+            offset = index + 1
+
+            # Load heap address, and then store the value there
+            yield Line(Instruction.LDR, "R5", comment="Load Global Pointer (GP)")
+            yield Line(Instruction.LDA, offset, comment="Load Heap address")
+            yield Line(Instruction.STA, 0, comment=str(node))
 
         else:
             # TODO: Implement a backup error saying that there is no such variable,
@@ -329,89 +449,125 @@ class GeneratorYielder(YieldVisitor):
         yield from []
 
     def visit_ListNode(self, node: ListNode, *args, **kwargs):
-        # No need to generate code for this node or its children,
-        # as this is only used in for Types
+        # TODO: Note the distinction between if node.exp exists (then it's a type)
+        # and if it doesn't (then it's an empty list)
         yield from []
 
-    def visit_Op2Node(self, node: Op2Node, *args, **kwargs):
+    def visit_Op2Node(self, node: Op2Node, *args, exp_type=Variable(None), **kwargs):
         # First recurse into both children
-        yield from self.visit(node.left, *args, **kwargs)
+        left_exp_type = Variable(None)
+        yield from self.visit(node.left, *args, exp_type=left_exp_type, **kwargs)
         yield from self.visit(node.right, *args, **kwargs)
 
         match node.operator:
             # Boolean operations
             case Token(type=Type.AND):
+                exp_type.set(BoolTypeNode())
                 yield Line(Instruction.AND, comment=str(node))
             case Token(type=Type.OR):
+                exp_type.set(BoolTypeNode())
                 yield Line(Instruction.OR, comment=str(node))
 
             # Arithmetic operations
             case Token(type=Type.PLUS):
+                exp_type.set(IntTypeNode())
                 yield Line(Instruction.ADD, comment=str(node))
             case Token(type=Type.MINUS):
+                exp_type.set(IntTypeNode())
                 yield Line(Instruction.SUB, comment=str(node))
             case Token(type=Type.STAR):
+                exp_type.set(IntTypeNode())
                 yield Line(Instruction.MUL, comment=str(node))
             case Token(type=Type.SLASH):
+                exp_type.set(IntTypeNode())
                 yield Line(Instruction.DIV, comment=str(node))
             case Token(type=Type.PERCENT):
+                exp_type.set(IntTypeNode())
                 yield Line(Instruction.MOD, comment=str(node))
 
             # Equality
             case Token(type=Type.DEQUALS):
+                exp_type.set(BoolTypeNode())
                 yield Line(Instruction.EQ, comment=str(node))
             case Token(type=Type.NEQ):
+                exp_type.set(BoolTypeNode())
                 yield Line(Instruction.NE, comment=str(node))
+
+            # Arithmetic Equality
             case Token(type=Type.LT):
+                exp_type.set(BoolTypeNode())
                 yield Line(Instruction.LT, comment=str(node))
             case Token(type=Type.GT):
+                exp_type.set(BoolTypeNode())
                 yield Line(Instruction.GT, comment=str(node))
             case Token(type=Type.LEQ):
+                exp_type.set(BoolTypeNode())
                 yield Line(Instruction.LE, comment=str(node))
             case Token(type=Type.GEQ):
+                exp_type.set(BoolTypeNode())
                 yield Line(Instruction.GE, comment=str(node))
 
             case _:
                 raise NotImplementedError(repr(node.operator))
 
-    def visit_Op1Node(self, node: Op1Node, *args, **kwargs):
+    def visit_Op1Node(self, node: Op1Node, *args, exp_type=Variable(None), **kwargs):
         # First recurse into the child
         yield from self.visit(node.operand, *args, **kwargs)
 
         match node.operator:
             case Token(type=Type.NOT):
+                exp_type.set(BoolTypeNode())
                 yield Line(Instruction.NOT, comment=str(node))
+
+            case Token(type=Type.MINUS):
+                exp_type.set(IntTypeNode())
+                yield Line(Instruction.NEG, comment=str(node))
+
             case _:
                 raise NotImplementedError(repr(node.operator))
 
-    def visit_Token(self, node: Token, *args, **kwargs):
+    def visit_Token(self, node: Token, *args, exp_type=Variable(None), **kwargs):
         match node:
             case Token(type=Type.TRUE):
                 # True is encoded as -1
-                yield Line(Instruction.LDC, -1)
+                exp_type.set(BoolTypeNode())
+                yield Line(Instruction.LDC, -1, comment=str(node))
 
             case Token(type=Type.FALSE):
                 # True is encoded as 0
-                yield Line(Instruction.LDC, 0)
+                exp_type.set(BoolTypeNode())
+                yield Line(Instruction.LDC, 0, comment=str(node))
 
             case Token(type=Type.ID):
                 # TODO: Implement global variables
                 if node in self.variables["local"]:
                     # Local variables are positive relative to MP, starting from 1
-                    index = self.variables["local"].index(node)
+                    index = list(self.variables["local"]).index(node)
                     offset = index + 1
+                    exp_type.set(self.variables["local"][node])
                     yield Line(Instruction.LDL, offset, comment=str(node))
 
                 elif node in self.variables["arguments"]:
                     # Index 0 means we need to get the first argument, so the furthest away one
                     # The last argument is at -2
-                    index = self.variables["arguments"].index(node)
+                    index = list(self.variables["arguments"]).index(node)
                     offset = index - 1 - len(self.variables["arguments"])
                     # Load the function argument using the offset from MP
+                    exp_type.set(self.variables["arguments"][node])
                     yield Line(Instruction.LDL, offset, comment=str(node))
 
                 elif node in self.variables["global"]:
-                    pass
+                    # Global variables are positive relative to Global Pointer (GP), starting from 1
+                    index = list(self.variables["global"]).index(node)
+                    offset = index + 1
+
+                    exp_type.set(self.variables["global"][node])
+                    yield Line(
+                        Instruction.LDR, "R5", comment="Load Global Pointer (GP)"
+                    )
+                    yield Line(Instruction.LDA, offset, comment="Load Heap address")
+                    yield Line(Instruction.LDH, 0, comment="Load Heap value")
+
                 else:
                     # TODO: Implement a backup error saying that there is no such variable,
                     # should never occur.
@@ -419,6 +575,7 @@ class GeneratorYielder(YieldVisitor):
 
             case Token(type=Type.DIGIT):
                 # TODO: Disallow overflow somewhere?
+                exp_type.set(IntTypeNode())
                 yield Line(Instruction.LDC, int(node.text), comment=str(node))
 
             case Token(type=Type.CHARACTER):
@@ -426,6 +583,7 @@ class GeneratorYielder(YieldVisitor):
                 character = node.text[1:-1]
                 # Remove duplicate escaping, i.e. '\\n' -> '\n'
                 character = character.encode().decode("unicode_escape")
+                exp_type.set(CharTypeNode())
                 yield Line(Instruction.LDC, ord(character), comment=str(node))
 
             case _:

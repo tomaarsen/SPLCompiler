@@ -257,8 +257,8 @@ class WrongNumberOfArgumentsCallError(TypeNodeError):
     num_of_received: int
 
     def __str__(self) -> str:
-        arg = "arguments" if self.num_of_expected > 1 else "argument"
-        before = f"Expected {self.num_of_expected} {arg}, but got {self.num_of_received} when calling the function {self.function.func.text} on line {self.function.span.start_ln}."
+        arg = "argument" if self.num_of_expected == 1 else "arguments"
+        before = f"Expected {self.num_of_expected} {arg}, but got {self.num_of_received} when calling the function {self.function.func.text!r} on line {self.function.span.start_ln}."
         return self.create_error(before, self.function.span)
 
 

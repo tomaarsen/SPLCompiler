@@ -1,13 +1,11 @@
 
-f(a, b){
-    var c = 3;
-    var d = 5;
-    var e = 7;
-    a = 6;
-    e = 8;
-    return a + b + c + d + e;
-}
+var X = 12;
+var Y = 24;
 
 main(){
-    print(f(4, 2));
+    X = 42;
+    print(X);
 }
+
+var Z = 2;
+var A = 'a';

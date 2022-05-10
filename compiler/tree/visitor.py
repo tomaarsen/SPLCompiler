@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from compiler.token import Token
 from compiler.tree.tree import Node
@@ -85,14 +86,37 @@ class YieldVisitor(NodeVisitor):
 
 
 @dataclass
-class Boolean:
+class Variable:
+    """
+    An instanced wrapper of a variable that can be passed along a function,
+    modified deeper in the call stack, and then those changes can be read
+    up higher.
+
+    >>> def func(var: Variable):
+    ...     var.set(12)
+    >>> var = Variable(24)
+    >>> var
+    Variable(var=24)
+    >>> func(var)
+    >>> var
+    Variable(var=12)
+    """
+
+    var: Any
+
+    def set(self, var: Any) -> None:
+        self.var = var
+
+
+@dataclass
+class Boolean(Variable):
     """
     An instanced wrapper of a `bool` that can be passed along a function,
     modified deeper in the call stack, and then those changes can be read
     up higher.
 
     >>> def func(bl: Boolean):
-    >>>     bl.set(False)
+    ...     bl.set(False)
     >>> bl = Boolean(True)
     >>> bl
     Boolean(boolean=True)
@@ -101,10 +125,5 @@ class Boolean:
     Boolean(boolean=False)
     """
 
-    boolean: bool
-
-    def set(self, boolean: bool) -> None:
-        self.boolean = boolean
-
     def __bool__(self) -> bool:
-        return self.boolean
+        return self.var

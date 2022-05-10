@@ -610,16 +610,17 @@ class Typer:
                     # The transformations that we only want to locally apply here
                     local_trans = []
 
-                    if tree.args:
-                        if len(tree.args.items) != len(fun_type.types):
-                            WrongNumberOfArgumentsCallError(
-                                self.program,
-                                tree,
-                                len(fun_type.types),
-                                len(tree.args.items),
-                            )
-                            return []
+                    len_call_args = len(tree.args.items) if tree.args else 0
+                    if len_call_args != len(fun_type.types):
+                        WrongNumberOfArgumentsCallError(
+                            self.program,
+                            tree,
+                            len(fun_type.types),
+                            len_call_args,
+                        )
+                        return []
 
+                    if tree.args:
                         # Track if there is a (Void) error at some point for any of the arguments
                         error = False
                         for call_arg, decl_arg_type in zip(
@@ -663,7 +664,10 @@ class Typer:
                     ret_type = self.apply_trans(
                         copy.deepcopy(fun_type.ret_type), return_trans + local_trans
                     )
-                    tree.ret_type = ret_type
+                    tree.type = self.apply_trans(
+                        copy.deepcopy(fun_type), return_trans + local_trans
+                    )
+                    print(tree.func.text, "\t", tree.type)
                     return_trans += self.unify(exp_type, ret_type, error_factory)
 
                     # if tree.args.items[0].text == "l":
