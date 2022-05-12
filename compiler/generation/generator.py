@@ -1,8 +1,10 @@
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from pprint import pprint
-from typing import Tuple
+from typing import Iterator, Tuple
 
+from compiler.generation.instruction import Instruction
+from compiler.generation.line import Line
+from compiler.generation.std_lib import STD_LIB
 from compiler.token import Token
 from compiler.tree.visitor import Variable, YieldVisitor
 from compiler.type import Type
@@ -26,143 +28,13 @@ from compiler.tree.tree import (  # isort:skip
     SPLNode,
     StmtAssNode,
     StmtNode,
+    TupleNode,
+    TypeNode,
     VarDeclNode,
     VariableNode,
     VoidTypeNode,
     WhileNode,
 )
-
-
-class Instruction(Enum):
-    LDC = auto()  # Load Constant
-    LDS = auto()  # Load from Stack
-    LDMS = auto()  # Load Multiple from Stack
-    STS = auto()  # Store into Stack
-    STMS = auto()  # Store Multiple into Stack
-    LDSA = auto()  # Load Stack Address
-    LDL = auto()  # Load Local
-    LDML = auto()  # Load Multiple Local
-    STL = auto()  # Store Local
-    STML = auto()  # Store Multiple Local
-    LDLA = auto()  # Load Local Address
-    LDA = auto()  # Load via Address
-    LDMA = auto()  # Load Multiple via Address
-    LDAA = auto()  # Load Address of Address
-    STA = auto()  # Store via Address
-    STMA = auto()  # Store Multiple via Address
-    LDR = auto()  # Load Register
-    LDRR = auto()  # Load Register from Register
-    STR = auto()  # Store Register
-    SWP = auto()  # Swap values
-    SWPR = auto()  # Swap Register
-    SWPRR = auto()  # Swap 2 Registers
-    AJS = auto()  # Adjust Stack
-
-    ADD = auto()  # Addition
-    MUL = auto()  # Multiplication
-    SUB = auto()  # Subtraction
-    DIV = auto()  # Division
-    MOD = auto()  # Modulo
-    AND = auto()  # Bitwise AND
-    OR = auto()  # Bitwise OR
-    XOR = auto()  # Bitwise XOR
-    EQ = auto()  # Equality
-    NE = auto()  # Non-equality
-    LT = auto()  # Less than
-    LE = auto()  # Less or equal
-    GT = auto()  # Greater than
-    GE = auto()  # Greater or equal
-    NEG = auto()  # Negation
-    NOT = auto()  # Bitwise complement
-
-    BSR = auto()  # Branch to Subroutine
-    BRA = auto()  # Branch Always
-    BRF = auto()  # Branch on False
-    BRT = auto()  # Branch on True
-    JSR = auto()  # Jump to Subroutine
-    RET = auto()  # Return from Subroutine
-
-    LINK = auto()  # Reserve memory for locals
-    UNLINK = auto()  # Free memory for locals
-    NOP = auto()  # No operation
-    HALT = auto()  # Halt execution
-    TRAP = auto()  # Trap to environment function, involves a systemcall:
-    """
-     0: Pop the topmost element from the stack and print it as an integer.
-     1: Pop the topmost element from the stack and print it as a unicode character.
-    10: Ask the user for an integer input and push it on the stack.
-    11: Ask the user for a unicode character input and push it on the stack.
-    12: Ask the user for a sequence of unicode characters input and push the characters on the stack terminated by a null-character.
-    20: Pop a null-terminated file name from the stack, open the file for reading and push a file pointer on the stack.
-    21: Pop a null-terminated file name from the stack, open the file for writing and push a file pointer on the stack.
-    22: Pop a file pointer from the stack, read a character from the file pointed to by the file pointer and push the character on the stack.
-    23: Pop a character and a file pointer from the stack, write the character to the file pointed to by the file pointer.
-    24: Pop a file pointer from the stack and close the corresponding file.
-    """
-    ANNOTE = auto()  # Annotate, color used in the GUI
-
-    LDH = auto()  # Load from Heap
-    LDMH = auto()  # Load Multiple from Heap
-    STH = auto()  # Store into Heap
-    STMH = auto()  # Store Multiple into Heap
-
-    def __str__(self) -> str:
-        return self.name.lower()
-
-
-@dataclass
-class Line:
-    label: str
-    instruction: Tuple[str]
-    comment: str
-
-    def __init__(
-        self, *instruction: Tuple[Instruction | str], label: str = "", comment: str = ""
-    ) -> None:
-        self.label = label
-        self.instruction = instruction
-        self.comment = comment
-
-    def __repr__(self) -> str:
-        label = f"\n{self.label}:\t" if self.label else "\t"
-        instruction = " ".join(str(instruction) for instruction in self.instruction)
-        comment = f"\t\t\t; {self.comment}" if self.comment else ""
-        return label + instruction + comment
-
-
-STD_LIB = """
-_print_Bool:
-	link 0
-    ldl -2
-	brt _print_Bool_Then
-
-_print_Bool_Else:
-	ldc 70			; 'F'
-	trap 1			; print('F')
-	ldc 97			; 'a'
-	trap 1			; print('a')
-	ldc 108			; 'l'
-	trap 1			; print('l')
-	ldc 115			; 's'
-	trap 1			; print('s')
-	ldc 101			; 'e'
-	trap 1			; print('e')
-	bra _print_Bool_End
-
-_print_Bool_Then:
-	ldc 84			; 'T'
-	trap 1			; print('T')
-	ldc 114			; 'r'
-	trap 1			; print('r')
-	ldc 117			; 'u'
-	trap 1			; print('u')
-	ldc 101			; 'e'
-	trap 1			; print('e')
-
-_print_Bool_End:
-	unlink
-	ret			; return;
-"""
 
 
 class Generator:
@@ -204,12 +76,17 @@ class GeneratorYielder(YieldVisitor):
 
         var_decls = [node for node in node.body if isinstance(node, VarDeclNode)]
 
-        yield Line(Instruction.LINK, len(var_decls))
-        yield Line(Instruction.LDR, "MP")
-        yield Line(Instruction.STR, "R5", comment="Globals Pointer (GP)")
-        for var_decl in var_decls:
-            yield from self.visit(var_decl, *args, **kwargs)
-        yield Line(Instruction.STML, 1, len(var_decls))
+        if var_decls:
+            yield Line(Instruction.LINK, len(var_decls))
+            yield Line(Instruction.LDR, "MP")
+            yield Line(Instruction.STR, "R5", comment="Globals Pointer (GP)")
+            for offset, var_decl in enumerate(var_decls, start=1):
+                yield from self.visit(var_decl, *args, **kwargs)
+                yield Line(
+                    Instruction.STL,
+                    offset,
+                    comment=f"Store {var_decl.id.text!r} locally.",
+                )
 
         fun_decls = {
             node.id.text: node for node in node.body if isinstance(node, FunDeclNode)
@@ -244,14 +121,11 @@ class GeneratorYielder(YieldVisitor):
             }
 
         # Place the local variables on the stack
-        for var_decl in node.var_decl:
+        for offset, var_decl in enumerate(node.var_decl, start=1):
             yield from self.visit(var_decl, *args, in_func=True, **kwargs)
-
-        # pprint(self.variables)
-
-        # Store them locally
-        if node.var_decl:
-            yield Line(Instruction.STML, 1, len(node.var_decl))
+            yield Line(
+                Instruction.STL, offset, comment=f"Store {var_decl.id.text!r} locally."
+            )
 
         for stmt in node.stmt:
             yield from self.visit(stmt, *args, in_main=node.id.text == "main", **kwargs)
@@ -274,10 +148,59 @@ class GeneratorYielder(YieldVisitor):
             yield Line(Instruction.STH, comment=str(node))
             self.variables["global"][node.id] = exp_type.var
 
+    def print(self, node: FunCallNode, var_type: TypeNode) -> Iterator[Line]:
+        match var_type:
+            case CharTypeNode():
+                # Print as a character
+                yield Line(Instruction.TRAP, 1, comment=str(node))
+
+            case IntTypeNode():
+                # Print as integer
+                yield Line(Instruction.TRAP, 0, comment=str(node))
+
+            case BoolTypeNode():
+                # Print as integer
+                # yield Line(Instruction.TRAP, 0, comment=str(node))
+                yield Line(Instruction.BSR, "_print_Bool", comment=str(node))
+
+            case TupleNode():
+                # Print as tuple
+                # Print "("
+                yield Line(Instruction.LDC, 40, comment="Load '('")
+                yield Line(Instruction.TRAP, 1, comment="Print '('")
+
+                # Load the Tuple
+                yield Line(Instruction.LDMH, 0, 2, comment="Load left and right")
+                yield Line(Instruction.SWP, comment="Put left on top")
+
+                # Recursively print the left node
+                # TODO: Passing `node` isn't quite right
+                yield from self.print(node, var_type.left)
+
+                # Print ","
+                yield Line(Instruction.LDC, 44, comment="Load ','")
+                yield Line(Instruction.TRAP, 1, comment="Print ','")
+
+                # Print " "
+                yield Line(Instruction.LDC, 32, comment="Load ' '")
+                yield Line(Instruction.TRAP, 1, comment="Print ' '")
+
+                # Recursively print the right node
+                # TODO: Passing `node` isn't quite right
+                yield from self.print(node, var_type.right)
+
+                # Print ")"
+                yield Line(Instruction.LDC, 41, comment="Load ')'")
+                yield Line(Instruction.TRAP, 1, comment="Print ')'")
+
+            case _:
+                # breakpoint()
+                raise NotImplementedError(
+                    f"Printing {var_type} hasn't been implemented yet"
+                )
+
     def visit_FunCallNode(self, node: FunCallNode, *args, exp_type=None, **kwargs):
         # First handle the function call arguments
-        self.functions.append({"name": node.func.text, "type": node.type})
-
         arg_types = []
         if node.args:
             for arg in node.args.items:
@@ -287,30 +210,15 @@ class GeneratorYielder(YieldVisitor):
 
         if node.func.text == "print":
             # Naively determine type of whats being printed
-            match arg_types[0]:
-                case CharTypeNode():
-                    # Print as a character
-                    yield Line(Instruction.TRAP, 1, comment=str(node))
-
-                case IntTypeNode():
-                    # Print as integer
-                    yield Line(Instruction.TRAP, 0, comment=str(node))
-
-                case BoolTypeNode():
-                    # Print as integer
-                    # yield Line(Instruction.TRAP, 0, comment=str(node))
-                    yield Line(Instruction.BSR, "_print_Bool")
-
-                case _:
-                    # breakpoint()
-                    raise NotImplementedError(
-                        f"Printing {arg_types[0]} hasn't been implemented yet"
-                    )
+            yield from self.print(node, arg_types[0])
 
             # No need to clean up the stack here, as TRAP already eats
             # up the one element that is being printed
         # TODO: isEmpty
         else:
+            # Store this function to be implemented
+            self.functions.append({"name": node.func.text, "type": node.type})
+
             # Branch to the function that is being called
             label = node.func.text + "".join("_" + str(t) for t in node.type.types)
             yield Line(Instruction.BSR, label, comment=str(node))
@@ -404,7 +312,7 @@ class GeneratorYielder(YieldVisitor):
             raise Exception(f"Variable {node.id.id.text!r} does not exist")
 
     def visit_FieldNode(self, node: FieldNode, *args, **kwargs):
-        # TODO
+        # TODO:
         yield from []
 
     def visit_FunTypeNode(self, node: FunTypeNode, *args, **kwargs):
@@ -452,6 +360,15 @@ class GeneratorYielder(YieldVisitor):
         # TODO: Note the distinction between if node.exp exists (then it's a type)
         # and if it doesn't (then it's an empty list)
         yield from []
+
+    def visit_TupleNode(self, node: TupleNode, *args, exp_type=None, **kwargs):
+        left_exp_type = Variable(None)
+        yield from self.visit(node.left, *args, exp_type=left_exp_type, **kwargs)
+        right_exp_type = Variable(None)
+        yield from self.visit(node.right, *args, exp_type=right_exp_type, **kwargs)
+        if exp_type:
+            exp_type.set(TupleNode(left_exp_type.var, right_exp_type.var))
+        yield Line(Instruction.STMH, 2, comment=str(node))
 
     def visit_Op2Node(self, node: Op2Node, *args, exp_type=Variable(None), **kwargs):
         # First recurse into both children
@@ -506,6 +423,11 @@ class GeneratorYielder(YieldVisitor):
             case Token(type=Type.GEQ):
                 exp_type.set(BoolTypeNode())
                 yield Line(Instruction.GE, comment=str(node))
+
+            # Lists
+            case Token(type=Type.COLON):
+                exp_type.set(ListNode(left_exp_type.var))
+                # yield Line(Instruction.GE, comment=str(node))
 
             case _:
                 raise NotImplementedError(repr(node.operator))

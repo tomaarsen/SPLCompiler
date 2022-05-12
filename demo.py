@@ -5,7 +5,7 @@ from pathlib import Path
 from pprint import pprint
 
 from compiler import Parser, Scanner, Typer
-from compiler.generator import Generator
+from compiler.generation.generator import Generator
 from tests.test_util import open_file
 
 program = open_file("data/exp_main.spl")
