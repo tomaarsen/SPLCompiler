@@ -50,6 +50,10 @@ class Generator:
         return ssm_code
 
 
+class LinkListNode(TupleNode):
+    pass
+
+
 def set_variable(var: Variable, value):
     if var:
         var.set(value)
@@ -153,7 +157,10 @@ class GeneratorYielder(YieldVisitor):
             yield Line(Instruction.STH, comment=str(node))
             self.variables["global"][node.id] = exp_type.var
 
-    def print(self, node: FunCallNode, var_type: TypeNode) -> Iterator[Line]:
+    def print(
+        self, node: FunCallNode, var_type: TypeNode, first=True
+    ) -> Iterator[Line]:
+        print(var_type)
         match var_type:
             case CharTypeNode():
                 # Print as a character
@@ -167,6 +174,49 @@ class GeneratorYielder(YieldVisitor):
                 # Print as integer
                 # yield Line(Instruction.TRAP, 0, comment=str(node))
                 yield Line(Instruction.BSR, "_print_Bool", comment=str(node))
+
+            case LinkListNode(left=CharTypeNode() as value, right=pointer):
+                if pointer is None:
+                    yield from self.print(node, value)
+
+                else:
+                    # Load the Tuple
+                    yield Line(Instruction.LDMH, 0, 2, comment="Load left and right")
+                    yield Line(Instruction.SWP, comment="Put left on top")
+
+                    yield from self.print(node, value)
+
+                    yield from self.print(node, pointer)
+
+            case LinkListNode(left=value, right=pointer):
+                if first:
+                    # Print "["
+                    yield Line(Instruction.LDC, 91, comment="Load '['")
+                    yield Line(Instruction.TRAP, 1, comment="Print '['")
+
+                if pointer is None:
+                    yield from self.print(node, value)
+
+                    # Print "]"
+                    yield Line(Instruction.LDC, 93, comment="Load ']'")
+                    yield Line(Instruction.TRAP, 1, comment="Print ']'")
+
+                else:
+                    # Load the Tuple
+                    yield Line(Instruction.LDMH, 0, 2, comment="Load left and right")
+                    yield Line(Instruction.SWP, comment="Put left on top")
+
+                    yield from self.print(node, value)
+
+                    # Print ","
+                    yield Line(Instruction.LDC, 44, comment="Load ','")
+                    yield Line(Instruction.TRAP, 1, comment="Print ','")
+
+                    # Print " "
+                    yield Line(Instruction.LDC, 32, comment="Load ' '")
+                    yield Line(Instruction.TRAP, 1, comment="Print ' '")
+
+                    yield from self.print(node, pointer, first=False)
 
             case TupleNode():
                 # Print as tuple
@@ -199,7 +249,6 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.TRAP, 1, comment="Print ')'")
 
             case _:
-                # breakpoint()
                 raise NotImplementedError(
                     f"Printing {var_type} hasn't been implemented yet"
                 )
@@ -284,26 +333,42 @@ class GeneratorYielder(YieldVisitor):
         yield Line(label=end_label)
 
     def visit_StmtAssNode(self, node: StmtAssNode, *args, **kwargs):
-        yield from self.visit(node.exp, *args, **kwargs)
+        new_exp_type = Variable(None)
+        yield from self.visit(node.exp, *args, exp_type=new_exp_type, **kwargs)
 
         # If there are fields, then we want to get the address of the location to update on the stack
         # And then we can STA
         if node.id.field and node.id.field.fields:
+
+            exp_type = Variable(None)
             yield from self.visit(
-                node.id, *args, get_addr=True, exp_type=None, **kwargs
+                node.id,
+                *args,
+                get_addr=True,
+                new_exp_type=new_exp_type,
+                exp_type=exp_type,
+                **kwargs,
             )
+            if node.id.id in self.variables["local"]:
+                self.variables["local"][node.id.id] = exp_type.var
+            elif node.id.id in self.variables["arguments"]:
+                self.variables["arguments"][node.id.id] = exp_type.var
+            elif node.id.id in self.variables["global"]:
+                self.variables["global"][node.id.id] = exp_type.var
+            else:
+                raise Exception(f"Variable {node.id.id.text!r} does not exist")
             yield Line(Instruction.STA, 0, comment=str(node))
 
         elif node.id.id in self.variables["local"]:
             # Local variables are positive relative to MP, starting from 1
-            index = self.variables["local"].index(node.id.id)
+            index = list(self.variables["local"]).index(node.id.id)
             offset = index + 1
             yield Line(Instruction.STL, offset, comment=str(node))
 
         elif node.id.id in self.variables["arguments"]:
             # Index 0 means we need to get the first argument, so the furthest away one
             # The last argument is at -2
-            index = self.variables["arguments"].index(node.id.id)
+            index = list(self.variables["arguments"]).index(node.id.id)
             offset = index - 1 - len(self.variables["arguments"])
             # Load the function argument using the offset from MP
             yield Line(Instruction.STL, offset, comment=str(node))
@@ -330,7 +395,13 @@ class GeneratorYielder(YieldVisitor):
         yield from self.visit(node.field, *args, exp_type=exp_type, **kwargs)
 
     def visit_FieldNode(
-        self, node: FieldNode, *args, get_addr=False, exp_type=None, **kwargs
+        self,
+        node: FieldNode,
+        *args,
+        get_addr=False,
+        exp_type=None,
+        new_exp_type=None,
+        **kwargs,
     ):
         # If get_addr is True, then for the *last* field we want to put the address instead of the
         # value on the stack.
@@ -361,12 +432,36 @@ class GeneratorYielder(YieldVisitor):
                             -1 if field.type == Type.FST else 0,
                             comment=str(field),
                         )
-                # case Token(type=Type.HD):
-                #     pass
+                case Token(type=Type.HD) | Token(type=Type.TL):
+                    if get_addr and i == len(node.fields):
+                        # The current stack is already pointing to the SND address
+                        # so we only need to update on FST.
+                        # if new_exp_type:
+                        #     breakpoint()
+                        if field.type == Type.HD:
+                            exp_type.var.left = new_exp_type.var
+                            yield Line(Instruction.LDC, -1)
+                            yield Line(Instruction.ADD)
+                        else:
+                            exp_type.var.right = new_exp_type.var
+                    else:
+                        if exp_type:
+                            exp_type.set(
+                                exp_type.var.left
+                                if field.type == Type.HD
+                                else exp_type.var.right,
+                            )
+                        yield Line(
+                            Instruction.LDH,
+                            -1 if field.type == Type.HD else 0,
+                            comment=str(field),
+                        )
                 # case Token(type=Type.TL):
                 #     pass
                 case _:
-                    raise NotImplementedError("The {field!r} field is not implemented.")
+                    raise NotImplementedError(
+                        f"The {field!r} field is not implemented."
+                    )
 
     def visit_FunTypeNode(self, node: FunTypeNode, *args, **kwargs):
         yield from []
@@ -422,7 +517,8 @@ class GeneratorYielder(YieldVisitor):
         # First recurse into both children
         left_exp_type = Variable(None)
         yield from self.visit(node.left, *args, exp_type=left_exp_type, **kwargs)
-        yield from self.visit(node.right, *args, **kwargs)
+        right_exp_type = Variable(None)
+        yield from self.visit(node.right, *args, exp_type=right_exp_type, **kwargs)
 
         match node.operator:
             # Boolean operations
@@ -474,8 +570,12 @@ class GeneratorYielder(YieldVisitor):
 
             # Lists
             case Token(type=Type.COLON):
-                set_variable(exp_type, ListNode(left_exp_type.var))
+                set_variable(
+                    exp_type, LinkListNode(left_exp_type.var, right_exp_type.var)
+                )
                 # yield Line(Instruction.GE, comment=str(node))
+                if not isinstance(node.right, ListNode):
+                    yield Line(Instruction.STMH, 2, comment=str(node))
 
             case _:
                 raise NotImplementedError(repr(node.operator))
