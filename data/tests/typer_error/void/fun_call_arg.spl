@@ -3,6 +3,6 @@ id(x){
 }
 
 main(x){
-    x = id(print());
+    x = id(print(1));
     return;
 }

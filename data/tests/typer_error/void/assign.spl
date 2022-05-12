@@ -1,4 +1,4 @@
 main(x){
-    x = print();
+    x = print(1);
     return;
 }
