@@ -50,6 +50,11 @@ class Generator:
         return ssm_code
 
 
+def set_variable(var: Variable, value):
+    if var:
+        var.set(value)
+
+
 class GeneratorYielder(YieldVisitor):
     def __init__(self) -> None:
         super().__init__()
@@ -232,8 +237,7 @@ class GeneratorYielder(YieldVisitor):
 
             # Set the return value as the expression type, if requested higher
             # on the tree
-            if exp_type:
-                exp_type.set(node.type.ret_type)
+            set_variable(exp_type, type.ret_type)
 
     def visit_IfElseNode(self, node: IfElseNode, *args, **kwargs):
         then_label = f"Then{self.if_else_counter}"
@@ -282,7 +286,15 @@ class GeneratorYielder(YieldVisitor):
     def visit_StmtAssNode(self, node: StmtAssNode, *args, **kwargs):
         yield from self.visit(node.exp, *args, **kwargs)
 
-        if node.id.id in self.variables["local"]:
+        # If there are fields, then we want to get the address of the location to update on the stack
+        # And then we can STA
+        if node.id.field and node.id.field.fields:
+            yield from self.visit(
+                node.id, *args, get_addr=True, exp_type=None, **kwargs
+            )
+            yield Line(Instruction.STA, 0, comment=str(node))
+
+        elif node.id.id in self.variables["local"]:
             # Local variables are positive relative to MP, starting from 1
             index = self.variables["local"].index(node.id.id)
             offset = index + 1
@@ -311,9 +323,50 @@ class GeneratorYielder(YieldVisitor):
             # should never occur.
             raise Exception(f"Variable {node.id.id.text!r} does not exist")
 
-    def visit_FieldNode(self, node: FieldNode, *args, **kwargs):
-        # TODO:
-        yield from []
+    def visit_VariableNode(self, node: VariableNode, *args, exp_type=None, **kwargs):
+        # Place the variable on the stack
+        yield from self.visit(node.id, *args, exp_type=exp_type, **kwargs)
+        # Apply the fields
+        yield from self.visit(node.field, *args, exp_type=exp_type, **kwargs)
+
+    def visit_FieldNode(
+        self, node: FieldNode, *args, get_addr=False, exp_type=None, **kwargs
+    ):
+        # If get_addr is True, then for the *last* field we want to put the address instead of the
+        # value on the stack.
+        # TODO: Verify that exp_type updating doesn't cause issues here with a.fst = 12;
+
+        for i, field in enumerate(node.fields, start=1):
+            match field:
+                case Token(type=Type.FST) | Token(type=Type.SND):
+                    # The SP is now pointing at the top of the stack, which has
+                    # the Heap address of the right side of the Tuple.
+                    # We offset by -1 if we want the left side,
+                    # and 0 if we want the right side
+                    if get_addr and i == len(node.fields):
+                        # The current stack is already pointing to the SND address
+                        # so we only need to update on FST.
+                        if field.type == Type.FST:
+                            yield Line(Instruction.LDC, -1)
+                            yield Line(Instruction.ADD)
+                    else:
+                        if exp_type:
+                            exp_type.set(
+                                exp_type.var.left
+                                if field.type == Type.FST
+                                else exp_type.var.right,
+                            )
+                        yield Line(
+                            Instruction.LDH,
+                            -1 if field.type == Type.FST else 0,
+                            comment=str(field),
+                        )
+                # case Token(type=Type.HD):
+                #     pass
+                # case Token(type=Type.TL):
+                #     pass
+                case _:
+                    raise NotImplementedError("The {field!r} field is not implemented.")
 
     def visit_FunTypeNode(self, node: FunTypeNode, *args, **kwargs):
         yield from []
@@ -352,10 +405,6 @@ class GeneratorYielder(YieldVisitor):
         # No need to generate code for this node or its children
         yield from []
 
-    def visit_VariableNode(self, node: VariableNode, *args, **kwargs):
-        # TODO
-        yield from []
-
     def visit_ListNode(self, node: ListNode, *args, **kwargs):
         # TODO: Note the distinction between if node.exp exists (then it's a type)
         # and if it doesn't (then it's an empty list)
@@ -366,11 +415,10 @@ class GeneratorYielder(YieldVisitor):
         yield from self.visit(node.left, *args, exp_type=left_exp_type, **kwargs)
         right_exp_type = Variable(None)
         yield from self.visit(node.right, *args, exp_type=right_exp_type, **kwargs)
-        if exp_type:
-            exp_type.set(TupleNode(left_exp_type.var, right_exp_type.var))
+        set_variable(exp_type, TupleNode(left_exp_type.var, right_exp_type.var))
         yield Line(Instruction.STMH, 2, comment=str(node))
 
-    def visit_Op2Node(self, node: Op2Node, *args, exp_type=Variable(None), **kwargs):
+    def visit_Op2Node(self, node: Op2Node, *args, exp_type=None, **kwargs):
         # First recurse into both children
         left_exp_type = Variable(None)
         yield from self.visit(node.left, *args, exp_type=left_exp_type, **kwargs)
@@ -379,94 +427,93 @@ class GeneratorYielder(YieldVisitor):
         match node.operator:
             # Boolean operations
             case Token(type=Type.AND):
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.AND, comment=str(node))
             case Token(type=Type.OR):
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.OR, comment=str(node))
 
             # Arithmetic operations
             case Token(type=Type.PLUS):
-                exp_type.set(IntTypeNode())
+                set_variable(exp_type, IntTypeNode())
                 yield Line(Instruction.ADD, comment=str(node))
             case Token(type=Type.MINUS):
-                exp_type.set(IntTypeNode())
+                set_variable(exp_type, IntTypeNode())
                 yield Line(Instruction.SUB, comment=str(node))
             case Token(type=Type.STAR):
-                exp_type.set(IntTypeNode())
+                set_variable(exp_type, IntTypeNode())
                 yield Line(Instruction.MUL, comment=str(node))
             case Token(type=Type.SLASH):
-                exp_type.set(IntTypeNode())
+                set_variable(exp_type, IntTypeNode())
                 yield Line(Instruction.DIV, comment=str(node))
             case Token(type=Type.PERCENT):
-                exp_type.set(IntTypeNode())
+                set_variable(exp_type, IntTypeNode())
                 yield Line(Instruction.MOD, comment=str(node))
 
             # Equality
             case Token(type=Type.DEQUALS):
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.EQ, comment=str(node))
             case Token(type=Type.NEQ):
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.NE, comment=str(node))
 
             # Arithmetic Equality
             case Token(type=Type.LT):
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.LT, comment=str(node))
             case Token(type=Type.GT):
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.GT, comment=str(node))
             case Token(type=Type.LEQ):
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.LE, comment=str(node))
             case Token(type=Type.GEQ):
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.GE, comment=str(node))
 
             # Lists
             case Token(type=Type.COLON):
-                exp_type.set(ListNode(left_exp_type.var))
+                set_variable(exp_type, ListNode(left_exp_type.var))
                 # yield Line(Instruction.GE, comment=str(node))
 
             case _:
                 raise NotImplementedError(repr(node.operator))
 
-    def visit_Op1Node(self, node: Op1Node, *args, exp_type=Variable(None), **kwargs):
+    def visit_Op1Node(self, node: Op1Node, *args, exp_type=None, **kwargs):
         # First recurse into the child
         yield from self.visit(node.operand, *args, **kwargs)
 
         match node.operator:
             case Token(type=Type.NOT):
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.NOT, comment=str(node))
 
             case Token(type=Type.MINUS):
-                exp_type.set(IntTypeNode())
+                set_variable(exp_type, IntTypeNode())
                 yield Line(Instruction.NEG, comment=str(node))
 
             case _:
                 raise NotImplementedError(repr(node.operator))
 
-    def visit_Token(self, node: Token, *args, exp_type=Variable(None), **kwargs):
+    def visit_Token(self, node: Token, *args, exp_type=None, **kwargs):
         match node:
             case Token(type=Type.TRUE):
                 # True is encoded as -1
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.LDC, -1, comment=str(node))
 
             case Token(type=Type.FALSE):
                 # True is encoded as 0
-                exp_type.set(BoolTypeNode())
+                set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.LDC, 0, comment=str(node))
 
             case Token(type=Type.ID):
-                # TODO: Implement global variables
                 if node in self.variables["local"]:
                     # Local variables are positive relative to MP, starting from 1
                     index = list(self.variables["local"]).index(node)
                     offset = index + 1
-                    exp_type.set(self.variables["local"][node])
+                    set_variable(exp_type, self.variables["local"][node])
                     yield Line(Instruction.LDL, offset, comment=str(node))
 
                 elif node in self.variables["arguments"]:
@@ -475,7 +522,7 @@ class GeneratorYielder(YieldVisitor):
                     index = list(self.variables["arguments"]).index(node)
                     offset = index - 1 - len(self.variables["arguments"])
                     # Load the function argument using the offset from MP
-                    exp_type.set(self.variables["arguments"][node])
+                    set_variable(exp_type, self.variables["arguments"][node])
                     yield Line(Instruction.LDL, offset, comment=str(node))
 
                 elif node in self.variables["global"]:
@@ -483,7 +530,7 @@ class GeneratorYielder(YieldVisitor):
                     index = list(self.variables["global"]).index(node)
                     offset = index + 1
 
-                    exp_type.set(self.variables["global"][node])
+                    set_variable(exp_type, self.variables["global"][node])
                     yield Line(
                         Instruction.LDR, "R5", comment="Load Global Pointer (GP)"
                     )
@@ -497,7 +544,7 @@ class GeneratorYielder(YieldVisitor):
 
             case Token(type=Type.DIGIT):
                 # TODO: Disallow overflow somewhere?
-                exp_type.set(IntTypeNode())
+                set_variable(exp_type, IntTypeNode())
                 yield Line(Instruction.LDC, int(node.text), comment=str(node))
 
             case Token(type=Type.CHARACTER):
@@ -505,7 +552,7 @@ class GeneratorYielder(YieldVisitor):
                 character = node.text[1:-1]
                 # Remove duplicate escaping, i.e. '\\n' -> '\n'
                 character = character.encode().decode("unicode_escape")
-                exp_type.set(CharTypeNode())
+                set_variable(exp_type, CharTypeNode())
                 yield Line(Instruction.LDC, ord(character), comment=str(node))
 
             case _:
