@@ -1,10 +1,11 @@
 from dataclasses import dataclass, field
 from pprint import pprint
-from typing import Iterator, Tuple
+from re import U
+from typing import Iterator, List, Tuple
 
 from compiler.generation.instruction import Instruction
 from compiler.generation.line import Line
-from compiler.generation.std_lib import STD_LIB
+from compiler.generation.std_lib import STD_LIB, STD_LIB_LIST
 from compiler.token import Token
 from compiler.tree.visitor import Variable, YieldVisitor
 from compiler.type import Type
@@ -44,14 +45,11 @@ class Generator:
         self.tree = tree
 
     def generate(self) -> str:
-        ssm_code = "\n".join(
-            str(line) for line in self.generator_yielder.visit(self.tree)
-        )  # + STD_LIB
+        ssm_code = (
+            "\n".join(str(line) for line in self.generator_yielder.visit(self.tree))
+            + STD_LIB
+        )
         return ssm_code
-
-
-class LinkListNode(TupleNode):
-    pass
 
 
 def set_variable(var: Variable, value):
@@ -70,6 +68,8 @@ class GeneratorYielder(YieldVisitor):
         self.if_else_counter = 0
         self.while_counter = 0
         self.functions = []
+        self.include_function = set()
+        self.is_var_decl = False
 
     def visit_SPLNode(self, node: SPLNode, *args, **kwargs):
         # yield Line(Instruction.BRA, "main")
@@ -113,10 +113,20 @@ class GeneratorYielder(YieldVisitor):
             fun_decl = fun_decls[name]
             yield from self.visit(fun_decl, *args, fun_type=fun_type, **kwargs)
 
+        while self.include_function:
+            function = self.include_function.pop()
+            yield from STD_LIB_LIST[function]
+
     def visit_FunDeclNode(self, node: FunDeclNode, *args, fun_type=None, **kwargs):
         # Mark a label from this point onwards
         label = node.id.text + (
             "".join("_" + str(t) for t in fun_type.types) if fun_type else ""
+        ).replace(" ", "").replace(",", "").replace("(", "Tuple_").replace(
+            ")", ""
+        ).replace(
+            "[", "List_"
+        ).replace(
+            "]", ""
         )
         # print(f"Defining {label}")
         yield Line(label=label)
@@ -146,6 +156,8 @@ class GeneratorYielder(YieldVisitor):
     def visit_VarDeclNode(self, node: VarDeclNode, *args, in_func=False, **kwargs):
         # No need to pass the in_func any deeper
         exp_type = Variable(None)
+        # Set self.get_list_addr=True, such that we know whether a new address should be created for a list
+        self.is_var_decl = True
         yield from self.visit(node.exp, *args, exp_type=exp_type, **kwargs)
 
         if in_func:
@@ -160,7 +172,7 @@ class GeneratorYielder(YieldVisitor):
     def print(
         self, node: FunCallNode, var_type: TypeNode, first=True
     ) -> Iterator[Line]:
-        print(var_type)
+
         match var_type:
             case CharTypeNode():
                 # Print as a character
@@ -175,48 +187,46 @@ class GeneratorYielder(YieldVisitor):
                 # yield Line(Instruction.TRAP, 0, comment=str(node))
                 yield Line(Instruction.BSR, "_print_Bool", comment=str(node))
 
-            case LinkListNode(left=CharTypeNode() as value, right=pointer):
-                if pointer is None:
-                    yield from self.print(node, value)
-
-                else:
-                    # Load the Tuple
-                    yield Line(Instruction.LDMH, 0, 2, comment="Load left and right")
-                    yield Line(Instruction.SWP, comment="Put left on top")
-
-                    yield from self.print(node, value)
-
-                    yield from self.print(node, pointer)
-
-            case LinkListNode(left=value, right=pointer):
-                if first:
-                    # Print "["
+            case ListNode():
+                # Pointer to list in on top of stack
+                # Print as String
+                # if not first:
+                #     return
+                # Empty List
+                # breakpoint()
+                if var_type.body == None:
                     yield Line(Instruction.LDC, 91, comment="Load '['")
                     yield Line(Instruction.TRAP, 1, comment="Print '['")
-
-                if pointer is None:
-                    yield from self.print(node, value)
-
-                    # Print "]"
                     yield Line(Instruction.LDC, 93, comment="Load ']'")
                     yield Line(Instruction.TRAP, 1, comment="Print ']'")
 
+                elif CharTypeNode in var_type:
+                    yield Line(Instruction.NOP)
+                    return
+                # Print as int
                 else:
-                    # Load the Tuple
-                    yield Line(Instruction.LDMH, 0, 2, comment="Load left and right")
-                    yield Line(Instruction.SWP, comment="Put left on top")
 
-                    yield from self.print(node, value)
+                    # Nested list
+                    if isinstance(var_type.body, list):
+                        yield Line(Instruction.LINK, 0)
+                        # Get pointer
+                        yield Line(Instruction.LDL, -2)
+                        # Copy pointer
+                        yield Line(Instruction.LDL, -2)
+                        if first:
+                            yield Line(Instruction.LDA, 0)
+                            yield Line(Instruction.LDL, 2)
+                        # Get length
+                        yield Line(Instruction.LDA, -1)
 
-                    # Print ","
-                    yield Line(Instruction.LDC, 44, comment="Load ','")
-                    yield Line(Instruction.TRAP, 1, comment="Print ','")
+                        yield from self.print(
+                            var_type.body[0], var_type.body[0], first=False
+                        )
+                        self.include_function.add("_print_list_int")
 
-                    # Print " "
-                    yield Line(Instruction.LDC, 32, comment="Load ' '")
-                    yield Line(Instruction.TRAP, 1, comment="Print ' '")
-
-                    yield from self.print(node, pointer, first=False)
+                    else:
+                        self.include_function.add("_print_list_int")
+                        yield Line(Instruction.BSR, "_print_list_int")
 
             case TupleNode():
                 # Print as tuple
@@ -268,14 +278,28 @@ class GeneratorYielder(YieldVisitor):
 
             # No need to clean up the stack here, as TRAP already eats
             # up the one element that is being printed
-        # TODO: isEmpty
+        elif node.func.text == "isEmpty":
+            set_variable(exp_type, node.type.ret_type)
+            self.include_function.add("_is_empty")
+
+            yield Line(Instruction.BSR, "_is_empty")
+            yield Line(Instruction.LDR, "RR")
         else:
             # Store this function to be implemented
             self.functions.append({"name": node.func.text, "type": node.type})
 
             # Branch to the function that is being called
             label = node.func.text + "".join("_" + str(t) for t in node.type.types)
-            yield Line(Instruction.BSR, label, comment=str(node))
+            yield Line(
+                Instruction.BSR,
+                label.replace(" ", "")
+                .replace(",", "")
+                .replace("(", "Tuple_")
+                .replace(")", "")
+                .replace("[", "List_")
+                .replace("]", ""),
+                comment=str(node),
+            )
 
             # Clean up the stack that still has the function call arguments on it
             if node.args:
@@ -286,7 +310,7 @@ class GeneratorYielder(YieldVisitor):
 
             # Set the return value as the expression type, if requested higher
             # on the tree
-            set_variable(exp_type, type.ret_type)
+            set_variable(exp_type, node.type.ret_type)
 
     def visit_IfElseNode(self, node: IfElseNode, *args, **kwargs):
         then_label = f"Then{self.if_else_counter}"
@@ -480,30 +504,44 @@ class GeneratorYielder(YieldVisitor):
         if not in_main:
             yield Line(Instruction.RET, comment=str(node))
 
-    def visit_IntTypeNode(self, node: IntTypeNode, *args, **kwargs):
+    def visit_IntTypeNode(self, node: IntTypeNode, *args, exp_type=None, **kwargs):
         # No need to generate code for this node or its children
+        set_variable(exp_type, node)
         yield from []
 
-    def visit_CharTypeNode(self, node: CharTypeNode, *args, **kwargs):
+    def visit_CharTypeNode(self, node: CharTypeNode, *args, exp_type=None, **kwargs):
         # No need to generate code for this node or its children
+        set_variable(exp_type, node)
         yield from []
 
-    def visit_BoolTypeNode(self, node: BoolTypeNode, *args, **kwargs):
+    def visit_BoolTypeNode(self, node: BoolTypeNode, *args, exp_type=None, **kwargs):
         # No need to generate code for this node or its children
+        set_variable(exp_type, node)
         yield from []
 
-    def visit_VoidTypeNode(self, node: VoidTypeNode, *args, **kwargs):
+    def visit_VoidTypeNode(self, node: VoidTypeNode, *args, exp_type=None, **kwargs):
         # No need to generate code for this node or its children
+        set_variable(exp_type, node)
         yield from []
 
-    def visit_PolymorphicTypeNode(self, node: PolymorphicTypeNode, *args, **kwargs):
+    def visit_PolymorphicTypeNode(
+        self, node: PolymorphicTypeNode, *args, exp_type=None, **kwargs
+    ):
         # No need to generate code for this node or its children
+        set_variable(exp_type, node)
         yield from []
 
-    def visit_ListNode(self, node: ListNode, *args, **kwargs):
+    def visit_ListNode(self, node: ListNode, *args, exp_type=None, **kwargs):
         # TODO: Note the distinction between if node.exp exists (then it's a type)
         # and if it doesn't (then it's an empty list)
-        yield from []
+
+        # The to be created list has a new address per definition, which is created in this node ([])
+        if self.is_var_decl:
+            self.is_var_decl = False
+        self.include_function.add("_get_empty_list")
+        set_variable(exp_type, node)
+
+        yield from STD_LIB_LIST["_get_empty_list"]
 
     def visit_TupleNode(self, node: TupleNode, *args, exp_type=None, **kwargs):
         left_exp_type = Variable(None)
@@ -548,8 +586,63 @@ class GeneratorYielder(YieldVisitor):
 
             # Equality
             case Token(type=Type.DEQUALS):
+                # breakpoint()
+                if isinstance(left_exp_type.var, TupleNode):
+                    type = left_exp_type.var
+                    type_left = type.left
+                    type_right = type.right
+                    yield Line(label="AAAAAAA")
+                    yield Line(Instruction.LINK, 0)
+                    if not isinstance(type_right, TupleNode):
+                        # Compare right most
+                        yield Line(Instruction.LDL, 1)
+                        yield Line(Instruction.LDA, 0)
+
+                        yield Line(Instruction.LDL, 2)
+                        yield Line(Instruction.LDA, 0)
+                        yield Line(Instruction.EQ)
+                    else:
+                        # Recursively compare right
+                        # breakpoint()
+                        pass
+                    if not isinstance(type_left, TupleNode):
+                        # Compare left
+                        yield Line(Instruction.LDL, 1)
+                        yield Line(Instruction.LDA, -1)
+
+                        yield Line(Instruction.LDL, 2)
+                        yield Line(Instruction.LDA, -1)
+                        yield Line(Instruction.EQ)
+                    else:
+                        # Recursively compare left
+                        # breakpoint()
+                        yield Line(label="BBBBBBBB")
+                        # Load two pointers to the left of both tuples
+                        yield Line(Instruction.LDL, 1)
+                        yield Line(Instruction.LDA, -1)
+                        yield Line(Instruction.LDL, 2)
+                        yield Line(Instruction.LDA, -1)
+                        # This also yield the creation of 2 new Op2Node...
+                        yield from self.visit_Op2Node(
+                            Op2Node(
+                                TupleNode(type_left.left, type_left.right),
+                                node.operator,
+                                TupleNode(type_left.left, type_left.right),
+                            ),
+                            *args,
+                            exp_type=left_exp_type,
+                            **kwargs,
+                        )
+
+                    # Combine left and right
+                    # yield Line(Instruction.AND)
+
+                # TODO: List equality
+                elif isinstance(left_exp_type.var, ListNode):
+                    raise NotImplementedError()
+                else:
+                    yield Line(Instruction.EQ, comment=str(node))
                 set_variable(exp_type, BoolTypeNode())
-                yield Line(Instruction.EQ, comment=str(node))
             case Token(type=Type.NEQ):
                 set_variable(exp_type, BoolTypeNode())
                 yield Line(Instruction.NE, comment=str(node))
@@ -570,13 +663,61 @@ class GeneratorYielder(YieldVisitor):
 
             # Lists
             case Token(type=Type.COLON):
-                set_variable(
-                    exp_type, LinkListNode(left_exp_type.var, right_exp_type.var)
-                )
-                # yield Line(Instruction.GE, comment=str(node))
-                if not isinstance(node.right, ListNode):
-                    yield Line(Instruction.STMH, 2, comment=str(node))
+                if right_exp_type.var == None:
+                    set_variable(
+                        exp_type, ListNode(body=[left_exp_type.var, right_exp_type.var])
+                    )
+                else:
+                    set_variable(
+                        exp_type,
+                        ListNode(body=[left_exp_type.var] + right_exp_type.var.body),
+                    )
+                # Assume Stack is like:
+                #   Value to prepend to list
+                #   Pointer to (length, next*)
 
+                """
+                    Inside of a var decl, thus we need to create a new return reference.
+                    Suppose we have:
+                        var a  = 2 : [];
+                        var b =  1 : a;
+                    We thus need to
+                    1. Create a new reference b
+                    2. Copy the contents of a to b
+                    3. Prepend the element to a;
+                    In other words, is_var_decl is only True if we need to copy the contents of a to b
+                """
+
+                if self.is_var_decl:
+                    self.is_var_decl = False
+                    # Stack: values : pointer : return_pointer, var b = 1 : a;
+                    self.include_function.add("_get_new_list_pointer_and_copy_contents")
+                    yield Line(
+                        Instruction.BSR, "_get_new_list_pointer_and_copy_contents"
+                    )
+                    # Load override the old reference with the new
+                    yield Line(Instruction.AJS, -1)
+                    yield Line(Instruction.LDR, "RR")
+                    # Perform the colon operation
+                    self.include_function.add("_prepend_element")
+                    yield Line(Instruction.BSR, "_prepend_element")
+                    return
+
+                # Prepend the element to the list
+                yield Line(Instruction.BSR, "_prepend_element")
+                # Remove element from the stack, but maintain the pointer to the list
+                yield Line(Instruction.SWP)
+                yield Line(Instruction.AJS, -1)
+
+                if "_prepend_element" in self.include_function:
+                    pass
+                else:
+                    # yield from STD_LIB_LIST["_prepend_element"]
+                    self.include_function.add("_prepend_element")
+
+                # if not isinstance(node.right, ListNode):
+                # yield Line(Instruction.STMH, 2, comment=str(node))
+                yield from []
             case _:
                 raise NotImplementedError(repr(node.operator))
 
