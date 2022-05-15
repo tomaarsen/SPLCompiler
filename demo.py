@@ -8,7 +8,21 @@ from compiler import Parser, Scanner, Typer
 from compiler.generation.generator import Generator
 from tests.test_util import open_file
 
-program = open_file("data/exp_main.spl")
+program = open_file("data/global_vars.spl")
+
+program = r"""
+eq(a, b){
+    return a == b;
+}
+
+main(){
+    var a = ((1, (2, 3)), 3);
+    var b = ((1, (2, 3)), 3);
+    //var a = (1, 2);
+    //var b = (1, 2);
+    print(eq(a, b));
+}
+"""
 
 scanner = Scanner(program)
 tokens = scanner.scan()
@@ -31,8 +45,8 @@ tempfile_path = Path("ssm", "temp.ssm")
 with open(tempfile_path, "w") as f:
     f.write(ssm_code)
 out = subprocess.check_output(
-    # ["java", "-jar", "ssm.jar", "--cli", "--file", tempfile_path.name],
-    ["java", "-jar", "ssm.jar", "--file", tempfile_path.name],
+    ["java", "-jar", "ssm.jar", "--cli", "--file", tempfile_path.name],
+    # ["java", "-jar", "ssm.jar", "--file", tempfile_path.name],
     cwd="ssm",
 )
 print(out.decode())

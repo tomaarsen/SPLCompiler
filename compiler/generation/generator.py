@@ -551,6 +551,63 @@ class GeneratorYielder(YieldVisitor):
         set_variable(exp_type, TupleNode(left_exp_type.var, right_exp_type.var))
         yield Line(Instruction.STMH, 2, comment=str(node))
 
+    def eq(self, node: Op2Node, var_type: TypeNode) -> Iterator[Line]:
+
+        match var_type:
+            case CharTypeNode() | IntTypeNode() | BoolTypeNode():
+                # Compare as a character, integer or boolean
+                yield Line(Instruction.EQ, comment=str(node))
+
+            case ListNode():
+                # Pointer to list in on top of stack
+                raise NotImplementedError(
+                    "== between lists hasn't been implemented yet"
+                )
+
+            case TupleNode():
+                # On stack: Tuple 1 addr, Tuple 2 addr
+                yield Line(Instruction.LINK, 0)
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP
+
+                yield Line(Instruction.LDL, -2)
+                yield Line(Instruction.LDL, -1)
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, Tuple 1 addr, Tuple 2 addr
+
+                yield Line(Instruction.LDH, 0, comment="Load right of Tuple 2")
+                yield Line(Instruction.SWP)
+                yield Line(Instruction.LDH, 0, comment="Load right of Tuple 1")
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, Tuple 2 right, Tuple 1 right
+                yield from self.eq(node, var_type.right)
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean
+
+                yield Line(Instruction.LDL, -2)
+                yield Line(Instruction.LDL, -1)
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, Tuple 1 addr, Tuple 2 addr
+
+                yield Line(Instruction.LDH, -1, comment="Load left of Tuple 2")
+                yield Line(Instruction.SWP)
+                yield Line(Instruction.LDH, -1, comment="Load left of Tuple 1")
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, Tuple 2 left, Tuple 1 left
+                yield from self.eq(node, var_type.left)
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, boolean
+
+                yield Line(Instruction.AND)
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean
+
+                yield Line(Instruction.STL, -2)
+                # On stack: boolean, Tuple 2 addr, MP
+
+                yield Line(Instruction.UNLINK)
+                # On stack: boolean, Tuple 2 addr
+
+                yield Line(Instruction.AJS, -1)
+                # On stack: boolean
+
+            case _:
+                raise NotImplementedError(
+                    f"Printing {var_type} hasn't been implemented yet"
+                )
+
     def visit_Op2Node(self, node: Op2Node, *args, exp_type=None, **kwargs):
         # First recurse into both children
         left_exp_type = Variable(None)
@@ -586,62 +643,18 @@ class GeneratorYielder(YieldVisitor):
 
             # Equality
             case Token(type=Type.DEQUALS):
-                # breakpoint()
-                if isinstance(left_exp_type.var, TupleNode):
-                    type = left_exp_type.var
-                    type_left = type.left
-                    type_right = type.right
-                    yield Line(label="AAAAAAA")
-                    yield Line(Instruction.LINK, 0)
-                    if not isinstance(type_right, TupleNode):
-                        # Compare right most
-                        yield Line(Instruction.LDL, 1)
-                        yield Line(Instruction.LDA, 0)
+                """
+                Pre:
+                left and right is on the stack
 
-                        yield Line(Instruction.LDL, 2)
-                        yield Line(Instruction.LDA, 0)
-                        yield Line(Instruction.EQ)
-                    else:
-                        # Recursively compare right
-                        # breakpoint()
-                        pass
-                    if not isinstance(type_left, TupleNode):
-                        # Compare left
-                        yield Line(Instruction.LDL, 1)
-                        yield Line(Instruction.LDA, -1)
+                Steps:
+                recursively evaluate top (right), becomes boolean
+                swap
+                recursively evaluate top (left), becomes boolean
+                and
 
-                        yield Line(Instruction.LDL, 2)
-                        yield Line(Instruction.LDA, -1)
-                        yield Line(Instruction.EQ)
-                    else:
-                        # Recursively compare left
-                        # breakpoint()
-                        yield Line(label="BBBBBBBB")
-                        # Load two pointers to the left of both tuples
-                        yield Line(Instruction.LDL, 1)
-                        yield Line(Instruction.LDA, -1)
-                        yield Line(Instruction.LDL, 2)
-                        yield Line(Instruction.LDA, -1)
-                        # This also yield the creation of 2 new Op2Node...
-                        yield from self.visit_Op2Node(
-                            Op2Node(
-                                TupleNode(type_left.left, type_left.right),
-                                node.operator,
-                                TupleNode(type_left.left, type_left.right),
-                            ),
-                            *args,
-                            exp_type=left_exp_type,
-                            **kwargs,
-                        )
-
-                    # Combine left and right
-                    # yield Line(Instruction.AND)
-
-                # TODO: List equality
-                elif isinstance(left_exp_type.var, ListNode):
-                    raise NotImplementedError()
-                else:
-                    yield Line(Instruction.EQ, comment=str(node))
+                """
+                yield from self.eq(node, var_type=left_exp_type.var)
                 set_variable(exp_type, BoolTypeNode())
             case Token(type=Type.NEQ):
                 set_variable(exp_type, BoolTypeNode())
