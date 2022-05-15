@@ -205,28 +205,27 @@ class GeneratorYielder(YieldVisitor):
                     return
                 # Print as int
                 else:
-
                     # Nested list
-                    if isinstance(var_type.body, list):
-                        yield Line(Instruction.LINK, 0)
-                        # Get pointer
-                        yield Line(Instruction.LDL, -2)
-                        # Copy pointer
-                        yield Line(Instruction.LDL, -2)
-                        if first:
-                            yield Line(Instruction.LDA, 0)
-                            yield Line(Instruction.LDL, 2)
-                        # Get length
-                        yield Line(Instruction.LDA, -1)
+                    # if isinstance(var_type.body, list):
+                    #     yield Line(Instruction.LINK, 0)
+                    #     # Get pointer
+                    #     yield Line(Instruction.LDL, -2)
+                    #     # Copy pointer
+                    #     yield Line(Instruction.LDL, -2)
+                    #     if first:
+                    #         yield Line(Instruction.LDA, 0)
+                    #         yield Line(Instruction.LDL, 2)
+                    #     # Get length
+                    #     yield Line(Instruction.LDA, -1)
 
-                        yield from self.print(
-                            var_type.body[0], var_type.body[0], first=False
-                        )
-                        self.include_function.add("_print_list_int")
+                    #     yield from self.print(
+                    #         var_type.body[0], var_type.body[0], first=False
+                    #     )
+                    #     self.include_function.add("_print_list_int")
 
-                    else:
-                        self.include_function.add("_print_list_int")
-                        yield Line(Instruction.BSR, "_print_list_int")
+                    # else:
+                    self.include_function.add("_print_list_int")
+                    yield Line(Instruction.BSR, "_print_list_int")
 
             case TupleNode():
                 # Print as tuple
@@ -456,32 +455,44 @@ class GeneratorYielder(YieldVisitor):
                             -1 if field.type == Type.FST else 0,
                             comment=str(field),
                         )
-                case Token(type=Type.HD) | Token(type=Type.TL):
-                    if get_addr and i == len(node.fields):
-                        # The current stack is already pointing to the SND address
-                        # so we only need to update on FST.
-                        # if new_exp_type:
-                        #     breakpoint()
-                        if field.type == Type.HD:
-                            exp_type.var.left = new_exp_type.var
-                            yield Line(Instruction.LDC, -1)
-                            yield Line(Instruction.ADD)
-                        else:
-                            exp_type.var.right = new_exp_type.var
+                case Token(type=Type.HD):
+                    # SP points to the variable on which we are applying the .hd/.tl
+
+                    # Are we dealing with the empty list?
+                    if exp_type.var.body == None:
+                        # Yield empty list
+                        Line(Instruction.LDC, 0),  # Length
+                        Line(Instruction.LDC, 47806),  # Pointer
+                        Line(Instruction.STMH, 2),  # Put on stack
+                        set_variable(exp_type, ListNode(body=None))
                     else:
-                        if exp_type:
-                            exp_type.set(
-                                exp_type.var.left
-                                if field.type == Type.HD
-                                else exp_type.var.right,
-                            )
-                        yield Line(
-                            Instruction.LDH,
-                            -1 if field.type == Type.HD else 0,
-                            comment=str(field),
-                        )
-                # case Token(type=Type.TL):
-                #     pass
+                        # Create space to perform computations
+                        yield Line(Instruction.LINK, 0)
+                        # Yield first element
+                        yield Line(Instruction.LDL, -1)
+                        # Pointer to head
+                        yield Line(Instruction.LDA, 0)
+                        # Yield value
+                        yield Line(Instruction.LDA, -1)
+                        # Store in RR
+                        yield Line(Instruction.STR, "RR")
+                        # Clean-up
+                        yield Line(Instruction.UNLINK)
+                        # Load register
+                        yield Line(Instruction.LDR, "RR")
+                        set_variable(exp_type, exp_type.var.body[0])
+
+                case Token(type=Type.TL):
+                    # Are we dealing with the empty list?
+                    if exp_type.var.body == None:
+                        # Yield empty list
+                        Line(Instruction.LDC, 0),  # Length
+                        Line(Instruction.LDC, 47806),  # Pointer
+                        Line(Instruction.STMH, 2),  # Put on stack
+                        set_variable(exp_type, ListNode(body=None))
+                    else:
+                        raise NotImplementedError()
+
                 case _:
                     raise NotImplementedError(
                         f"The {field!r} field is not implemented."
