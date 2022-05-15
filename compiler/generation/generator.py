@@ -668,10 +668,15 @@ class GeneratorYielder(YieldVisitor):
                         exp_type, ListNode(body=[left_exp_type.var, right_exp_type.var])
                     )
                 else:
-                    set_variable(
-                        exp_type,
-                        ListNode(body=[left_exp_type.var] + right_exp_type.var.body),
-                    )
+                    if right_exp_type.var.body == None:
+                        set_variable(exp_type, ListNode(body=[left_exp_type.var]))
+                    else:
+                        set_variable(
+                            exp_type,
+                            ListNode(
+                                body=[left_exp_type.var] + list(right_exp_type.var.body)
+                            ),
+                        )
                 # Assume Stack is like:
                 #   Value to prepend to list
                 #   Pointer to (length, next*)
