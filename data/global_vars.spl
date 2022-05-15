@@ -1,0 +1,12 @@
+
+var A = -1;
+
+f(x, y){
+    var a = 3;
+    var b = 4;
+    print(x);
+}
+
+main(){
+    f(1, 2);
+}
