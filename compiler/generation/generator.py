@@ -570,24 +570,22 @@ class GeneratorYielder(YieldVisitor):
                 # On stack: Tuple 1 addr, Tuple 2 addr, MP
 
                 yield Line(Instruction.LDL, -2)
-                yield Line(Instruction.LDL, -1)
-                # On stack: Tuple 1 addr, Tuple 2 addr, MP, Tuple 1 addr, Tuple 2 addr
-
-                yield Line(Instruction.LDH, 0, comment="Load right of Tuple 2")
-                yield Line(Instruction.SWP)
                 yield Line(Instruction.LDH, 0, comment="Load right of Tuple 1")
-                # On stack: Tuple 1 addr, Tuple 2 addr, MP, Tuple 2 right, Tuple 1 right
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, Tuple 1 right
+                yield Line(Instruction.LDL, -1)
+                yield Line(Instruction.LDH, 0, comment="Load right of Tuple 2")
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, Tuple 1 right, Tuple 2 right
+
                 yield from self.eq(node, var_type.right)
                 # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean
 
                 yield Line(Instruction.LDL, -2)
-                yield Line(Instruction.LDL, -1)
-                # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, Tuple 1 addr, Tuple 2 addr
-
-                yield Line(Instruction.LDH, -1, comment="Load left of Tuple 2")
-                yield Line(Instruction.SWP)
                 yield Line(Instruction.LDH, -1, comment="Load left of Tuple 1")
-                # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, Tuple 2 left, Tuple 1 left
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, Tuple 1 left
+                yield Line(Instruction.LDL, -1)
+                yield Line(Instruction.LDH, -1, comment="Load left of Tuple 2")
+                # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, Tuple 1 left, Tuple 2 left
+
                 yield from self.eq(node, var_type.left)
                 # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, boolean
 
