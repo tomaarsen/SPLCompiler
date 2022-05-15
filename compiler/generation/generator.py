@@ -486,12 +486,14 @@ class GeneratorYielder(YieldVisitor):
                     # Are we dealing with the empty list?
                     if exp_type.var.body == None:
                         # Yield empty list
-                        Line(Instruction.LDC, 0),  # Length
-                        Line(Instruction.LDC, 47806),  # Pointer
-                        Line(Instruction.STMH, 2),  # Put on stack
+                        yield Line(Instruction.LDC, 0),  # Length
+                        yield Line(Instruction.LDC, 47806),  # Pointer
+                        yield Line(Instruction.STMH, 2),  # Put on stack
                         set_variable(exp_type, ListNode(body=None))
                     else:
-                        raise NotImplementedError()
+                        yield Line(Instruction.BSR, "_tail")
+                        self.include_function.add("_tail")
+                        yield Line(Instruction.LDR, "RR")
 
                 case _:
                     raise NotImplementedError(
@@ -562,6 +564,57 @@ class GeneratorYielder(YieldVisitor):
         set_variable(exp_type, TupleNode(left_exp_type.var, right_exp_type.var))
         yield Line(Instruction.STMH, 2, comment=str(node))
 
+    # TODO: a lot
+    def generate_eq_list(depth=1):
+        compare_length = [
+            # Step 1a: Compare length of both pointers
+            Line(Instruction.LDL, -2),
+            Line(Instruction.LDA, -1),
+            Line(Instruction.LDL, -3),
+            Line(Instruction.LDA, -1),
+            Line(Instruction.EQ),
+            # If false, return
+            Line(Instruction.BRF, "_equals_list_return"),
+            # Step 1b: check if length == 0
+            Line(Instruction.LDL, -2),
+            Line(Instruction.LDA, -1),
+            Line(Instruction.LDC, 0),
+            # If True, return
+            Line(Instruction.BRT, "_equals_list_return"),
+        ]
+        # If lengths are equal:
+        # Then we either comapre each element, or recursively compare each list
+        recursively_compare = [
+            # Load pointer to the start of both lists
+            Line(Instruction.LDL, -2),
+            Line(Instruction.LDL, -3),
+            # Get the length, assume length is equal
+            Line(Instruction.LDL, -2),
+            Line(Instruction.LDA, -1),
+            # Stack list 1, list 2, length
+            # Decrement length by 1
+            Line(Instruction.LDA, 3),
+            Line(Instruction.LDC, 1),
+            Line(Instruction.SUB),
+            Line(Instruction.STL, 3),
+            # Get values
+        ]
+        cleanup = [
+            # Return result
+            Line(label="_equals_list_return"),
+            Line(Instruction.STR, "RR"),
+            # Clean-up
+            Line(Instruction.UNLINK),
+            Line(Instruction.RET),
+        ]
+
+        return (
+            [Line(label=f"_equals_list_{depth}"), Line(Instruction.LINK, 0)]
+            + compare_length
+            + recursively_compare
+            + cleanup
+        )
+
     def eq(self, node: Op2Node, var_type: TypeNode) -> Iterator[Line]:
 
         match var_type:
@@ -574,6 +627,10 @@ class GeneratorYielder(YieldVisitor):
                 raise NotImplementedError(
                     "== between lists hasn't been implemented yet"
                 )
+                depth = 1
+                yield Line(Instruction.BSR, f"_equals_list_{depth}")
+                yield from GeneratorYielder.generate_eq_list(depth)
+                yield Line(Instruction.LDR, "RR")
 
             case TupleNode():
                 # On stack: Tuple 1 addr, Tuple 2 addr

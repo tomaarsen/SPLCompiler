@@ -364,4 +364,41 @@ STD_LIB_LIST = {
         Line(Instruction.UNLINK),
         Line(Instruction.RET),
     ],
+    "_tail": [
+        # Check if length <= 1, if so we return the empty list
+        Line(label="_tail"),
+        # Create space to perform computations
+        Line(Instruction.LINK, 0),
+        # Yield first element
+        Line(Instruction.LDL, -2),
+        # Yield length
+        Line(Instruction.LDA, -1),
+        # Check if length == 1
+        Line(Instruction.LDC, 1),
+        Line(Instruction.LE),
+        Line(Instruction.BRF, "_tail_rest_of_list"),
+        # Yield empty list
+        Line(Instruction.LDC, 0),  # Length
+        Line(Instruction.LDC, 47806),  # Pointer
+        Line(Instruction.STMH, 2),  # Put on stack
+        # Else yield pointer to remaining list
+        Line(label="_tail_rest_of_list"),
+        # Yield length
+        Line(Instruction.LDL, -2),
+        Line(Instruction.LDA, -1),
+        # Subtract 1
+        Line(Instruction.LDC, 1),
+        Line(Instruction.SUB),
+        # Yield pointer to tail
+        Line(Instruction.LDL, -2),
+        Line(Instruction.LDA, 0),
+        Line(Instruction.LDA, 0),
+        # Put length, next* on stack
+        Line(Instruction.STMH, 2),
+        # Store value in RR
+        Line(Instruction.STR, "RR"),
+        # Clean-up
+        Line(Instruction.UNLINK),
+        Line(Instruction.RET),
+    ],
 }
