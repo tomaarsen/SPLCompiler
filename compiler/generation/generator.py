@@ -227,45 +227,46 @@ class GeneratorYielder(YieldVisitor):
                 # Print "["
                 yield Line(Instruction.LDC, 91, comment="Load '['")
                 yield Line(Instruction.TRAP, 1, comment="Print '['")
-                # Load the length and list pointer
-                yield Line(Instruction.LDMH, 0, 2)
-                # Store them
-                yield Line(Instruction.STL, 2)  # (Next) List pointer
-                yield Line(Instruction.STL, 1)  # Length
+                if var_type.body:
+                    # Load the length and list pointer
+                    yield Line(Instruction.LDMH, 0, 2)
+                    # Store them
+                    yield Line(Instruction.STL, 2)  # (Next) List pointer
+                    yield Line(Instruction.STL, 1)  # Length
 
-                # Start loop body, starting with check for length
-                yield Line(Instruction.LDL, 1, label=label + "_loop")
-                yield Line(Instruction.BRF, label + "_end")
-                # Load list address again
-                yield Line(Instruction.LDL, 2)
-                # Load next value, pointer
-                yield Line(Instruction.LDMH, 0, 2)
-                # Update list pointer
-                yield Line(Instruction.STL, 2)
-                # Recursively print the value
-                self.functions.append({"name": "print", "type": [var_type.body]})
-                yield Line(
-                    Instruction.BSR, "print" + self.types_to_label([var_type.body])
-                )
-                yield Line(Instruction.AJS, -1)
-                # Decrease length of remaining list
-                yield Line(Instruction.LDL, 1)
-                yield Line(Instruction.LDC, 1)
-                yield Line(Instruction.SUB)
-                yield Line(Instruction.STL, 1)
-                # Determine whether to print comma
-                yield Line(Instruction.LDL, 1)
-                yield Line(Instruction.BRF, label + "_end")
-                # Else print comma
-                yield Line(Instruction.LDC, 44, comment="Load ','")
-                yield Line(Instruction.TRAP, 1, comment="Print ','")
-                # Print " "
-                yield Line(Instruction.LDC, 32, comment="Load ' '")
-                yield Line(Instruction.TRAP, 1, comment="Print ' '")
-                # Loop
-                yield Line(Instruction.BRA, label + "_loop")
+                    # Start loop body, starting with check for length
+                    yield Line(Instruction.LDL, 1, label=label + "_loop")
+                    yield Line(Instruction.BRF, label + "_end")
+                    # Load list address again
+                    yield Line(Instruction.LDL, 2)
+                    # Load next value, pointer
+                    yield Line(Instruction.LDMH, 0, 2)
+                    # Update list pointer
+                    yield Line(Instruction.STL, 2)
+                    # Recursively print the value
+                    self.functions.append({"name": "print", "type": [var_type.body]})
+                    yield Line(
+                        Instruction.BSR, "print" + self.types_to_label([var_type.body])
+                    )
+                    yield Line(Instruction.AJS, -1)
+                    # Decrease length of remaining list
+                    yield Line(Instruction.LDL, 1)
+                    yield Line(Instruction.LDC, 1)
+                    yield Line(Instruction.SUB)
+                    yield Line(Instruction.STL, 1)
+                    # Determine whether to print comma
+                    yield Line(Instruction.LDL, 1)
+                    yield Line(Instruction.BRF, label + "_end")
+                    # Else print comma
+                    yield Line(Instruction.LDC, 44, comment="Load ','")
+                    yield Line(Instruction.TRAP, 1, comment="Print ','")
+                    # Print " "
+                    yield Line(Instruction.LDC, 32, comment="Load ' '")
+                    yield Line(Instruction.TRAP, 1, comment="Print ' '")
+                    # Loop
+                    yield Line(Instruction.BRA, label + "_loop")
 
-                yield Line(label=label + "_end")
+                    yield Line(label=label + "_end")
                 # Print "]"
                 yield Line(Instruction.LDC, 93, comment="Load ']'")
                 yield Line(Instruction.TRAP, 1, comment="Print ']'")
