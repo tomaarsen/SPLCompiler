@@ -5,7 +5,7 @@ from typing import Iterator, List, Tuple
 
 from compiler.generation.instruction import Instruction
 from compiler.generation.line import Line
-from compiler.generation.std_lib import STD_LIB, STD_LIB_LIST
+from compiler.generation.std_lib import STD_LIB_LIST
 from compiler.token import Token
 from compiler.tree.visitor import Variable, YieldVisitor
 from compiler.type import Type
@@ -45,9 +45,8 @@ class Generator:
         self.tree = tree
 
     def generate(self) -> str:
-        ssm_code = (
-            "\n".join(str(line) for line in self.generator_yielder.visit(self.tree))
-            + STD_LIB
+        ssm_code = "\n".join(
+            str(line) for line in self.generator_yielder.visit(self.tree)
         )
         return ssm_code
 
@@ -70,6 +69,17 @@ class GeneratorYielder(YieldVisitor):
         self.functions = []
         self.include_function = set()
         self.is_var_decl = False
+
+    def types_to_label(self, types: List[TypeNode]) -> str:
+        return (
+            "".join("_" + str(t) for t in types)
+            .replace(" ", "")
+            .replace(",", "_")
+            .replace("(", "Tuple_")
+            .replace(")", "")
+            .replace("[", "List_")
+            .replace("]", "")
+        )
 
     def visit_SPLNode(self, node: SPLNode, *args, **kwargs):
         # yield Line(Instruction.BRA, "main")
@@ -103,31 +113,27 @@ class GeneratorYielder(YieldVisitor):
         yield from self.visit(fun_decls["main"], *args, **kwargs)
         yield Line(Instruction.HALT)
 
+        implemented = {"main"}
         while self.functions:
             function = self.functions.pop()
             name = function["name"]
-            fun_type = function["type"]
-            # TODO: Make print implementations
-            if name == "print":
-                continue
-            fun_decl = fun_decls[name]
-            yield from self.visit(fun_decl, *args, fun_type=fun_type, **kwargs)
+            types = function["type"]
+            label = name + self.types_to_label(types)
+            if label not in implemented:
+                if name == "print":
+                    yield from self.print(types)
+                else:
+                    fun_decl = fun_decls[name]
+                    yield from self.visit(fun_decl, *args, types=types, **kwargs)
+            implemented.add(label)
 
         while self.include_function:
             function = self.include_function.pop()
             yield from STD_LIB_LIST[function]
 
-    def visit_FunDeclNode(self, node: FunDeclNode, *args, fun_type=None, **kwargs):
+    def visit_FunDeclNode(self, node: FunDeclNode, *args, types=None, **kwargs):
         # Mark a label from this point onwards
-        label = node.id.text + (
-            "".join("_" + str(t) for t in fun_type.types) if fun_type else ""
-        ).replace(" ", "").replace(",", "").replace("(", "Tuple_").replace(
-            ")", ""
-        ).replace(
-            "[", "List_"
-        ).replace(
-            "]", ""
-        )
+        label = node.id.text + (self.type_to_label(types) if types else "")
         # print(f"Defining {label}")
         yield Line(label=label)
         # Link to conveniently move MP and SP
@@ -135,8 +141,7 @@ class GeneratorYielder(YieldVisitor):
         # Set the function arguments, this is the order that they are above the MP
         if node.args:
             self.variables["arguments"] = {
-                token: arg_type
-                for token, arg_type in zip(node.args.items, fun_type.types)
+                token: arg_type for token, arg_type in zip(node.args.items, types)
             }
 
         # Place the local variables on the stack
@@ -169,119 +174,98 @@ class GeneratorYielder(YieldVisitor):
             yield Line(Instruction.STH, comment=str(node))
             self.variables["global"][node.id] = exp_type.var
 
-    def print(self, node: FunCallNode, var_type: TypeNode) -> Iterator[Line]:
+    def print(self, var_types: TypeNode) -> Iterator[Line]:
+
+        var_type = var_types[0]
+        yield Line(label="print" + self.types_to_label(var_types))
+        yield Line(Instruction.LINK, 2 if isinstance(var_type, ListNode) else 0)
+        yield Line(Instruction.LDL, -2)  # Load argument
 
         match var_type:
             case CharTypeNode():
                 # Print as a character
-                yield Line(Instruction.TRAP, 1, comment=str(node))
+                yield Line(Instruction.TRAP, 1)
 
             case IntTypeNode():
                 # Print as integer
-                yield Line(Instruction.TRAP, 0, comment=str(node))
+                yield Line(Instruction.TRAP, 0)
 
             case BoolTypeNode():
                 # Print as integer
-                # yield Line(Instruction.TRAP, 0, comment=str(node))
-                yield Line(Instruction.BSR, "_print_Bool", comment=str(node))
+                yield Line(Instruction.BRT, "_print_Bool_Then")
+
+                # Else branch
+                yield Line(Instruction.LDC, 70, label="_print_Bool_Else", comment="'F'")
+                yield Line(Instruction.TRAP, 1)
+                yield Line(Instruction.LDC, 97, comment="'a'")
+                yield Line(Instruction.TRAP, 1)
+                yield Line(Instruction.LDC, 108, comment="'l'")
+                yield Line(Instruction.TRAP, 1)
+                yield Line(Instruction.LDC, 115, comment="'s'")
+                yield Line(Instruction.TRAP, 1)
+                yield Line(Instruction.LDC, 101, comment="'e'")
+                yield Line(Instruction.TRAP, 1)
+                yield Line(Instruction.BRA, "_print_Bool_End")
+
+                # Then branch
+                yield Line(Instruction.LDC, 84, label="_print_Bool_Then", comment="'T'")
+                yield Line(Instruction.TRAP, 1)
+                yield Line(Instruction.LDC, 114, comment="'r'")
+                yield Line(Instruction.TRAP, 1)
+                yield Line(Instruction.LDC, 117, comment="'u'")
+                yield Line(Instruction.TRAP, 1)
+                yield Line(Instruction.LDC, 101, comment="'e'")
+                yield Line(Instruction.TRAP, 1)
+
+                yield Line(label="_print_Bool_End")
 
             case ListNode():
-                # Pointer to list in on top of stack
-                # Empty List
-                if var_type.body == None:
-                    yield Line(Instruction.LDC, 91, comment="Load '['")
-                    yield Line(Instruction.TRAP, 1, comment="Print '['")
-                    yield Line(Instruction.LDC, 93, comment="Load ']'")
-                    yield Line(Instruction.TRAP, 1, comment="Print ']'")
+                label = "print" + self.types_to_label(var_types)
+                # Print "["
+                yield Line(Instruction.LDC, 91, comment="Load '['")
+                yield Line(Instruction.TRAP, 1, comment="Print '['")
+                # Load the length and list pointer
+                yield Line(Instruction.LDMH, 0, 2)
+                # Store them
+                yield Line(Instruction.STL, 2)  # (Next) List pointer
+                yield Line(Instruction.STL, 1)  # Length
 
-                # Nested List
-                elif isinstance(var_type.body, list) and isinstance(
-                    var_type.body[0], ListNode
-                ):
-                    # Nested list
-                    yield Line(Instruction.LINK, 0)
-                    # Make length local
-                    yield Line(Instruction.LDL, -1)
-                    yield Line(Instruction.LDA, -1)
-                    # Create stack:
-                    yield Line(Instruction.LDL, -1)
-                    yield Line(Instruction.LDA, 0)
-                    # Stack: length, reference first element
-                    # Print [
-                    yield Line(Instruction.LDC, 91, comment="Load '['")
-                    yield Line(Instruction.TRAP, 1, comment="Print '['")
-                    # Print Empty if length == 0
-                    yield Line(Instruction.LDL, 1)
-                    yield Line(Instruction.LDC, 0)
-                    yield Line(Instruction.EQ)
-                    # Loop over elements when false
-                    label = (
-                        (str(var_type.body))
-                        .replace(" ", "")
-                        .replace(",", "")
-                        .replace("(", "Tuple_")
-                        .replace(")", "")
-                        .replace("[", "List_")
-                        .replace("]", "")
-                        .replace("=", "")
-                    )
-                    yield Line(
-                        Instruction.BRF,
-                        label,
-                        comment=str(node),
-                    )
-                    # Else if empty: print empty list, and quit
-                    yield from self.print(ListNode(body=None), ListNode(body=None))
-                    yield Line(Instruction.BRA, f"_end_{label}")
+                # Start loop body, starting with check for length
+                yield Line(Instruction.LDL, 1, label=label + "_loop")
+                yield Line(Instruction.BRF, label + "_end")
+                # Load list address again
+                yield Line(Instruction.LDL, 2)
+                # Load next value, pointer
+                yield Line(Instruction.LDMH, 0, 2)
+                # Update list pointer
+                yield Line(Instruction.STL, 2)
+                # Recursively print the value
+                self.functions.append({"name": "print", "type": [var_type.body]})
+                yield Line(
+                    Instruction.BSR, "print" + self.types_to_label([var_type.body])
+                )
+                yield Line(Instruction.AJS, -1)
+                # Decrease length of remaining list
+                yield Line(Instruction.LDL, 1)
+                yield Line(Instruction.LDC, 1)
+                yield Line(Instruction.SUB)
+                yield Line(Instruction.STL, 1)
+                # Determine whether to print comma
+                yield Line(Instruction.LDL, 1)
+                yield Line(Instruction.BRF, label + "_end")
+                # Else print comma
+                yield Line(Instruction.LDC, 44, comment="Load ','")
+                yield Line(Instruction.TRAP, 1, comment="Print ','")
+                # Print " "
+                yield Line(Instruction.LDC, 32, comment="Load ' '")
+                yield Line(Instruction.TRAP, 1, comment="Print ' '")
+                # Loop
+                yield Line(Instruction.BRA, label + "_loop")
 
-                    yield Line(label=label)
-                    # Stack: length, reference to head
-                    # yield element:
-                    yield Line(Instruction.LDL, 2)
-                    # Stack: length, reference to head, reference to head
-                    yield Line(Instruction.LDA, -1)
-                    # Print element(s)
-                    yield from self.print(var_type, var_type.body[0])
-                    # Decrement length
-                    yield Line(Instruction.LDL, 1)
-                    yield Line(Instruction.LDC, 1)
-                    yield Line(Instruction.SUB)
-                    yield Line(Instruction.STL, 1)
-                    # Update pointer to point to next element
-                    yield Line(Instruction.LDL, 2)
-                    yield Line(Instruction.LDA, 0)
-                    yield Line(Instruction.STL, 2)
-                    # Do we need to print more?
-                    yield Line(Instruction.LDL, 1)
-                    yield Line(Instruction.LDC, 0)
-                    yield Line(Instruction.EQ)
-                    # If not, exit loop
-                    yield Line(Instruction.BRT, f"_end_{label}")
-                    # Print ,
-                    yield Line(Instruction.LDC, 44, comment="Load ','")
-                    yield Line(Instruction.TRAP, 1, comment="Print ','")
-                    # Print space
-                    yield Line(Instruction.LDC, 32, comment="Load ' '")
-                    yield Line(Instruction.TRAP, 1, comment="Print ' '")
-                    # Continue loop
-                    yield Line(Instruction.BRA, label)
-                    yield Line(label=f"_end_{label}")
-                    # Print ]
-                    yield Line(Instruction.LDC, 93, comment="Load ']'")
-                    yield Line(Instruction.TRAP, 1, comment="Print ']'")
-                    yield Line(Instruction.UNLINK)
-                # Print non-nested char
-                elif CharTypeNode() in var_type or CharTypeNode() in var_type.body:
-                    self.include_function.add("_print_list_char")
-                    yield Line(Instruction.BSR, "_print_list_char")
-                # Print as non-nested bool
-                elif BoolTypeNode() in var_type or BoolTypeNode() in var_type.body:
-                    self.include_function.add("_print_list_bool")
-                    yield Line(Instruction.BSR, "_print_list_bool")
-                # Print as non-nested int
-                else:
-                    self.include_function.add("_print_list_int")
-                    yield Line(Instruction.BSR, "_print_list_int")
+                yield Line(label=label + "_end")
+                # Print "]"
+                yield Line(Instruction.LDC, 93, comment="Load ']'")
+                yield Line(Instruction.TRAP, 1, comment="Print ']'")
 
             case TupleNode():
                 # Print as tuple
@@ -294,8 +278,11 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.SWP, comment="Put left on top")
 
                 # Recursively print the left node
-                # TODO: Passing `node` isn't quite right
-                yield from self.print(node, var_type.left)
+                self.functions.append({"name": "print", "type": [var_type.left]})
+                yield Line(
+                    Instruction.BSR, "print" + self.types_to_label([var_type.left])
+                )
+                yield Line(Instruction.AJS, -1)
 
                 # Print ","
                 yield Line(Instruction.LDC, 44, comment="Load ','")
@@ -306,8 +293,11 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.TRAP, 1, comment="Print ' '")
 
                 # Recursively print the right node
-                # TODO: Passing `node` isn't quite right
-                yield from self.print(node, var_type.right)
+                self.functions.append({"name": "print", "type": [var_type.right]})
+                yield Line(
+                    Instruction.BSR, "print" + self.types_to_label([var_type.right])
+                )
+                yield Line(Instruction.AJS, -1)
 
                 # Print ")"
                 yield Line(Instruction.LDC, 41, comment="Load ')'")
@@ -318,54 +308,59 @@ class GeneratorYielder(YieldVisitor):
                     f"Printing {var_type} hasn't been implemented yet"
                 )
 
+        yield Line(Instruction.UNLINK)
+        yield Line(Instruction.RET)
+
     def visit_FunCallNode(self, node: FunCallNode, *args, exp_type=None, **kwargs):
         # First handle the function call arguments
-        arg_types = []
+        # arg_types = []
         if node.args:
             for arg in node.args.items:
-                arg_type = Variable(None)
-                yield from self.visit(arg, *args, exp_type=arg_type, **kwargs)
-                arg_types.append(arg_type.var)
+                #         arg_type = Variable(None)
+                yield from self.visit(arg, *args, exp_type=None, **kwargs)
+        #         arg_types.append(arg_type.var)
 
-        if node.func.text == "print":
-            # Naively determine type of whats being printed
-            yield from self.print(node, arg_types[0])
+        # if node.func.text == "print":
+        #     # Store this function to be implemented
+        #     self.functions.append({"name": node.func.text, "type": node.type})
 
-            # No need to clean up the stack here, as TRAP already eats
-            # up the one element that is being printed
-        elif node.func.text == "isEmpty":
-            set_variable(exp_type, node.type.ret_type)
+        #     # Branch to the function that is being called
+        #     label = node.func.text + self.types_to_label(node.type.types)
+        #     yield Line(
+        #         Instruction.BSR,
+        #         label,
+        #         comment=str(node),
+        #     )
+        if node.func.text == "isEmpty":
             self.include_function.add("_is_empty")
 
             yield Line(Instruction.BSR, "_is_empty")
             yield Line(Instruction.LDR, "RR")
+
+            set_variable(exp_type, node.type.ret_type)
         else:
             # Store this function to be implemented
-            self.functions.append({"name": node.func.text, "type": node.type})
+            self.functions.append({"name": node.func.text, "type": node.type.types})
 
             # Branch to the function that is being called
-            label = node.func.text + "".join("_" + str(t) for t in node.type.types)
+            label = node.func.text + self.types_to_label(node.type.types)
             yield Line(
                 Instruction.BSR,
-                label.replace(" ", "")
-                .replace(",", "")
-                .replace("(", "Tuple_")
-                .replace(")", "")
-                .replace("[", "List_")
-                .replace("]", ""),
+                label,
                 comment=str(node),
             )
 
-            # Clean up the stack that still has the function call arguments on it
-            if node.args:
-                yield Line(Instruction.AJS, -len(node.args.items))
+            if node.func.text != "print":
+                # Clean up the stack that still has the function call arguments on it
+                if node.args:
+                    yield Line(Instruction.AJS, -len(node.args.items))
 
-            # Place the function return back on the stack
-            yield Line(Instruction.LDR, "RR")
+                # Place the function return back on the stack
+                yield Line(Instruction.LDR, "RR")
 
-            # Set the return value as the expression type, if requested higher
-            # on the tree
-            set_variable(exp_type, node.type.ret_type)
+                # Set the return value as the expression type, if requested higher
+                # on the tree
+                set_variable(exp_type, node.type.ret_type)
 
     def visit_IfElseNode(self, node: IfElseNode, *args, **kwargs):
         then_label = f"Then{self.if_else_counter}"
@@ -794,18 +789,7 @@ class GeneratorYielder(YieldVisitor):
 
             # Equality
             case Token(type=Type.DEQUALS):
-                """
-                Pre:
-                left and right is on the stack
-
-                Steps:
-                recursively evaluate top (right), becomes boolean
-                swap
-                recursively evaluate top (left), becomes boolean
-                and
-
-                """
-                yield from self.eq(node, var_type=left_exp_type.var)
+                # self.functions.append({"name": "_eq", "type": [left_exp_type.var, right_exp_type.var]})
                 set_variable(exp_type, BoolTypeNode())
             case Token(type=Type.NEQ):
                 set_variable(exp_type, BoolTypeNode())
@@ -827,20 +811,7 @@ class GeneratorYielder(YieldVisitor):
 
             # Lists
             case Token(type=Type.COLON):
-                if right_exp_type.var == None:
-                    set_variable(
-                        exp_type, ListNode(body=[left_exp_type.var, right_exp_type.var])
-                    )
-                else:
-                    if right_exp_type.var.body == None:
-                        set_variable(exp_type, ListNode(body=[left_exp_type.var]))
-                    else:
-                        set_variable(
-                            exp_type,
-                            ListNode(
-                                body=[left_exp_type.var] + list(right_exp_type.var.body)
-                            ),
-                        )
+                set_variable(exp_type, ListNode(left_exp_type.var))
                 # Assume Stack is like:
                 #   Value to prepend to list
                 #   Pointer to (length, next*)
@@ -878,9 +849,7 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.SWP)
                 yield Line(Instruction.AJS, -1)
 
-                if "_prepend_element" in self.include_function:
-                    pass
-                else:
+                if "_prepend_element" not in self.include_function:
                     # yield from STD_LIB_LIST["_prepend_element"]
                     self.include_function.add("_prepend_element")
 

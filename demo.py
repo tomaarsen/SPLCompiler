@@ -16,11 +16,20 @@ eq(a, b){
 }
 
 main(){
-    var a = ((1, (2, 3)), 3);
-    var b = ((1, (2, 3)), 3);
-    //var a = (1, 2);
-    //var b = (1, 2);
-    print(eq(a, b));
+    var a = ((6 : 7 : []) : []) : ((8 : 9 : []) : []) : [];
+    var b = ((True : False : []) : []) : ((False : True : []) : []) : [];
+    var c = (('a' : 'b' : []) : []) : (('c' : 'd' : []) : []) : [];
+    var d = ((2, (8, 3)), 7) : ((7, (2, 4)), 2) : [];
+    //var a = ((1, (2, 3)), 3);
+    //var b = ((1, (2, 4)), 3);
+    //print(eq(a, b));
+    print(a);
+    print('\n');
+    print(b);
+    print('\n');
+    print(c);
+    print('\n');
+    print(d);
 }
 """
 
@@ -54,4 +63,4 @@ print(out.decode())
 # 0 is False
 # -1 is True
 
-# '''
+# TODO: Disallow people making print or isEmpty as functions
