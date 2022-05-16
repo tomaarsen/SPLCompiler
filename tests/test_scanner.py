@@ -92,15 +92,6 @@ def test_LonelyQuoteError_1():
     assert "scanner_error" in str(excinfo) and "-> 6. " in str(excinfo)
 
 
-def test_LonelyQuoteError_2():
-    program: str = open_file("data/tests/scanner_error/LonelyQuoteError_2.spl")
-    scanner = Scanner(program)
-
-    with pytest.raises(ScannerException) as excinfo:
-        scanner.scan()
-    assert "scanner_error" in str(excinfo) and "-> 6. " in str(excinfo)
-
-
 def test_UnexpectedCharacterError_1():
     program: str = open_file("data/tests/scanner_error/UnexpectedCharacterError_1.spl")
     scanner = Scanner(program)
