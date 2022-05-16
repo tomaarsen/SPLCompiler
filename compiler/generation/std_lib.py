@@ -300,68 +300,150 @@ STD_LIB_LIST = {
         # Replace the pointer with a new pointer
         Line(Instruction.RET),
     ],
-    # Todo: generalize to n nested listed, instead of singly nested list
-    "_print_nested_list_int": [
-        # Stack contains a pointer to a nested list
-        Line(label="_print_nested_list_int"),
-        # Move MP
+    "_print_list_char": [
+        Line(label="_print_list_char"),
         Line(Instruction.LINK, 0),
+        # Step 0: Print "["
         Line(Instruction.LDC, 91, comment="Load '['"),
         Line(Instruction.TRAP, 1, comment="Print '['"),
-        # Stack:
-        # Pointer
-        # Length
-        # Get pointer
+        # Step 1: check if length = 0
+        # Load reference to list
         Line(Instruction.LDL, -2),
-        # Copy pointer
-        Line(Instruction.LDL, -2),
-        # Get length
-        Line(Instruction.LDA, -1),
-        Line(label="_start_print_nested_int_loop"),
-        # Copy length
+        # Load length of list
+        Line(Instruction.LDH, -1),
+        # Copy the length, for later use
         Line(Instruction.LDL, 1),
         # Check if length == 0
         Line(Instruction.LDC, 0),
         Line(Instruction.EQ),
-        # Exit loop if true
-        Line(Instruction.BRT, "end_print_nested_int"),
-        # Set local pointer to first element
+        # Step 2: Loop over all elements
+        # Jump to end of loop if length == 0
+        Line(Instruction.BRT, "_print_end_of_list_char"),
+        # Step 2a: prepare loop
+        # Load reference to list
         Line(Instruction.LDL, -2),
-        Line(Instruction.LDA, 0),
-        Line(Instruction.STL, 1),
-        # Load pointer to be printed
-        Line(Instruction.LDL, 1),
-        # Load beginning of next list item
-        Line(Instruction.LDL, 1),
-        Line(label="Test"),
-        Line(Instruction.LDA, -1),
-        # Print int list
-        Line(Instruction.BSR, "_print_list_int"),
-        Line(Instruction.SWP),
-        Line(Instruction.AJS, -1),
-        # Decrement local length
+        # Load next*
+        Line(Instruction.LDH, 0),
+        # Start of loop component
+        Line(label="_print_loop_char"),
+        # Step 2b: Keep track of current pointer
         Line(Instruction.LDL, 2),
+        # Step 2c: Print single element
+        # Load next value
+        Line(Instruction.LDH, -1),
+        # Print it
+        Line(Instruction.TRAP, 1),
+        # Step 2d: Update length
+        # Load localally stored length
+        Line(Instruction.LDL, 1),
+        # Subtract 1
         Line(Instruction.LDC, 1),
-        Line(Instruction.SUB),
-        Line(Instruction.STL, 2),
-        # Load next pointer
+        Line(Instruction.SUB, 1),
+        # Write to local copy
+        Line(Instruction.STL, 1),
+        # Step 2d: Print comma if needed
+        # Load locally stored length
         Line(Instruction.LDL, 1),
-        Line(Instruction.LDA, 0),
-        # Check if there is another element:
-        Line(Instruction.LDL, 2),
+        # Check if remaining elements / local length == 0
         Line(Instruction.LDC, 0),
-        # Length == ?
         Line(Instruction.EQ),
-        Line(Instruction.BRT, "end_print_nested_int"),
-        # Print ","
+        # Escape loop if true
+        Line(Instruction.BRT, "_print_end_of_list_char"),
+        # Else print comma
         Line(Instruction.LDC, 44, comment="Load ','"),
         Line(Instruction.TRAP, 1, comment="Print ','"),
-        Line(Instruction.BRA, "Test"),
-        Line(label="end_print_nested_int"),
+        # Print " "
+        Line(Instruction.LDC, 32, comment="Load ' '"),
+        Line(Instruction.TRAP, 1, comment="Print ' '"),
+        # Step 2e: Update pointer and continue loop
+        # Get pointer
+        Line(Instruction.LDL, 2),
+        # Load new pointer
+        Line(Instruction.LDA, 0),
+        # Update locally stored pointer
+        Line(Instruction.STL, 2),
+        # Continue loop
+        Line(Instruction.BRA, "_print_loop_char"),
+        # Step 3: print "]"
+        Line(label="_print_end_of_list_char"),
         Line(Instruction.LDC, 93, comment="Load ']'"),
         Line(Instruction.TRAP, 1, comment="Print ']'"),
         # Clean-up
         Line(Instruction.UNLINK),
+        # Replace the pointer with a new pointer
+        Line(Instruction.RET),
+    ],
+    "_print_list_bool": [
+        Line(label="_print_list_bool"),
+        Line(Instruction.LINK, 0),
+        # Step 0: Print "["
+        Line(Instruction.LDC, 91, comment="Load '['"),
+        Line(Instruction.TRAP, 1, comment="Print '['"),
+        # Step 1: check if length = 0
+        # Load reference to list
+        Line(Instruction.LDL, -2),
+        # Load length of list
+        Line(Instruction.LDH, -1),
+        # Copy the length, for later use
+        Line(Instruction.LDL, 1),
+        # Check if length == 0
+        Line(Instruction.LDC, 0),
+        Line(Instruction.EQ),
+        # Step 2: Loop over all elements
+        # Jump to end of loop if length == 0
+        Line(Instruction.BRT, "_print_end_of_list_bool"),
+        # Step 2a: prepare loop
+        # Load reference to list
+        Line(Instruction.LDL, -2),
+        # Load next*
+        Line(Instruction.LDH, 0),
+        # Start of loop component
+        Line(label="_print_loop_bool"),
+        # Step 2b: Keep track of current pointer
+        Line(Instruction.LDL, 2),
+        # Step 2c: Print single element
+        # Load next value
+        Line(Instruction.LDH, -1),
+        # Print it
+        Line(Instruction.BSR, "_print_Bool"),
+        # Step 2d: Update length
+        # Load localally stored length
+        Line(Instruction.LDL, 1),
+        # Subtract 1
+        Line(Instruction.LDC, 1),
+        Line(Instruction.SUB, 1),
+        # Write to local copy
+        Line(Instruction.STL, 1),
+        # Step 2d: Print comma if needed
+        # Load locally stored length
+        Line(Instruction.LDL, 1),
+        # Check if remaining elements / local length == 0
+        Line(Instruction.LDC, 0),
+        Line(Instruction.EQ),
+        # Escape loop if true
+        Line(Instruction.BRT, "_print_end_of_list_bool"),
+        # Else print comma
+        Line(Instruction.LDC, 44, comment="Load ','"),
+        Line(Instruction.TRAP, 1, comment="Print ','"),
+        # Print " "
+        Line(Instruction.LDC, 32, comment="Load ' '"),
+        Line(Instruction.TRAP, 1, comment="Print ' '"),
+        # Step 2e: Update pointer and continue loop
+        # Get pointer
+        Line(Instruction.LDL, 2),
+        # Load new pointer
+        Line(Instruction.LDA, 0),
+        # Update locally stored pointer
+        Line(Instruction.STL, 2),
+        # Continue loop
+        Line(Instruction.BRA, "_print_loop_bool"),
+        # Step 3: print "]"
+        Line(label="_print_end_of_list_bool"),
+        Line(Instruction.LDC, 93, comment="Load ']'"),
+        Line(Instruction.TRAP, 1, comment="Print ']'"),
+        # Clean-up
+        Line(Instruction.UNLINK),
+        # Replace the pointer with a new pointer
         Line(Instruction.RET),
     ],
     "_tail": [

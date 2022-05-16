@@ -169,9 +169,7 @@ class GeneratorYielder(YieldVisitor):
             yield Line(Instruction.STH, comment=str(node))
             self.variables["global"][node.id] = exp_type.var
 
-    def print(
-        self, node: FunCallNode, var_type: TypeNode, first=True
-    ) -> Iterator[Line]:
+    def print(self, node: FunCallNode, var_type: TypeNode) -> Iterator[Line]:
 
         match var_type:
             case CharTypeNode():
@@ -193,37 +191,96 @@ class GeneratorYielder(YieldVisitor):
                 # if not first:
                 #     return
                 # Empty List
-                # breakpoint()
                 if var_type.body == None:
                     yield Line(Instruction.LDC, 91, comment="Load '['")
                     yield Line(Instruction.TRAP, 1, comment="Print '['")
                     yield Line(Instruction.LDC, 93, comment="Load ']'")
                     yield Line(Instruction.TRAP, 1, comment="Print ']'")
 
-                elif CharTypeNode in var_type:
-                    yield Line(Instruction.NOP)
-                    return
-                # Print as int
-                else:
+                # Nested List
+                elif isinstance(var_type.body, list) and isinstance(
+                    var_type.body[0], ListNode
+                ):
                     # Nested list
-                    # if isinstance(var_type.body, list):
-                    #     yield Line(Instruction.LINK, 0)
-                    #     # Get pointer
-                    #     yield Line(Instruction.LDL, -2)
-                    #     # Copy pointer
-                    #     yield Line(Instruction.LDL, -2)
-                    #     if first:
-                    #         yield Line(Instruction.LDA, 0)
-                    #         yield Line(Instruction.LDL, 2)
-                    #     # Get length
-                    #     yield Line(Instruction.LDA, -1)
-
-                    #     yield from self.print(
-                    #         var_type.body[0], var_type.body[0], first=False
-                    #     )
-                    #     self.include_function.add("_print_list_int")
-
-                    # else:
+                    yield Line(Instruction.LINK, 0)
+                    # Make length local
+                    yield Line(Instruction.LDL, -1)
+                    yield Line(Instruction.LDA, -1)
+                    # Create stack:
+                    yield Line(Instruction.LDL, -1)
+                    yield Line(Instruction.LDA, 0)
+                    # Stack: length, reference first element
+                    # Print [
+                    yield Line(Instruction.LDC, 91, comment="Load '['")
+                    yield Line(Instruction.TRAP, 1, comment="Print '['")
+                    # Print Empty if length == 0
+                    yield Line(Instruction.LDL, 1)
+                    yield Line(Instruction.LDC, 0)
+                    yield Line(Instruction.EQ)
+                    # Loop over elements when false
+                    label = (
+                        (str(var_type.body))
+                        .replace(" ", "")
+                        .replace(",", "")
+                        .replace("(", "Tuple_")
+                        .replace(")", "")
+                        .replace("[", "List_")
+                        .replace("]", "")
+                        .replace("=", "")
+                    )
+                    yield Line(
+                        Instruction.BRF,
+                        label,
+                        comment=str(node),
+                    )
+                    # Else if empty: print empty list
+                    yield from self.print(ListNode(body=None), ListNode(body=None))
+                    yield Line(label=label)
+                    # Stack: length, reference to head
+                    # yield element:
+                    yield Line(Instruction.LDL, 2)
+                    # Stack: length, reference to head, reference to head
+                    yield Line(Instruction.LDA, -1)
+                    # Print element(s)
+                    yield from self.print(var_type, var_type.body[0])
+                    # Decrement length
+                    yield Line(Instruction.LDL, 1)
+                    yield Line(Instruction.LDC, 1)
+                    yield Line(Instruction.SUB)
+                    yield Line(Instruction.STL, 1)
+                    # Update pointer to point to next element
+                    yield Line(Instruction.LDL, 2)
+                    yield Line(Instruction.LDA, 0)
+                    yield Line(Instruction.STL, 2)
+                    # Do we need to print more?
+                    yield Line(Instruction.LDL, 1)
+                    yield Line(Instruction.LDC, 0)
+                    yield Line(Instruction.EQ)
+                    # If not, exit loop
+                    yield Line(Instruction.BRT, f"_end_{label}")
+                    # Print ,
+                    yield Line(Instruction.LDC, 44, comment="Load ','")
+                    yield Line(Instruction.TRAP, 1, comment="Print ','")
+                    # Print space
+                    yield Line(Instruction.LDC, 32, comment="Load ' '")
+                    yield Line(Instruction.TRAP, 1, comment="Print ' '")
+                    # Continue loop
+                    yield Line(Instruction.BRA, label)
+                    yield Line(label=f"_end_{label}")
+                    # Print ]
+                    yield Line(Instruction.LDC, 93, comment="Load ']'")
+                    yield Line(Instruction.TRAP, 1, comment="Print ']'")
+                    yield Line(Instruction.UNLINK)
+                # Print non-nested char
+                elif CharTypeNode() in var_type or CharTypeNode() in var_type.body:
+                    self.include_function.add("_print_list_char")
+                    yield Line(Instruction.BSR, "_print_list_char")
+                # Print as non-nested bool
+                elif BoolTypeNode() in var_type or BoolTypeNode() in var_type.body:
+                    self.include_function.add("_print_list_bool")
+                    yield Line(Instruction.BSR, "_print_list_bool")
+                # Print as non-nested int
+                else:
                     self.include_function.add("_print_list_int")
                     yield Line(Instruction.BSR, "_print_list_int")
 

@@ -75,6 +75,11 @@ class YieldVisitor(NodeVisitor):
         """Called if no explicit visitor function exists for a node."""
         if isinstance(node, Token):
             return
+
+        # TODO: Broken is list print
+        if isinstance(node, list):
+            node = node[0]
+
         for field, value in node.iter_fields():
             if isinstance(value, list):
                 for item in value:
