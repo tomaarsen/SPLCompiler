@@ -122,6 +122,8 @@ class GeneratorYielder(YieldVisitor):
             if label not in implemented:
                 if name == "print":
                     yield from self.print(types)
+                elif name == "_eq":
+                    yield from self.eq(types[0])
                 else:
                     fun_decl = fun_decls[name]
                     yield from self.visit(fun_decl, *args, types=types, **kwargs)
@@ -133,7 +135,7 @@ class GeneratorYielder(YieldVisitor):
 
     def visit_FunDeclNode(self, node: FunDeclNode, *args, types=None, **kwargs):
         # Mark a label from this point onwards
-        label = node.id.text + (self.type_to_label(types) if types else "")
+        label = node.id.text + (self.types_to_label(types) if types else "")
         # print(f"Defining {label}")
         yield Line(label=label)
         # Link to conveniently move MP and SP
@@ -177,7 +179,9 @@ class GeneratorYielder(YieldVisitor):
     def print(self, var_types: TypeNode) -> Iterator[Line]:
 
         var_type = var_types[0]
-        yield Line(label="print" + self.types_to_label(var_types))
+        print(var_type)
+        label = "print" + self.types_to_label(var_types)
+        yield Line(label=label)
         yield Line(Instruction.LINK, 2 if isinstance(var_type, ListNode) else 0)
         yield Line(Instruction.LDL, -2)  # Load argument
 
@@ -220,7 +224,6 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(label="_print_Bool_End")
 
             case ListNode():
-                label = "print" + self.types_to_label(var_types)
                 # Print "["
                 yield Line(Instruction.LDC, 91, comment="Load '['")
                 yield Line(Instruction.TRAP, 1, comment="Print '['")
@@ -313,12 +316,12 @@ class GeneratorYielder(YieldVisitor):
 
     def visit_FunCallNode(self, node: FunCallNode, *args, exp_type=None, **kwargs):
         # First handle the function call arguments
-        # arg_types = []
+        arg_types = []
         if node.args:
             for arg in node.args.items:
-                #         arg_type = Variable(None)
-                yield from self.visit(arg, *args, exp_type=None, **kwargs)
-        #         arg_types.append(arg_type.var)
+                arg_type = Variable(None)
+                yield from self.visit(arg, *args, exp_type=arg_type, **kwargs)
+                arg_types.append(arg_type.var)
 
         # if node.func.text == "print":
         #     # Store this function to be implemented
@@ -340,15 +343,11 @@ class GeneratorYielder(YieldVisitor):
             set_variable(exp_type, node.type.ret_type)
         else:
             # Store this function to be implemented
-            self.functions.append({"name": node.func.text, "type": node.type.types})
+            self.functions.append({"name": node.func.text, "type": arg_types})
 
             # Branch to the function that is being called
-            label = node.func.text + self.types_to_label(node.type.types)
-            yield Line(
-                Instruction.BSR,
-                label,
-                comment=str(node),
-            )
+            label = node.func.text + self.types_to_label(arg_types)
+            yield Line(Instruction.BSR, label, comment=str(node))
 
             if node.func.text != "print":
                 # Clean up the stack that still has the function call arguments on it
@@ -666,22 +665,89 @@ class GeneratorYielder(YieldVisitor):
             + cleanup
         )
 
-    def eq(self, node: Op2Node, var_type: TypeNode) -> Iterator[Line]:
+    def eq(self, var_type: TypeNode) -> Iterator[Line]:
+        label = "_eq" + self.types_to_label([var_type, var_type])
+        yield Line(label=label)
+        yield Line(Instruction.LINK, 4 if isinstance(var_type, ListNode) else 0)
+        # Load arguments
+        yield Line(Instruction.LDL, -3)
+        yield Line(Instruction.LDL, -2)
 
         match var_type:
             case CharTypeNode() | IntTypeNode() | BoolTypeNode():
                 # Compare as a character, integer or boolean
-                yield Line(Instruction.EQ, comment=str(node))
+                yield Line(Instruction.EQ)
 
             case ListNode():
-                # Pointer to list in on top of stack
-                raise NotImplementedError(
-                    "== between lists hasn't been implemented yet"
+                # We set the partial result to False, just in casae the lengths are not the same
+                yield Line(Instruction.LDC, 0)  # False
+                yield Line(Instruction.STL, 4)  # And store it as the partial result
+                # Stack: List 1 addr, List 2 addr
+                yield Line(Instruction.LDH, -1)
+                yield Line(Instruction.SWP)
+                yield Line(Instruction.LDH, -1)
+                # Stack: List 2 length, List 1 length
+                yield Line(Instruction.EQ)
+                # Skip if lengths are not equal
+                yield Line(Instruction.BRF, label + "_end")
+
+                # Load 4 local variables: length, list 1 (next) pointer, list 2 (next) pointer, True
+                yield Line(Instruction.LDL, -3)
+                yield Line(Instruction.LDH, -1)  # Get length of list 1
+                yield Line(Instruction.STL, 1)  # And store it
+                yield Line(Instruction.LDL, -3)  # Get list 1
+                yield Line(Instruction.LDH, 0)
+                yield Line(Instruction.STL, 2)  # And store it
+                yield Line(Instruction.LDL, -2)  # Get list 2
+                yield Line(Instruction.LDH, 0)
+                yield Line(Instruction.STL, 3)  # And store it
+                yield Line(Instruction.LDC, -1)  # True
+                yield Line(Instruction.STL, 4)  # And store it
+                # True is the partial result so far
+
+                # Start loop body
+                # Load list 1 address again
+                yield Line(Instruction.LDL, 2, label=label + "_loop")
+                # Load next value, pointer
+                yield Line(Instruction.LDMH, 0, 2)
+                # Update list pointer
+                yield Line(Instruction.STL, 2)
+                # Stack: Value from List 1
+                # Load list 2 address again
+                yield Line(Instruction.LDL, 3)
+                # Load next value, pointer
+                yield Line(Instruction.LDMH, 0, 2)
+                # Update list pointer
+                yield Line(Instruction.STL, 3)
+                # Stack: Value from List 1, Value from List 2
+                self.functions.append(
+                    {"name": "_eq", "type": [var_type.body, var_type.body]}
                 )
-                depth = 1
-                yield Line(Instruction.BSR, f"_equals_list_{depth}")
-                yield from GeneratorYielder.generate_eq_list(depth)
+                yield Line(
+                    Instruction.BSR,
+                    "_eq" + self.types_to_label([var_type.body, var_type.body]),
+                )
+                yield Line(Instruction.AJS, -2)
                 yield Line(Instruction.LDR, "RR")
+                # Stack: boolean
+                # Load and update partial result
+                yield Line(Instruction.LDL, 4)
+                yield Line(Instruction.AND)
+                yield Line(Instruction.STL, 4)
+
+                # Decrease length of remaining list
+                yield Line(Instruction.LDL, 1)
+                yield Line(Instruction.LDC, 1)
+                yield Line(Instruction.SUB)
+                yield Line(Instruction.STL, 1)
+
+                # Check if we need to loop more
+                yield Line(Instruction.LDL, 1)
+                yield Line(Instruction.BRT, label + "_loop")
+
+                yield Line(label=label + "_end")
+                # Load now no longer partial result
+                yield Line(Instruction.LDL, 4)
 
             case TupleNode():
                 # On stack: Tuple 1 addr, Tuple 2 addr
@@ -695,7 +761,15 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.LDH, 0, comment="Load right of Tuple 2")
                 # On stack: Tuple 1 addr, Tuple 2 addr, MP, Tuple 1 right, Tuple 2 right
 
-                yield from self.eq(node, var_type.right)
+                self.functions.append(
+                    {"name": "_eq", "type": [var_type.right, var_type.right]}
+                )
+                yield Line(
+                    Instruction.BSR,
+                    "_eq" + self.types_to_label([var_type.right, var_type.right]),
+                )
+                yield Line(Instruction.AJS, -2)
+                yield Line(Instruction.LDR, "RR")
                 # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean
 
                 yield Line(Instruction.LDL, -2)
@@ -705,7 +779,15 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.LDH, -1, comment="Load left of Tuple 2")
                 # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, Tuple 1 left, Tuple 2 left
 
-                yield from self.eq(node, var_type.left)
+                self.functions.append(
+                    {"name": "_eq", "type": [var_type.left, var_type.left]}
+                )
+                yield Line(
+                    Instruction.BSR,
+                    "_eq" + self.types_to_label([var_type.left, var_type.left]),
+                )
+                yield Line(Instruction.AJS, -2)
+                yield Line(Instruction.LDR, "RR")
                 # On stack: Tuple 1 addr, Tuple 2 addr, MP, boolean, boolean
 
                 yield Line(Instruction.AND)
@@ -724,6 +806,10 @@ class GeneratorYielder(YieldVisitor):
                 raise NotImplementedError(
                     f"Printing {var_type} hasn't been implemented yet"
                 )
+
+        yield Line(Instruction.STR, "RR")
+        yield Line(Instruction.UNLINK)
+        yield Line(Instruction.RET)
 
     def visit_Op2Node(self, node: Op2Node, *args, exp_type=None, **kwargs):
         # First recurse into both children
@@ -759,12 +845,22 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.MOD, comment=str(node))
 
             # Equality
-            case Token(type=Type.DEQUALS):
-                # self.functions.append({"name": "_eq", "type": [left_exp_type.var, right_exp_type.var]})
+            case Token(type=Type.DEQUALS) | Token(type=Type.NEQ):
                 set_variable(exp_type, BoolTypeNode())
-            case Token(type=Type.NEQ):
-                set_variable(exp_type, BoolTypeNode())
-                yield Line(Instruction.NE, comment=str(node))
+                types = [left_exp_type.var, right_exp_type.var]
+                self.functions.append({"name": "_eq", "type": types})
+                # Branch to the function that is being called
+                label = "_eq" + self.types_to_label(types)
+                yield Line(Instruction.BSR, label, comment=str(node))
+
+                # Clean up the stack that still has the function call arguments on it
+                yield Line(Instruction.AJS, -2)
+
+                # Place the function return back on the stack
+                yield Line(Instruction.LDR, "RR")
+
+                if node.operator.type == Type.NEQ:
+                    yield Line(Instruction.NOT, comment=str(node))
 
             # Arithmetic Equality
             case Token(type=Type.LT):
