@@ -15,7 +15,7 @@ class Line:
     ) -> None:
         self.label = label
         self.instruction = instruction
-        self.comment = comment
+        self.comment = comment.replace("\n", "")
 
     def __repr__(self) -> str:
         label = f"\n{self.label}:\t" if self.label else "\t"
