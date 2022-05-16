@@ -3,6 +3,7 @@ from typing import List
 
 from compiler.error.communicator import Communicator
 from compiler.token import Token
+from compiler.type import Type
 from compiler.util import Span
 
 from compiler.error.scanner_error import (  # isort:skip
@@ -75,6 +76,7 @@ class Scanner:
                 (?P<VAR>\bvar\b)|
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
+                (?P<STRING>)\"(?:[ -~]*)\"|
                 (?P<CHARACTER_SLASH_ERROR>\'\\\')|
                 (?P<CHARACTER>)\'(?:\\a|\\b|\\n|\\r|\\t|\\\\|[ -~])\'|
                 (?P<QUOTE_EMPTY_ERROR>\'\')|
@@ -122,6 +124,20 @@ class Scanner:
                 case "CHARACTER_SLASH_ERROR":
                     # TODO
                     raise Exception("Cannot use '\\'")
+                case "STRING":
+                    # Strip off " at the start and end
+                    string = match.group()[1:-1]
+                    if string:
+                        # Remove duplicate escaping, i.e. '\\n' -> '\n'
+                        string = string.encode().decode("unicode_escape")
+                        for char in string:
+                            # TODO: Should these have different spans?
+                            tokens.append(Token(f"'{char}'", Type.CHARACTER, span))
+                            tokens.append(Token(":", Type.COLON, span))
+                        tokens.append(Token("[", Type.LSB, span))
+                        tokens.append(Token("]", Type.RSB, span))
+
+                    continue
 
             tokens.append(Token(match[0], match.lastgroup, span))
         return tokens
