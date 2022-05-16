@@ -133,7 +133,7 @@ class GeneratorYielder(YieldVisitor):
 
     def visit_FunDeclNode(self, node: FunDeclNode, *args, types=None, **kwargs):
         # Mark a label from this point onwards
-        label = node.id.text + (self.type_to_label(types) if types else "")
+        label = node.id.text + (self.types_to_label(types) if types else "")
         # print(f"Defining {label}")
         yield Line(label=label)
         # Link to conveniently move MP and SP
@@ -302,6 +302,15 @@ class GeneratorYielder(YieldVisitor):
                 # Print ")"
                 yield Line(Instruction.LDC, 41, comment="Load ')'")
                 yield Line(Instruction.TRAP, 1, comment="Print ')'")
+
+            case PolymorphicTypeNode():
+                # Polymorphic type node must be the empty list
+                # Print "["
+                yield Line(Instruction.LDC, 91, comment="Load '['")
+                yield Line(Instruction.TRAP, 1, comment="Print '['")
+                # Print "]"
+                yield Line(Instruction.LDC, 93, comment="Load ']'")
+                yield Line(Instruction.TRAP, 1, comment="Print ']'")
 
             case _:
                 raise NotImplementedError(
@@ -535,45 +544,14 @@ class GeneratorYielder(YieldVisitor):
                         )
                 case Token(type=Type.HD):
                     # SP points to the variable on which we are applying the .hd/.tl
-
-                    # Are we dealing with the empty list?
-                    if exp_type.var.body == None:
-                        # Yield empty list
-                        Line(Instruction.LDC, 0),  # Length
-                        Line(Instruction.LDC, 47806),  # Pointer
-                        Line(Instruction.STMH, 2),  # Put on stack
-                        set_variable(exp_type, ListNode(body=None))
-                    else:
-                        # Create space to perform computations
-                        yield Line(Instruction.LINK, 0)
-                        # Yield first element
-                        yield Line(Instruction.LDL, -1)
-                        # Pointer to head
-                        yield Line(Instruction.LDA, 0)
-                        # Yield value
-                        yield Line(Instruction.LDA, -1)
-                        # Store in RR
-                        yield Line(Instruction.STR, "RR")
-                        # Clean-up
-                        yield Line(Instruction.UNLINK)
-                        # Load register
-                        yield Line(Instruction.LDR, "RR")
-                        if not get_addr:
-                            set_variable(exp_type, exp_type.var.body[0])
+                    yield Line(Instruction.BSR, "_head")
+                    self.include_function.add("_head")
+                    yield Line(Instruction.LDR, "RR")
 
                 case Token(type=Type.TL):
-                    # Are we dealing with the empty list?
-                    if exp_type.var.body == None:
-                        # Yield empty list
-                        yield Line(Instruction.LDC, 0),  # Length
-                        yield Line(Instruction.LDC, 47806),  # Pointer
-                        yield Line(Instruction.STMH, 2),  # Put on stack
-                        if not get_addr:
-                            set_variable(exp_type, ListNode(body=None))
-                    else:
-                        yield Line(Instruction.BSR, "_tail")
-                        self.include_function.add("_tail")
-                        yield Line(Instruction.LDR, "RR")
+                    yield Line(Instruction.BSR, "_tail")
+                    self.include_function.add("_tail")
+                    yield Line(Instruction.LDR, "RR")
 
                 case _:
                     raise NotImplementedError(
