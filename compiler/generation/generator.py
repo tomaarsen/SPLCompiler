@@ -713,6 +713,10 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.STL, 4)  # And store it
                 # True is the partial result so far
 
+                # Check if length is (both) 0, if so, end with True
+                yield Line(Instruction.LDL, 1)
+                yield Line(Instruction.BRF, label + "_end")
+
                 # Start loop body
                 # Load list 1 address again
                 yield Line(Instruction.LDL, 2, label=label + "_loop")
@@ -856,6 +860,21 @@ class GeneratorYielder(YieldVisitor):
             case Token(type=Type.DEQUALS) | Token(type=Type.NEQ):
                 set_variable(exp_type, BoolTypeNode())
                 types = [left_exp_type.var, right_exp_type.var]
+                if isinstance(types[0], ListNode) and isinstance(types[1], ListNode):
+                    # If both lists are without a known type, then its simply True
+                    if not types[0].body and not types[1].body:
+                        # Clean up the stack that still has the function call arguments on it
+                        yield Line(Instruction.AJS, -2)
+                        yield Line(Instruction.LDC, -1)
+                        return
+
+                    # If one of the types is without a known type, then use the other type in the
+                    # function call
+                    if not types[0].body:
+                        types[0] = types[1]
+                    if not types[1].body:
+                        types[1] = types[0]
+
                 self.functions.append({"name": "_eq", "type": types})
                 # Branch to the function that is being called
                 label = "_eq" + self.types_to_label(types)
