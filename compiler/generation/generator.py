@@ -187,9 +187,6 @@ class GeneratorYielder(YieldVisitor):
 
             case ListNode():
                 # Pointer to list in on top of stack
-                # Print as String
-                # if not first:
-                #     return
                 # Empty List
                 if var_type.body == None:
                     yield Line(Instruction.LDC, 91, comment="Load '['")
@@ -233,8 +230,10 @@ class GeneratorYielder(YieldVisitor):
                         label,
                         comment=str(node),
                     )
-                    # Else if empty: print empty list
+                    # Else if empty: print empty list, and quit
                     yield from self.print(ListNode(body=None), ListNode(body=None))
+                    yield Line(Instruction.BRA, f"_end_{label}")
+
                     yield Line(label=label)
                     # Stack: length, reference to head
                     # yield element:

@@ -455,7 +455,7 @@ STD_LIB_LIST = {
         Line(Instruction.LDL, -2),
         # Yield length
         Line(Instruction.LDA, -1),
-        # Check if length == 1
+        # Check if length <= 1
         Line(Instruction.LDC, 1),
         Line(Instruction.LE),
         Line(Instruction.BRF, "_tail_rest_of_list"),
@@ -463,6 +463,11 @@ STD_LIB_LIST = {
         Line(Instruction.LDC, 0),  # Length
         Line(Instruction.LDC, 47806),  # Pointer
         Line(Instruction.STMH, 2),  # Put on stack
+        # Store value in RR
+        Line(Instruction.STR, "RR"),
+        # Clean-up
+        Line(Instruction.UNLINK),
+        Line(Instruction.RET),
         # Else yield pointer to remaining list
         Line(label="_tail_rest_of_list"),
         # Yield length
