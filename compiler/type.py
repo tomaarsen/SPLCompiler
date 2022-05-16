@@ -14,6 +14,7 @@ class Type(Enum):
     DOUBLE_COLON = "::"
     ARROW = "->"
     COMMA = ","
+    DDOT = ".."
     PLUS = "+"
     MINUS = "-"
     STAR = "*"

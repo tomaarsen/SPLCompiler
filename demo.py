@@ -11,32 +11,12 @@ from tests.test_util import open_file
 program = open_file("data/global_vars.spl")
 
 program = r"""
-eq(a, b){
-    print(a);
-    print('\n');
-    print(b);
-    print('\n');
-    print(a == b);
-    print('\n');
-}
-
 main(){
-    var a = ((1 : 2 : 3 : []) : (4 : 5 : 6 : []) : []) : [];
-    var b = ((1 : 2 : 3 : []) : (4 : 5 : 6 : []) : []) : [];
-    var c = (((1, 2) : (3, 4) : []) : ((4, 5) : []) : []) : [];
-    var d = (((1, 2) : (3, 4) : []) : ((4, 5) : []) : []) : [];
-
-    eq(a, b);
-    eq(c, d);
-
-    a = ((1 : 2 : 3 : []) : (4 : 6 : 6 : []) : []) : [];
-    eq(a, b);
-
-    a = ((1 : 2 : 3 : []) : (4 : 6 : []) : []) : [];
-    eq(a, b);
-
-    d = (((1, 2) : (4, 4) : []) : ((4, 5) : []) : []) : [];
-    eq(c, d);
+    var a = 1;
+    var b = [a..5];
+    var c = [a..(a + 3) / 2];
+    var d = ['a'..12];
+    return;
 }
 """
 

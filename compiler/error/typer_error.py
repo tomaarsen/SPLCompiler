@@ -10,6 +10,7 @@ from compiler.tree.tree import (  # isort:skip
     FunCallNode,
     FunDeclNode,
     IfElseNode,
+    ListAbbrNode,
     Node,
     Op1Node,
     Op2Node,
@@ -196,6 +197,16 @@ class FunctionSignatureTypeError(UnificationError):
         before = f"The given function type of the function {str(self.function.id)!r} does not match the inferred type {str(self.inferred_type)!r} on {self.function.type.span.lines_str}."
         after = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r}."
         return self.create_error(before, self.function.type.span, after)
+
+
+@dataclass
+class ListAbbrError(UnificationError):
+    bound: Node
+    is_lower: bool
+
+    def __str__(self) -> str:
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for {'lower' if self.is_lower else 'upper'} bound of list abbreviation on {self.bound.span.lines_str}."
+        return self.create_error(before, self.bound.span)
 
 
 # Errors that occur within the type_node function of the Typer

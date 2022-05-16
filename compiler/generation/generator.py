@@ -20,6 +20,7 @@ from compiler.tree.tree import (  # isort:skip
     FunTypeNode,
     IfElseNode,
     IntTypeNode,
+    ListAbbrNode,
     ListNode,
     Node,
     Op1Node,
@@ -1003,6 +1004,9 @@ class GeneratorYielder(YieldVisitor):
 
             case _:
                 raise NotImplementedError(repr(node.operator))
+
+    def visit_ListAbbrNode(self, node: ListAbbrNode, *args, exp_type=None, **kwargs):
+        raise Exception("ListAbbrNode Code Generation hasn't been implemented yet")
 
     def visit_Token(self, node: Token, *args, exp_type=None, **kwargs):
         match node:

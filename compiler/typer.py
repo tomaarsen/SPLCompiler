@@ -17,6 +17,7 @@ from compiler.error.typer_error import (  # isort:skip
     FunctionRedefinitionError,
     FunctionSignatureTypeError,
     IfConditionUnifyErrorFactory,
+    ListAbbrError,
     PolymorphicTypeCheckError,
     RedefinitionOfVariableError,
     TyperException,
@@ -47,6 +48,7 @@ from compiler.tree.tree import (  # isort:skip
     FunTypeNode,
     IfElseNode,
     IntTypeNode,
+    ListAbbrNode,
     ListNode,
     Node,
     Op1Node,
@@ -743,6 +745,30 @@ class Typer:
                 trans += self.unify(exp_type, variable_type)
                 # context = self.apply_trans_context(trans, context)
                 # breakpoint()
+                return trans
+
+            case ListAbbrNode():
+                lower_exp_type = IntTypeNode()
+                trans = self.type_node(
+                    tree.lower,
+                    var_context,
+                    fun_context,
+                    lower_exp_type,
+                    ListAbbrError(tree.lower, is_lower=True),
+                )
+                var_context = self.apply_trans_context(trans, var_context)
+
+                upper_exp_type = IntTypeNode()
+                trans += self.type_node(
+                    tree.upper,
+                    var_context,
+                    fun_context,
+                    upper_exp_type,
+                    ListAbbrError(tree.upper, is_lower=False),
+                )
+
+                trans += self.unify(exp_type, ListNode(IntTypeNode()), error_factory)
+
                 return trans
 
         UnrecoverableError(f"Node had no handler\n\n{tree}", TyperException)
