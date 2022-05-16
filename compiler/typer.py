@@ -667,7 +667,6 @@ class Typer:
                     tree.type = self.apply_trans(
                         copy.deepcopy(fun_type), return_trans + local_trans
                     )
-                    print(tree.func.text, "\t", tree.type)
                     return_trans += self.unify(exp_type, ret_type, error_factory)
 
                     # if tree.args.items[0].text == "l":
