@@ -415,7 +415,7 @@ class GeneratorYielder(YieldVisitor):
         yield Line(Instruction.BRA, condition_label)
         yield Line(label=end_label)
 
-    def visit_StmtAssNode(self, node: StmtAssNode, *args, **kwargs):
+    def visit_StmtAssNode(self, node: StmtAssNode, *args, exp_type=None, **kwargs):
         new_exp_type = Variable(None)
         yield from self.visit(node.exp, *args, exp_type=new_exp_type, **kwargs)
 
@@ -432,6 +432,7 @@ class GeneratorYielder(YieldVisitor):
                 exp_type=exp_type,
                 **kwargs,
             )
+            """
             if node.id.id in self.variables["local"]:
                 self.variables["local"][node.id.id] = exp_type.var
             elif node.id.id in self.variables["arguments"]:
@@ -468,6 +469,8 @@ class GeneratorYielder(YieldVisitor):
             # Clean-up
             yield Line(Instruction.UNLINK)
             set_variable(exp_type, node.id.field.fields[1:])
+            """
+            yield Line(Instruction.STA, 0, comment=str(node))
 
         elif node.id.id in self.variables["local"]:
             # Local variables are positive relative to MP, starting from 1
@@ -531,12 +534,12 @@ class GeneratorYielder(YieldVisitor):
                             yield Line(Instruction.LDC, -1)
                             yield Line(Instruction.ADD)
                     else:
-                        if exp_type:
-                            exp_type.set(
-                                exp_type.var.left
-                                if field.type == Type.FST
-                                else exp_type.var.right,
-                            )
+                        set_variable(
+                            exp_type,
+                            exp_type.var.left
+                            if field.type == Type.FST
+                            else exp_type.var.right,
+                        )
                         yield Line(
                             Instruction.LDH,
                             -1 if field.type == Type.FST else 0,
