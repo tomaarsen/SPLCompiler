@@ -179,7 +179,6 @@ class GeneratorYielder(YieldVisitor):
     def print(self, var_types: TypeNode) -> Iterator[Line]:
 
         var_type = var_types[0]
-        print(var_type)
         label = "print" + self.types_to_label(var_types)
         yield Line(label=label)
         yield Line(Instruction.LINK, 2 if isinstance(var_type, ListNode) else 0)
@@ -222,6 +221,39 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.TRAP, 1)
 
                 yield Line(label="_print_Bool_End")
+
+            # Special print for strings
+            case ListNode(CharTypeNode()):
+                # Load the length and list pointer
+                yield Line(Instruction.LDMH, 0, 2)
+                # Store them
+                yield Line(Instruction.STL, 2)  # (Next) List pointer
+                yield Line(Instruction.STL, 1)  # Length
+
+                # Start loop body, starting with check for length
+                yield Line(Instruction.LDL, 1, label=label + "_loop")
+                yield Line(Instruction.BRF, label + "_end")
+                # Load list address again
+                yield Line(Instruction.LDL, 2)
+                # Load next value, pointer
+                yield Line(Instruction.LDMH, 0, 2)
+                # Update list pointer
+                yield Line(Instruction.STL, 2)
+                # Recursively print the value
+                self.functions.append({"name": "print", "type": [var_type.body]})
+                yield Line(
+                    Instruction.BSR, "print" + self.types_to_label([var_type.body])
+                )
+                yield Line(Instruction.AJS, -1)
+                # Decrease length of remaining list
+                yield Line(Instruction.LDL, 1)
+                yield Line(Instruction.LDC, 1)
+                yield Line(Instruction.SUB)
+                yield Line(Instruction.STL, 1)
+                # Loop
+                yield Line(Instruction.BRA, label + "_loop")
+
+                yield Line(label=label + "_end")
 
             case ListNode():
                 # Print "["
