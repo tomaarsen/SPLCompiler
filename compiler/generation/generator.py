@@ -416,7 +416,7 @@ class GeneratorYielder(YieldVisitor):
         yield from self.visit(node.exp, *args, exp_type=new_exp_type, **kwargs)
 
         # If there are fields, then we want to get the address of the location to update on the stack
-        # And then we can STA
+        # And then we can STMA
         if node.id.field and node.id.field.fields:
 
             exp_type = Variable(None)
@@ -436,7 +436,34 @@ class GeneratorYielder(YieldVisitor):
                 self.variables["global"][node.id.id] = exp_type.var
             else:
                 raise Exception(f"Variable {node.id.id.text!r} does not exist")
-            yield Line(Instruction.STA, 0, comment=str(node))
+
+            # Stack:
+            # Reference to right (can be value)
+            # Reference to original
+            # Reference to left
+            # Update reference of left to reference of right
+            num_of_fields = len(node.id.field.fields) - 1
+            yield Line(Instruction.LINK, 0)
+            if (new_exp_type.var, ListNode):
+                # Load reference to right
+                yield Line(Instruction.LDL, -3 - num_of_fields)
+                yield Line(Instruction.LDA, 0)
+                yield Line(Instruction.LDA, -1)
+            else:
+                yield Line(Instruction.LDL, -1)
+            # Load next* of right
+            yield Line(Instruction.LDL, -3 - num_of_fields)
+            yield Line(Instruction.LDA, 0)
+            yield Line(Instruction.LDA, 0)
+            # Load reference to value, next* of left
+            yield Line(Instruction.LDL, -1 - num_of_fields)
+            if isinstance(new_exp_type.var, ListNode):
+                yield Line(Instruction.LDA, 0)
+            # Update value
+            yield Line(Instruction.STMA, -1, 2, comment=str(node))
+            # Clean-up
+            yield Line(Instruction.UNLINK)
+            set_variable(exp_type, node.id.field.fields[1:])
 
         elif node.id.id in self.variables["local"]:
             # Local variables are positive relative to MP, starting from 1
@@ -536,7 +563,8 @@ class GeneratorYielder(YieldVisitor):
                         yield Line(Instruction.UNLINK)
                         # Load register
                         yield Line(Instruction.LDR, "RR")
-                        set_variable(exp_type, exp_type.var.body[0])
+                        if not get_addr:
+                            set_variable(exp_type, exp_type.var.body[0])
 
                 case Token(type=Type.TL):
                     # Are we dealing with the empty list?
@@ -545,7 +573,8 @@ class GeneratorYielder(YieldVisitor):
                         yield Line(Instruction.LDC, 0),  # Length
                         yield Line(Instruction.LDC, 47806),  # Pointer
                         yield Line(Instruction.STMH, 2),  # Put on stack
-                        set_variable(exp_type, ListNode(body=None))
+                        if not get_addr:
+                            set_variable(exp_type, ListNode(body=None))
                     else:
                         yield Line(Instruction.BSR, "_tail")
                         self.include_function.add("_tail")
