@@ -15,7 +15,10 @@ main(){
     var a = 1;
     var b = [a..5];
     var c = [a..(a + 3) / 2];
-    var d = ['a'..12];
+    //var d = ['a'..12];
+    print(b);
+    print("\n");
+    print(c);
     return;
 }
 """
