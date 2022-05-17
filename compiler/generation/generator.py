@@ -448,23 +448,19 @@ class GeneratorYielder(YieldVisitor):
         yield Line(label=end_label)
 
     def visit_StmtAssNode(self, node: StmtAssNode, *args, exp_type=None, **kwargs):
-        new_exp_type = Variable(None)
-        yield from self.visit(node.exp, *args, exp_type=new_exp_type, **kwargs)
+        exp_type = Variable(None)
+        yield from self.visit(node.exp, *args, exp_type=exp_type, **kwargs)
 
         # If there are fields, then we want to get the address of the location to update on the stack
         # And then we can STMA
         if node.id.field and node.id.field.fields:
 
-            exp_type = Variable(None)
             yield from self.visit(
                 node.id,
                 *args,
                 get_addr=True,
-                new_exp_type=new_exp_type,
-                exp_type=exp_type,
                 **kwargs,
             )
-            """
             if node.id.id in self.variables["local"]:
                 self.variables["local"][node.id.id] = exp_type.var
             elif node.id.id in self.variables["arguments"]:
@@ -473,35 +469,6 @@ class GeneratorYielder(YieldVisitor):
                 self.variables["global"][node.id.id] = exp_type.var
             else:
                 raise Exception(f"Variable {node.id.id.text!r} does not exist")
-
-            # Stack:
-            # Reference to right (can be value)
-            # Reference to original
-            # Reference to left
-            # Update reference of left to reference of right
-            num_of_fields = len(node.id.field.fields) - 1
-            yield Line(Instruction.LINK, 0)
-            if (new_exp_type.var, ListNode):
-                # Load reference to right
-                yield Line(Instruction.LDL, -3 - num_of_fields)
-                yield Line(Instruction.LDA, 0)
-                yield Line(Instruction.LDA, -1)
-            else:
-                yield Line(Instruction.LDL, -1)
-            # Load next* of right
-            yield Line(Instruction.LDL, -3 - num_of_fields)
-            yield Line(Instruction.LDA, 0)
-            yield Line(Instruction.LDA, 0)
-            # Load reference to value, next* of left
-            yield Line(Instruction.LDL, -1 - num_of_fields)
-            if isinstance(new_exp_type.var, ListNode):
-                yield Line(Instruction.LDA, 0)
-            # Update value
-            yield Line(Instruction.STMA, -1, 2, comment=str(node))
-            # Clean-up
-            yield Line(Instruction.UNLINK)
-            set_variable(exp_type, node.id.field.fields[1:])
-            """
             yield Line(Instruction.STA, 0, comment=str(node))
 
         elif node.id.id in self.variables["local"]:
@@ -509,6 +476,7 @@ class GeneratorYielder(YieldVisitor):
             index = list(self.variables["local"]).index(node.id.id)
             offset = index + 1
             yield Line(Instruction.STL, offset, comment=str(node))
+            self.variables["local"][node.id.id] = exp_type.var
 
         elif node.id.id in self.variables["arguments"]:
             # Index 0 means we need to get the first argument, so the furthest away one
@@ -517,6 +485,7 @@ class GeneratorYielder(YieldVisitor):
             offset = index - 1 - len(self.variables["arguments"])
             # Load the function argument using the offset from MP
             yield Line(Instruction.STL, offset, comment=str(node))
+            self.variables["arguments"][node.id.id] = exp_type.var
 
         elif node.id.id in self.variables["global"]:
             # Global variables are positive relative to Global Pointer (GP), starting from 1
@@ -527,6 +496,7 @@ class GeneratorYielder(YieldVisitor):
             yield Line(Instruction.LDR, "R5", comment="Load Global Pointer (GP)")
             yield Line(Instruction.LDA, offset, comment="Load Heap address")
             yield Line(Instruction.STA, 0, comment=str(node))
+            self.variables["global"][node.id.id] = exp_type.var
 
         else:
             # TODO: Implement a backup error saying that there is no such variable,
@@ -545,7 +515,6 @@ class GeneratorYielder(YieldVisitor):
         *args,
         get_addr=False,
         exp_type=None,
-        new_exp_type=None,
         **kwargs,
     ):
         # If get_addr is True, then for the *last* field we want to put the address instead of the
@@ -851,7 +820,7 @@ class GeneratorYielder(YieldVisitor):
 
             case _:
                 raise NotImplementedError(
-                    f"Printing {var_type} hasn't been implemented yet"
+                    f"Equality between {var_type} types hasn't been implemented yet"
                 )
 
         yield Line(Instruction.STR, "RR")
