@@ -225,8 +225,8 @@ class Op1Node(Node):
 
 @dataclass
 class ListAbbrNode(Node):
-    lower: Node
-    upper: Node
+    left: Node
+    right: Node
 
 
 TypeNode = (

@@ -985,7 +985,7 @@ class GeneratorYielder(YieldVisitor):
                 raise NotImplementedError(repr(node.operator))
 
     def ListAbbr_func(self):
-        base_label = "_ListAbbr_Int_Int"
+        base_label = "_ListAbbr"
         end_init_label = f"{base_label}_end_init"
         loop_label = f"{base_label}_loop"
         end_label = f"{base_label}_end"
@@ -1055,17 +1055,18 @@ class GeneratorYielder(YieldVisitor):
 
     def visit_ListAbbrNode(self, node: ListAbbrNode, *args, exp_type=None, **kwargs):
         # Place lower and upper bounds on the stack
-        yield from self.visit(node.lower, *args, **kwargs)
-        yield from self.visit(node.upper, *args, **kwargs)
+        left_exp_type = Variable(None)
+        yield from self.visit(node.left, *args, exp_type=left_exp_type, **kwargs)
+        yield from self.visit(node.right, *args, **kwargs)
 
-        yield Line(Instruction.BSR, "_ListAbbr_Int_Int")
+        yield Line(Instruction.BSR, "_ListAbbr")
         self.functions.append(
-            {"name": "_ListAbbr", "type": [IntTypeNode(), IntTypeNode()]}
+            {"name": "_ListAbbr", "type": []}  # Type is irrelevant here
         )
         yield Line(Instruction.AJS, -2)
         yield Line(Instruction.LDR, "RR")
 
-        set_variable(exp_type, ListNode(IntTypeNode()))
+        set_variable(exp_type, ListNode(left_exp_type.var))
 
     def visit_Token(self, node: Token, *args, exp_type=None, **kwargs):
         match node:

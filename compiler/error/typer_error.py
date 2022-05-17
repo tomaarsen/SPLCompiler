@@ -213,10 +213,14 @@ class FunctionSignatureTypeError(UnificationError):
 @dataclass
 class ListAbbrError(UnificationError):
     bound: Node
-    is_lower: bool
+    is_left: bool
 
     def __str__(self) -> str:
-        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for {'lower' if self.is_lower else 'upper'} bound of list abbreviation on {self.bound.span.lines_str}."
+        if isinstance(self.type_one, tuple):
+            expected = f"{str(self.type_one[0])!r} or {str(self.type_one[1])!r}"
+        else:
+            expected = repr(str(self.type_one))
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {expected} for {'left' if self.is_left else 'right'} side of list abbreviation on {self.bound.span.lines_str}."
         return self.create_error(before, self.bound.span)
 
 

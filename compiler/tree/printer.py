@@ -268,9 +268,9 @@ class Printer(YieldVisitor):
 
     def visit_ListAbbrNode(self, node: ListAbbrNode, **kwargs) -> Iterator[Token]:
         yield Token("[", Type.LSB)
-        yield from self.visit(node.lower)
+        yield from self.visit(node.left)
         yield Token("..", Type.DDOT)
-        yield from self.visit(node.upper)
+        yield from self.visit(node.right)
         yield Token("]", Type.RSB)
 
     def visit_Token(self, node: Token, **kwargs) -> Iterator[Token]:
