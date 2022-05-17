@@ -81,6 +81,11 @@ class FieldNode(Node):
 
 
 @dataclass
+class IndexNode(Node):
+    exp: Node
+
+
+@dataclass
 class FunTypeNode(Node):
     types: List[Node]
     ret_type: Node

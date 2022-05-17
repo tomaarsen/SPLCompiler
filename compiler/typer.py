@@ -18,6 +18,7 @@ from compiler.error.typer_error import (  # isort:skip
     FunctionRedefinitionError,
     FunctionSignatureTypeError,
     IfConditionUnifyErrorFactory,
+    IndexTypeError,
     ListAbbrError,
     PolymorphicTypeCheckError,
     RedefinitionOfLoopVariableError,
@@ -50,6 +51,7 @@ from compiler.tree.tree import (  # isort:skip
     FunDeclNode,
     FunTypeNode,
     IfElseNode,
+    IndexNode,
     IntTypeNode,
     ListAbbrNode,
     ListNode,
@@ -785,8 +787,8 @@ class Typer:
                 variable_type = var_context[tree.id.text]
                 trans = []
                 for field in tree.field.fields:
-                    match field.type:
-                        case Type.FST | Type.SND:
+                    match field:
+                        case Token(type=Type.FST) | Token(type=Type.SND):
                             left = PolymorphicTypeNode.fresh()
                             right = PolymorphicTypeNode.fresh()
                             var_exp_type = TupleNode(
@@ -806,7 +808,7 @@ class Typer:
                             picked = left if field.type == Type.FST else right
                             variable_type = self.apply_trans(picked, sub)
 
-                        case Type.HD | Type.TL:
+                        case Token(type=Type.HD) | Token(type=Type.TL) | IndexNode():
                             element = PolymorphicTypeNode.fresh()
                             var_exp_type = ListNode(element)
                             sub = self.unify(
@@ -819,7 +821,19 @@ class Typer:
                             trans += sub
 
                             # For next iteration
-                            picked = var_exp_type if field.type == Type.TL else element
+                            if isinstance(field, IndexNode):
+                                picked = element
+                                trans += self.type_node(
+                                    field.exp,
+                                    var_context,
+                                    fun_context,
+                                    IntTypeNode(),
+                                    IndexTypeError(field),
+                                )
+                            else:
+                                picked = (
+                                    element if field.type == Type.HD else var_exp_type
+                                )
                             variable_type = self.apply_trans(picked, sub)
 
                         case _:

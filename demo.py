@@ -11,23 +11,12 @@ from tests.test_util import open_file
 program = open_file("data/global_vars.spl")
 
 program = r"""
-fun(a, b){
-    var c = 12;
-    var d = 24;
-    for i in [0..5]{
-        println(i);
-        for j in [1..6]{
-            print('\t');
-            println(j);
-        }
-    }
-    for i in [0..5]{
-        print(i);
-    }
-    return;
-}
 main(){
-    fun(4, 8);
+    var b = [1..5] : [6..10] : [11..15] : [];
+    println(b);
+    println(b[1]);
+    println(b.tl[1].hd);
+    println(b.tl[0][3]);
 }
 """
 

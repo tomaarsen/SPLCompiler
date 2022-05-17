@@ -12,6 +12,7 @@ from compiler.tree.tree import (  # isort:skip
     FunCallNode,
     FunDeclNode,
     IfElseNode,
+    IndexNode,
     ListAbbrNode,
     Node,
     Op1Node,
@@ -223,6 +224,15 @@ class ListAbbrError(UnificationError):
             expected = repr(str(self.type_one))
         before = f"Cannot match type {str(self.type_two)!r} with expected type {expected} for {'left' if self.is_left else 'right'} side of list abbreviation on {self.bound.span.lines_str}."
         return self.create_error(before, self.bound.span)
+
+
+@dataclass
+class IndexTypeError(UnificationError):
+    index: IndexNode
+
+    def __str__(self) -> str:
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for list indexing on {self.index.span.lines_str}."
+        return self.create_error(before, self.index.exp.span)
 
 
 # Errors that occur within the type_node function of the Typer

@@ -15,6 +15,7 @@ from compiler.tree.tree import (  # isort:skip
     FunDeclNode,
     FunTypeNode,
     IfElseNode,
+    IndexNode,
     IntTypeNode,
     ListAbbrNode,
     ListNode,
@@ -98,6 +99,18 @@ class FunDeclFactory(NodeFactory):
 class FieldFactory(NodeFactory):
     def build(self):
         return FieldNode(self.c, span=self.span)
+
+
+class IndexFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            case [
+                Token(type=Type.LSB),
+                _ as exp,
+                Token(type=Type.RSB),
+            ]:
+                return IndexNode(exp, span=self.span)
+        raise Exception()
 
 
 class CommaFactory(NodeFactory):

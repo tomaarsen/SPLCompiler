@@ -21,6 +21,7 @@ from compiler.tree.tree import (  # isort:skip
     FunDeclNode,
     FunTypeNode,
     IfElseNode,
+    IndexNode,
     IntTypeNode,
     ListAbbrNode,
     ListNode,
@@ -679,6 +680,25 @@ class GeneratorYielder(YieldVisitor):
                         Instruction.AJS, -1
                     )  # Clear up address of which tail was gotten
                     yield Line(Instruction.LDR, "RR")
+
+                case IndexNode():
+                    # Discard length and take only list pointer
+                    yield Line(Instruction.LDH, 0)
+                    # Then load index
+                    yield from self.visit(field.exp, *args, **kwargs)
+                    # Stack: List pointer, index
+                    yield Line(Instruction.BSR, "_index")
+                    self.include_function.add("_index")
+                    yield Line(
+                        Instruction.AJS, -2
+                    )  # Clear up address of which tail was gotten
+                    yield Line(Instruction.LDR, "RR")
+                    # We now have the address, but we usually want the value instead:
+                    if not get_addr or i != len(node.fields):
+                        yield Line(Instruction.LDH, -1)
+                    # Update the expected type so higher layers in the AST know which type this is
+                    if exp_type:
+                        exp_type.set(exp_type.var.body)
 
                 case _:
                     raise NotImplementedError(
