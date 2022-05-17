@@ -6,6 +6,7 @@ from compiler.token import Token
 from compiler.util import Span
 
 from compiler.tree.tree import (  # isort:skip
+    BoolTypeNode,
     CommaListNode,
     FunCallNode,
     FunDeclNode,
@@ -13,6 +14,7 @@ from compiler.tree.tree import (  # isort:skip
     Node,
     Op1Node,
     Op2Node,
+    PolymorphicTypeNode,
     ReturnNode,
     StmtAssNode,
     TupleNode,
@@ -125,6 +127,15 @@ class FunCallUnifyErrorFactory(UnificationError):
 
     def __str__(self) -> str:
         before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} in the function call to {str(self.fun_call.func)!r} on {self.fun_call.args.span.lines_str}."
+        return self.create_error(before, self.fun_call.args.span)
+
+
+@dataclass
+class CharacterToBoolErrorFactory(UnificationError):
+    fun_call: FunCallNode
+
+    def __str__(self) -> str:
+        before = f"Unable to convert type {str(self.type_two)!r} to type {str(BoolTypeNode())!r} in the function call to {str(self.fun_call.func)!r} on {self.fun_call.args.span.lines_str}."
         return self.create_error(before, self.fun_call.args.span)
 
 

@@ -20,6 +20,20 @@ STD_LIB_LIST = {
         Line(Instruction.RET),
     ],
     # # # # # # # # # # # # # #
+    # Get length of list
+    "_length": [
+        Line(label="_length"),
+        Line(Instruction.LINK, 0),
+        # Get reference
+        Line(Instruction.LDL, -2),
+        # Get length
+        Line(Instruction.LDA, -1),
+        # Clean-up
+        Line(Instruction.STR, "RR"),
+        Line(Instruction.UNLINK),
+        Line(Instruction.RET),
+    ],
+    # # # # # # # # # # # # # #
     # Creates a reference to an empty list of length 0.
     "_get_empty_list": [
         Line(Instruction.LDC, 0),  # Length

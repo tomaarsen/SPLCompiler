@@ -124,6 +124,8 @@ class GeneratorYielder(YieldVisitor):
                     yield from self.print(types)
                 elif name == "_eq":
                     yield from self.eq(types[0])
+                elif name == "bool":
+                    yield from self.bool(types)
                 else:
                     fun_decl = fun_decls[name]
                     yield from self.visit(fun_decl, *args, types=types, **kwargs)
@@ -175,6 +177,41 @@ class GeneratorYielder(YieldVisitor):
             # Global variable definition
             yield Line(Instruction.STH, comment=str(node))
             self.variables["global"][node.id] = exp_type.var
+
+    def bool(self, var_types: TypeNode) -> Iterator[Line]:
+        var_type = var_types[0]
+        label = "bool" + self.types_to_label(var_types)
+        yield Line(label=label)
+        yield Line(Instruction.LINK, 0)
+        yield Line(Instruction.LDL, -2)  # Load argument
+        match var_type:
+            case IntTypeNode() | CharTypeNode():
+                # No changes needed
+                yield from []
+
+            case PolymorphicTypeNode() | ListNode(body=None):
+                # Polymorphic type node must be the empty list
+                yield Line(Instruction.LDC, 0)
+
+            case ListNode():
+                # Yield not of isEmpty
+                self.include_function.add("_is_empty")
+                yield Line(Instruction.BSR, "_is_empty")
+                yield Line(Instruction.LDR, "RR")
+                yield Line(Instruction.NOT)
+
+            case TupleNode():
+                # Always true, since a tuple cannot be empty in SPL
+                yield Line(Instruction.LDC, -1)
+
+            case _:
+                raise NotImplementedError(
+                    f"bool of {var_type} hasn't been implemented yet"
+                )
+
+        yield Line(Instruction.STR, "RR")
+        yield Line(Instruction.UNLINK)
+        yield Line(Instruction.RET)
 
     def print(self, var_types: TypeNode) -> Iterator[Line]:
 
@@ -378,10 +415,24 @@ class GeneratorYielder(YieldVisitor):
         #     )
         if node.func.text == "isEmpty":
             self.include_function.add("_is_empty")
-
             yield Line(Instruction.BSR, "_is_empty")
             yield Line(Instruction.LDR, "RR")
-
+            set_variable(exp_type, node.type.ret_type)
+        elif node.func.text == "length":
+            self.include_function.add("_length")
+            yield Line(Instruction.BSR, "_length")
+            yield Line(Instruction.LDR, "RR")
+            set_variable(exp_type, node.type.ret_type)
+        elif node.func.text == "println":
+            self.functions.append({"name": "print", "type": arg_types})
+            label = "print" + self.types_to_label(arg_types)
+            yield Line(Instruction.BSR, label)
+            # print \n
+            yield Line(Instruction.LDC, 10)
+            yield Line(Instruction.TRAP, 1)
+            # Reset SP to before LDC
+            yield Line(Instruction.AJS, -1)
+        elif node.func.text == "ord" or node.func.text == "chr":
             set_variable(exp_type, node.type.ret_type)
         else:
             # Store this function to be implemented

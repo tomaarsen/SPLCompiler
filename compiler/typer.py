@@ -12,6 +12,7 @@ from compiler.util import Span
 
 from compiler.error.typer_error import (  # isort:skip
     BinaryUnifyErrorFactory,
+    CharacterToBoolErrorFactory,
     FieldUnifyErrorFactory,
     FunCallUnifyErrorFactory,
     FunctionRedefinitionError,
@@ -85,9 +86,19 @@ class Typer:
                 [PolymorphicTypeNode.fresh()],
                 VoidTypeNode(),
             ),
+            "println": FunTypeNode(
+                [PolymorphicTypeNode.fresh()],
+                VoidTypeNode(),
+            ),
             "isEmpty": FunTypeNode(
                 [ListNode(PolymorphicTypeNode.fresh())], BoolTypeNode()
             ),
+            "length": FunTypeNode(
+                [ListNode(PolymorphicTypeNode.fresh())], IntTypeNode()
+            ),
+            "ord": FunTypeNode([CharTypeNode()], IntTypeNode()),
+            "chr": FunTypeNode([IntTypeNode()], CharTypeNode()),
+            "bool": FunTypeNode([PolymorphicTypeNode.fresh()], BoolTypeNode()),
         }
         trans = self.type_node(tree, var_context, fun_context, ft)
         self.apply_trans(tree, trans)
@@ -636,6 +647,17 @@ class Typer:
                             return_trans += trans
 
                             # local_trans += self.unify(decl_arg_type, call_arg_type)
+
+                            # Disallow converting char to bool, even if its argument is polymorphic
+                            if tree.func.text == "bool" and isinstance(
+                                call_arg_type, CharTypeNode
+                            ):
+                                CharacterToBoolErrorFactory(tree).build(
+                                    type_one=decl_arg_type,
+                                    type_two=call_arg_type,
+                                    program=self.program,
+                                    function=self.current_function,
+                                )
 
                             trans = self.unify(
                                 decl_arg_type,
