@@ -679,57 +679,6 @@ class GeneratorYielder(YieldVisitor):
         set_variable(exp_type, TupleNode(left_exp_type.var, right_exp_type.var))
         yield Line(Instruction.STMH, 2, comment=str(node))
 
-    # TODO: a lot
-    def generate_eq_list(depth=1):
-        compare_length = [
-            # Step 1a: Compare length of both pointers
-            Line(Instruction.LDL, -2),
-            Line(Instruction.LDA, -1),
-            Line(Instruction.LDL, -3),
-            Line(Instruction.LDA, -1),
-            Line(Instruction.EQ),
-            # If false, return
-            Line(Instruction.BRF, "_equals_list_return"),
-            # Step 1b: check if length == 0
-            Line(Instruction.LDL, -2),
-            Line(Instruction.LDA, -1),
-            Line(Instruction.LDC, 0),
-            # If True, return
-            Line(Instruction.BRT, "_equals_list_return"),
-        ]
-        # If lengths are equal:
-        # Then we either comapre each element, or recursively compare each list
-        recursively_compare = [
-            # Load pointer to the start of both lists
-            Line(Instruction.LDL, -2),
-            Line(Instruction.LDL, -3),
-            # Get the length, assume length is equal
-            Line(Instruction.LDL, -2),
-            Line(Instruction.LDA, -1),
-            # Stack list 1, list 2, length
-            # Decrement length by 1
-            Line(Instruction.LDA, 3),
-            Line(Instruction.LDC, 1),
-            Line(Instruction.SUB),
-            Line(Instruction.STL, 3),
-            # Get values
-        ]
-        cleanup = [
-            # Return result
-            Line(label="_equals_list_return"),
-            Line(Instruction.STR, "RR"),
-            # Clean-up
-            Line(Instruction.UNLINK),
-            Line(Instruction.RET),
-        ]
-
-        return (
-            [Line(label=f"_equals_list_{depth}"), Line(Instruction.LINK, 0)]
-            + compare_length
-            + recursively_compare
-            + cleanup
-        )
-
     def eq(self, var_type: TypeNode) -> Iterator[Line]:
         label = "_eq" + self.types_to_label([var_type, var_type])
         yield Line(label=label)
