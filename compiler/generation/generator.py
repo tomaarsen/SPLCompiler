@@ -200,6 +200,7 @@ class GeneratorYielder(YieldVisitor):
                 # Yield not of isEmpty
                 self.include_function.add("_is_empty")
                 yield Line(Instruction.BSR, "_is_empty")
+                yield Line(Instruction.AJS, -1)
                 yield Line(Instruction.LDR, "RR")
                 yield Line(Instruction.NOT)
 
@@ -589,12 +590,12 @@ class GeneratorYielder(YieldVisitor):
                             yield Line(Instruction.LDC, -1)
                             yield Line(Instruction.ADD)
                     else:
-                        set_variable(
-                            exp_type,
-                            exp_type.var.left
-                            if field.type == Type.FST
-                            else exp_type.var.right,
-                        )
+                        if exp_type:
+                            exp_type.set(
+                                exp_type.var.left
+                                if field.type == Type.FST
+                                else exp_type.var.right,
+                            )
                         yield Line(
                             Instruction.LDH,
                             -1 if field.type == Type.FST else 0,
@@ -604,11 +605,19 @@ class GeneratorYielder(YieldVisitor):
                     # SP points to the variable on which we are applying the .hd/.tl
                     yield Line(Instruction.BSR, "_head")
                     self.include_function.add("_head")
+                    yield Line(
+                        Instruction.AJS, -1
+                    )  # Clear up address of which head was gotten
                     yield Line(Instruction.LDR, "RR")
+                    if exp_type:
+                        exp_type.set(exp_type.var.body)
 
                 case Token(type=Type.TL):
                     yield Line(Instruction.BSR, "_tail")
                     self.include_function.add("_tail")
+                    yield Line(
+                        Instruction.AJS, -1
+                    )  # Clear up address of which tail was gotten
                     yield Line(Instruction.LDR, "RR")
 
                 case _:
@@ -1046,13 +1055,14 @@ class GeneratorYielder(YieldVisitor):
 
     def visit_ListAbbrNode(self, node: ListAbbrNode, *args, exp_type=None, **kwargs):
         # Place lower and upper bounds on the stack
-        yield from self.visit(node.lower)
-        yield from self.visit(node.upper)
+        yield from self.visit(node.lower, *args, **kwargs)
+        yield from self.visit(node.upper, *args, **kwargs)
 
         yield Line(Instruction.BSR, "_ListAbbr_Int_Int")
         self.functions.append(
             {"name": "_ListAbbr", "type": [IntTypeNode(), IntTypeNode()]}
         )
+        yield Line(Instruction.AJS, -2)
         yield Line(Instruction.LDR, "RR")
 
         set_variable(exp_type, ListNode(IntTypeNode()))

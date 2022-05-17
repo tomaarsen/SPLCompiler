@@ -12,13 +12,10 @@ program = open_file("data/global_vars.spl")
 
 program = r"""
 main(){
-    var a = 1;
-    var b = [a..5];
-    var c = [a..(a + 3) / 2];
-    //var d = ['a'..12];
-    print(b);
-    print("\n");
-    print(c);
+    var a = 3 : 5 : 2 : 6 : [];
+    println([a.hd..a.tl.hd]);
+    println([a.tl.hd..a.tl.tl.hd]);
+    println([a.tl.tl.hd..a.tl.tl.tl.hd]);
     return;
 }
 """
@@ -38,7 +35,10 @@ print(tree)
 
 generator = Generator(tree)
 ssm_code = generator.generate()
-print(ssm_code)
+# print(ssm_code)
+print("=" * 25)
+print("Program execution output:")
+print("=" * 25)
 
 tempfile_path = Path("ssm", "temp.ssm")
 with open(tempfile_path, "w") as f:
