@@ -41,6 +41,8 @@ class Type(Enum):
     IF = "if"
     ELSE = "else"
     WHILE = "while"
+    FOR = "for"
+    IN = "in"
     RETURN = "return"
     VOID = "Void"
     INT = "Int"

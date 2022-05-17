@@ -16,6 +16,7 @@ from compiler.tree.factory import (  # isort:skip
     ExpFactory,
     ExpPrimeFactory,
     FieldFactory,
+    ForFactory,
     FunCallFactory,
     FunDeclFactory,
     FunTypeFactory,
@@ -39,6 +40,7 @@ ALLOW_NONEMPTY = (
     NT.Return,
     NT.IfElse,
     NT.While,
+    NT.For,
     NT.StmtAss,
     NT.ListAbbr,
 )
@@ -139,6 +141,7 @@ class Grammar:
             NT.StmtAss: StmtAssFactory(),
             NT.IfElse: IfElseFactory(),
             NT.While: WhileFactory(),
+            NT.For: ForFactory(),
             NT.Return: ReturnFactory(),
             NT.Exp: ExpFactory(),
             NT["Or'"]: ExpPrimeFactory(),

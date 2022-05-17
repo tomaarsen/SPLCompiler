@@ -11,12 +11,23 @@ from tests.test_util import open_file
 program = open_file("data/global_vars.spl")
 
 program = r"""
-main(){
-    var a = 3 : 5 : 2 : 6 : [];
-    println([a.hd..a.tl.hd]);
-    println([a.tl.hd..a.tl.tl.hd]);
-    println([a.tl.tl.hd..a.tl.tl.tl.hd]);
+fun(a, b){
+    var c = 12;
+    var d = 24;
+    for i in [0..5]{
+        println(i);
+        for j in [1..6]{
+            print('\t');
+            println(j);
+        }
+    }
+    for i in [0..5]{
+        print(i);
+    }
     return;
+}
+main(){
+    fun(4, 8);
 }
 """
 
@@ -29,6 +40,9 @@ tree = parser.parse(tokens)
 typer = Typer(program)
 annotree = typer.type(tree)
 
+print("=" * 25)
+print("Program:")
+print("=" * 25)
 print(tree)
 # '''
 # pprint(tree)
@@ -45,12 +59,12 @@ with open(tempfile_path, "w") as f:
     f.write(ssm_code)
 out = subprocess.check_output(
     ["java", "-jar", "ssm.jar", "--cli", "--file", tempfile_path.name],
-    # ["java", "-jar", "ssm.jar", "--file", tempfile_path.name],
+    # ["java", "-jar", "ssm.jar", "--guidelay", "1", "--file", tempfile_path.name],
     cwd="ssm",
 )
 print(out.decode())
 # print("(0 is False, -1 is True)")
 # 0 is False
 # -1 is True
-
+# '''
 # TODO: Disallow people making print or isEmpty as functions

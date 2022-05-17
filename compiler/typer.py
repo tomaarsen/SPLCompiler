@@ -20,6 +20,7 @@ from compiler.error.typer_error import (  # isort:skip
     IfConditionUnifyErrorFactory,
     ListAbbrError,
     PolymorphicTypeCheckError,
+    RedefinitionOfLoopVariableError,
     RedefinitionOfVariableError,
     TyperException,
     UnaryUnifyErrorFactory,
@@ -44,6 +45,7 @@ from compiler.error.typer_error import (  # isort:skip
 from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
     CharTypeNode,
+    ForNode,
     FunCallNode,
     FunDeclNode,
     FunTypeNode,
@@ -601,6 +603,45 @@ class Typer:
                     IfConditionUnifyErrorFactory(tree),
                 )
                 return transformation_then + transformation_else + trans_condition
+
+            case ForNode():
+
+                # Get expected types for the id and loop, respectively
+                loop_element_type = PolymorphicTypeNode.fresh()
+                loop_type = ListNode(loop_element_type)
+
+                # Type check the loop
+                trans_loop = self.type_node(
+                    tree.loop, var_context, fun_context, loop_type, error_factory
+                )
+                # If the variable already exists, throw an exception
+                if tree.id.text in var_context:
+                    RedefinitionOfLoopVariableError(self.program, tree)
+                    return []
+                # Set the id type, and place it in the variable context
+                var_context[tree.id.text] = loop_element_type
+                var_context = self.apply_trans_context(trans_loop, var_context)
+                fun_context = self.apply_trans_context(trans_loop, fun_context)
+                # Type check the id
+                trans_id = self.type_node(
+                    tree.id, var_context, fun_context, loop_element_type, error_factory
+                )
+                # Update the contexts again
+                var_context = self.apply_trans_context(trans_id, var_context)
+                fun_context = self.apply_trans_context(trans_id, fun_context)
+
+                trans_body = []
+                for expression in tree.body:
+                    trans = self.type_node(
+                        expression, var_context, fun_context, exp_type, error_factory
+                    )
+                    var_context = self.apply_trans_context(trans, var_context)
+                    fun_context = self.apply_trans_context(trans, fun_context)
+                    trans_body += trans
+
+                # Delete the id again from the variable context
+                del var_context[tree.id.text]
+                return trans_body
 
             case WhileNode():
                 condition = tree.cond

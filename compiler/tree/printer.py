@@ -10,6 +10,7 @@ from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
     CharTypeNode,
     CommaListNode,
+    ForNode,
     FunCallNode,
     FunDeclNode,
     FunTypeNode,
@@ -231,6 +232,16 @@ class Printer(YieldVisitor):
         yield Token("(", Type.LRB)
         yield from self.visit(node.cond)
         yield Token(")", Type.RRB)
+        yield Token("{", Type.LCB)
+        for stmt in node.body:
+            yield from self.visit(stmt)
+        yield Token("}", Type.RCB)
+
+    def visit_ForNode(self, node: ForNode, **kwargs) -> Iterator[Token]:
+        yield Token("for", Type.FOR)
+        yield from self.visit(node.id)
+        yield Token("in", Type.IN)
+        yield from self.visit(node.loop)
         yield Token("{", Type.LCB)
         for stmt in node.body:
             yield from self.visit(stmt)

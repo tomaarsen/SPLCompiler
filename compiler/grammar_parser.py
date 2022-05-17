@@ -81,6 +81,8 @@ class GrammarParser:
             "if": Type.IF,
             "else": Type.ELSE,
             "while": Type.WHILE,
+            "for": Type.FOR,
+            "in": Type.IN,
             "return": Type.RETURN,
             "Void": Type.VOID,
             "Int": Type.INT,
