@@ -27,12 +27,14 @@ from compiler.tree.tree import (  # isort:skip
     VarDeclNode,
     VoidTypeNode,
     WhileNode,
+    ListAbbrNode,
 )
 
 LEFT_ATTACHED_TOKENS = {
     Type.LRB,  # (
     Type.LSB,  # [
     Type.NOT,  # !
+    Type.DDOT,  # ..
 }
 
 RIGHT_ATTACHED_TOKENS = {
@@ -44,6 +46,7 @@ RIGHT_ATTACHED_TOKENS = {
     Type.TL,
     Type.FST,
     Type.SND,
+    Type.DDOT,  # ..
 }
 
 
@@ -262,6 +265,13 @@ class Printer(YieldVisitor):
             yield Token(",", Type.COMMA)
             # yield PrintingInfo.SPACE
             yield from self.visit(token)
+
+    def visit_ListAbbrNode(self, node: ListAbbrNode, **kwargs) -> Iterator[Token]:
+        yield Token("[", Type.LSB)
+        yield from self.visit(node.lower)
+        yield Token("..", Type.DDOT)
+        yield from self.visit(node.upper)
+        yield Token("]", Type.RSB)
 
     def visit_Token(self, node: Token, **kwargs) -> Iterator[Token]:
         yield node

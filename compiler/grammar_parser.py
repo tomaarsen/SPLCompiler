@@ -56,6 +56,7 @@ class GrammarParser:
             "::": Type.DOUBLE_COLON,
             "->": Type.ARROW,
             ",": Type.COMMA,
+            "..": Type.DDOT,
             "+": Type.PLUS,
             "-": Type.MINUS,
             "*": Type.STAR,

@@ -15,6 +15,7 @@ from compiler.tree.tree import (  # isort:skip
     FunTypeNode,
     IfElseNode,
     IntTypeNode,
+    ListAbbrNode,
     ListNode,
     Node,
     Op1Node,
@@ -344,6 +345,20 @@ class ReturnFactory(NodeFactory):
                 return ReturnNode(body, span=self.span)
             case [Token(type=Type.RETURN), Token(type=Type.SEMICOLON)]:
                 return ReturnNode(None, span=self.span)
+        raise Exception()
+
+
+class ListAbbrFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            case [
+                Token(type=Type.LSB),
+                _ as lower,
+                Token(type=Type.DDOT),
+                _ as upper,
+                Token(type=Type.RSB),
+            ]:
+                return ListAbbrNode(lower, upper, span=self.span)
         raise Exception()
 
 

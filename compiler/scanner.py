@@ -40,6 +40,7 @@ class Scanner:
                 (?P<SEMICOLON>\;)|
                 (?P<DOUBLE_COLON>\:\:)|
                 (?P<ARROW>\-\>)|
+                (?P<DDOT>\.\.)|
                 (?P<COMMA>\,)|
                 (?P<PLUS>\+)|
                 (?P<MINUS>\-)|

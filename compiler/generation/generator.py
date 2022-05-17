@@ -20,6 +20,7 @@ from compiler.tree.tree import (  # isort:skip
     FunTypeNode,
     IfElseNode,
     IntTypeNode,
+    ListAbbrNode,
     ListNode,
     Node,
     Op1Node,
@@ -126,6 +127,8 @@ class GeneratorYielder(YieldVisitor):
                     yield from self.eq(types[0])
                 elif name == "bool":
                     yield from self.bool(types)
+                elif name == "_ListAbbr":
+                    yield from self.ListAbbr_func()
                 else:
                     fun_decl = fun_decls[name]
                     yield from self.visit(fun_decl, *args, types=types, **kwargs)
@@ -664,7 +667,6 @@ class GeneratorYielder(YieldVisitor):
         # The to be created list has a new address per definition, which is created in this node ([])
         if self.is_var_decl:
             self.is_var_decl = False
-        self.include_function.add("_get_empty_list")
         set_variable(exp_type, node)
 
         yield from STD_LIB_LIST["_get_empty_list"]
@@ -1023,6 +1025,88 @@ class GeneratorYielder(YieldVisitor):
 
             case _:
                 raise NotImplementedError(repr(node.operator))
+
+    def ListAbbr_func(self):
+        base_label = "_ListAbbr_Int_Int"
+        end_init_label = f"{base_label}_end_init"
+        loop_label = f"{base_label}_loop"
+        end_label = f"{base_label}_end"
+
+        left = -3
+        current = -2
+        step = 1
+        pointer = 2
+
+        yield Line(Instruction.LINK, 2, label=base_label)
+        yield Line(Instruction.LDL, left)
+        yield Line(Instruction.LDL, current)
+
+        # Get step: 1 if lower < upper, otherwise -1
+        yield Line(Instruction.LT)
+        yield Line(Instruction.STL, step)
+        yield Line(Instruction.LDL, step)
+        yield Line(Instruction.BRT, end_init_label)
+        yield Line(Instruction.LDL, step)
+        yield Line(Instruction.LDC, step)
+        yield Line(Instruction.ADD)
+        yield Line(Instruction.STL, step)
+
+        # Store a pointer to a new empty list
+        yield Line(label=end_init_label)
+        yield from STD_LIB_LIST["_get_empty_list"]
+        yield Line(Instruction.STL, pointer)
+
+        # Compare the left (lower, -3) and current (right, upper, -2)
+        # Skip if lower == upper before looping
+        yield Line(Instruction.LDL, left)
+        yield Line(Instruction.LDL, current)
+        yield Line(Instruction.EQ)
+        yield Line(Instruction.BRT, end_label)
+
+        # Loop body: Grab the current
+        yield Line(Instruction.LDL, current, label=loop_label)
+        yield Line(Instruction.LDL, pointer)
+        # Prepend the element to the list
+        self.include_function.add("_prepend_element")
+        yield Line(Instruction.BSR, "_prepend_element")
+        # Remove element from the stack, but maintain the pointer to the list
+        yield Line(Instruction.SWP)
+        yield Line(Instruction.AJS, -1)
+        yield Line(Instruction.STL, pointer)
+
+        # Compare the left (lower, -3) and current (right, upper, -2)
+        # If they are the same, go to the end
+        yield Line(Instruction.LDL, left)
+        yield Line(Instruction.LDL, current)
+        yield Line(Instruction.EQ)
+        yield Line(Instruction.BRT, end_label)
+
+        # Update the current by step
+        yield Line(Instruction.LDL, current)
+        yield Line(Instruction.LDL, step)
+        yield Line(Instruction.ADD)
+        yield Line(Instruction.STL, current)
+
+        yield Line(Instruction.BRA, loop_label)
+
+        # End, store pointer to RR, unlink, and adjust stack to only keep the pointer
+        yield Line(Instruction.STR, "RR", label=end_label)
+        yield Line(Instruction.UNLINK)
+        # yield Line(Instruction.AJS, -2)
+        yield Line(Instruction.RET)
+
+    def visit_ListAbbrNode(self, node: ListAbbrNode, *args, exp_type=None, **kwargs):
+        # Place lower and upper bounds on the stack
+        yield from self.visit(node.lower)
+        yield from self.visit(node.upper)
+
+        yield Line(Instruction.BSR, "_ListAbbr_Int_Int")
+        self.functions.append(
+            {"name": "_ListAbbr", "type": [IntTypeNode(), IntTypeNode()]}
+        )
+        yield Line(Instruction.LDR, "RR")
+
+        set_variable(exp_type, ListNode(IntTypeNode()))
 
     def visit_Token(self, node: Token, *args, exp_type=None, **kwargs):
         match node:

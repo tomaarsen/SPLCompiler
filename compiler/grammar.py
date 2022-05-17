@@ -19,6 +19,7 @@ from compiler.tree.factory import (  # isort:skip
     FunCallFactory,
     FunDeclFactory,
     FunTypeFactory,
+    ListAbbrFactory,
     RetTypeFactory,
     IfElseFactory,
     Node,
@@ -39,6 +40,7 @@ ALLOW_NONEMPTY = (
     NT.IfElse,
     NT.While,
     NT.StmtAss,
+    NT.ListAbbr,
 )
 
 # Allow a non-terminal of this type to be raised as
@@ -154,6 +156,7 @@ class Grammar:
             NT.Unary: UnaryFactory(),
             NT.Basic: BasicFactory(),
             NT.Field: FieldFactory(),
+            NT.ListAbbr: ListAbbrFactory(),
             NT.FunCall: FunCallFactory(),
             NT.ActArgs: CommaFactory(),
         }

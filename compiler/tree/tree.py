@@ -223,6 +223,12 @@ class Op1Node(Node):
     operand: Node
 
 
+@dataclass
+class ListAbbrNode(Node):
+    lower: Node
+    upper: Node
+
+
 TypeNode = (
     FunTypeNode
     | ListNode
