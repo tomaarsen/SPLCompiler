@@ -7,6 +7,7 @@ from compiler.generation.instruction import Instruction
 from compiler.generation.line import Line
 from compiler.generation.std_lib import STD_LIB_LIST
 from compiler.token import Token
+from compiler.tree import Node
 from compiler.tree.visitor import Variable, YieldVisitor
 from compiler.type import Type
 
@@ -69,7 +70,6 @@ class GeneratorYielder(YieldVisitor):
         self.while_counter = 0
         self.functions = []
         self.include_function = set()
-        self.is_var_decl = False
 
     def types_to_label(self, types: List[TypeNode]) -> str:
         return (
@@ -129,6 +129,8 @@ class GeneratorYielder(YieldVisitor):
                     yield from self.bool(types)
                 elif name == "_ListAbbr":
                     yield from self.ListAbbr_func()
+                elif name == "_deepcopy":
+                    yield from self.deep_copy(types[0])
                 else:
                     fun_decl = fun_decls[name]
                     yield from self.visit(fun_decl, *args, types=types, **kwargs)
@@ -169,7 +171,7 @@ class GeneratorYielder(YieldVisitor):
         # No need to pass the in_func any deeper
         exp_type = Variable(None)
         # Set self.get_list_addr=True, such that we know whether a new address should be created for a list
-        self.is_var_decl = True
+        self.var_decl_assignment = node.id
         yield from self.visit(node.exp, *args, exp_type=exp_type, **kwargs)
 
         if in_func:
@@ -672,10 +674,6 @@ class GeneratorYielder(YieldVisitor):
     def visit_ListNode(self, node: ListNode, *args, exp_type=None, **kwargs):
         # TODO: Note the distinction between if node.exp exists (then it's a type)
         # and if it doesn't (then it's an empty list)
-
-        # The to be created list has a new address per definition, which is created in this node ([])
-        if self.is_var_decl:
-            self.is_var_decl = False
         set_variable(exp_type, node)
 
         yield from STD_LIB_LIST["_get_empty_list"]
@@ -924,33 +922,41 @@ class GeneratorYielder(YieldVisitor):
                 # Assume Stack is like:
                 #   Value to prepend to list
                 #   Pointer to (length, next*)
-
                 """
-                    Inside of a var decl, thus we need to create a new return reference.
-                    Suppose we have:
-                        var a  = 2 : [];
-                        var b =  1 : a;
-                    We thus need to
-                    1. Create a new reference b
-                    2. Copy the contents of a to b
-                    3. Prepend the element to a;
-                    In other words, is_var_decl is only True if we need to copy the contents of a to b
+                We should copy the entire array if either the left or the right side of colon operator contains an ID,
+                and that ID is different from the ID we are assigning to.
                 """
+                copy_left = (
+                    isinstance(node.left, Token)
+                    and node.left.type == Type.ID
+                    and node.left.text != self.var_decl_assignment.text
+                )
+                copy_right = (
+                    isinstance(node.right, Token)
+                    and node.right.type == Type.ID
+                    and node.right.text != self.var_decl_assignment.text
+                )
 
-                if self.is_var_decl:
-                    self.is_var_decl = False
-                    # Stack: values : pointer : return_pointer, var b = 1 : a;
-                    self.include_function.add("_get_new_list_pointer_and_copy_contents")
+                if copy_left:
+                    type_left = exp_type.var
                     yield Line(
-                        Instruction.BSR, "_get_new_list_pointer_and_copy_contents"
+                        Instruction.BSR, "_deep_copy" + self.types_to_label([type_left])
                     )
-                    # Load override the old reference with the new
                     yield Line(Instruction.AJS, -1)
                     yield Line(Instruction.LDR, "RR")
-                    # Perform the colon operation
-                    self.include_function.add("_prepend_element")
-                    yield Line(Instruction.BSR, "_prepend_element")
-                    return
+
+                    self.functions.append({"name": "_deepcopy", "type": [type_left]})
+
+                if copy_right:
+                    type_right = exp_type.var
+                    yield Line(
+                        Instruction.BSR,
+                        "_deep_copy" + self.types_to_label([type_right]),
+                    )
+                    yield Line(Instruction.AJS, -1)
+                    yield Line(Instruction.LDR, "RR")
+
+                    self.functions.append({"name": "_deepcopy", "type": [type_right]})
 
                 # Prepend the element to the list
                 yield Line(Instruction.BSR, "_prepend_element")
@@ -967,6 +973,221 @@ class GeneratorYielder(YieldVisitor):
                 yield from []
             case _:
                 raise NotImplementedError(repr(node.operator))
+
+    def deep_copy(self, node: ListNode) -> Iterator[Line]:
+        # Assumes the variable to be copied is on top of the stack
+
+        label = "_deep_copy" + self.types_to_label([node])
+        match node:
+            case ListNode(body=ListNode()):
+                yield Line(label=label)
+                yield Line(Instruction.LINK, 0)
+                # Top of stack in subroutine is:
+                # Length remaining
+                # Current pointer to copy from
+                # Create a stack as described above:
+
+                # Load length
+                yield Line(Instruction.LDL, -2)
+                yield Line(Instruction.LDH, -1)
+                # Copy the length, for later use
+                yield Line(Instruction.LDL, 1)
+                # Check if length == 0
+                yield Line(Instruction.LDC, 0)
+                yield Line(Instruction.EQ)
+                # Jump to end of loop if local length == 0
+                yield Line(Instruction.BRT, f"_return_new_list_{label}")
+                # Set current reference to copy from
+                yield Line(Instruction.LDL, -2)
+                # Update reference to first element
+                # Get reference
+                yield Line(Instruction.LDL, 2)
+                # Get new reference
+                yield Line(Instruction.LDA, 0)
+                # Update reference
+                yield Line(Instruction.STL, 2)
+                yield Line(label=f"_load_loop_{label}")
+                # Recursively load all elements of list
+                # Get reference
+                yield Line(Instruction.LDL, 2)
+                # Get element
+                yield Line(Instruction.LDA, -1)
+                # Update reference
+                yield Line(Instruction.LDL, 2)
+                yield Line(Instruction.LDA, 0)
+                yield Line(Instruction.STL, 2)
+
+                # Decrement length of remaining element
+                # Get length
+                yield Line(Instruction.LDL, 1)
+                # Decrement by 1
+                yield Line(Instruction.LDC, 1)
+                yield Line(Instruction.SUB)
+                # Store it
+                yield Line(Instruction.STL, 1)
+
+                # Load the current list
+                yield Line(Instruction.LDL, 3)
+
+                yield Line(
+                    Instruction.BSR, "_deep_copy" + self.types_to_label([node.body])
+                )
+                yield Line(Instruction.AJS, -1)
+                yield Line(Instruction.LDR, "RR")
+                self.functions.append({"name": "_deepcopy", "type": [node.body]})
+                yield Line(Instruction.SWP)
+
+                # Check if need to continue the loop
+                # Get length
+                yield Line(Instruction.LDL, 1)
+                # Length == 0?
+                yield Line(Instruction.LDC, 0)
+                yield Line(Instruction.EQ)
+                # Continue loop
+                yield Line(Instruction.BRF, f"_load_loop_{label}")
+                # At this point all elements of the original list are in order on the stack
+                # Reset the local length
+                # Load reference to copy from
+                yield Line(Instruction.LDL, -2)
+                # # Load length
+                yield Line(Instruction.LDH, -1)
+                # Store the length, for later use
+                yield Line(Instruction.STL, 1)
+                # Create empty reference
+                yield Line(Instruction.LDC, 0)  # Length
+                yield Line(Instruction.LDC, 47806)  # Pointer
+                yield Line(Instruction.STMH, 2)  # Put on stack
+                # Store in RR
+                yield Line(Instruction.STR, "RR")
+                yield Line(Instruction.LDR, "RR")
+                yield Line(label=f"_store_loop_{label}")
+                # Recursively store all elements of list, by prepending
+                yield Line(Instruction.BSR, f"_prepend_element")
+                # Remove prepended element from stack
+                yield Line(Instruction.SWP)
+                yield Line(Instruction.AJS, -1)
+                # Decrement length of remaining element
+                # Get length
+                yield Line(Instruction.LDL, 1)
+                # Decrement by 1
+                yield Line(Instruction.LDC, 1)
+                yield Line(Instruction.SUB)
+                # Store it
+                yield Line(Instruction.STL, 1)
+                # Check if need to continue the loop
+                # Get length
+                yield Line(Instruction.LDL, 1)
+                # Length == 0?
+                yield Line(Instruction.LDC, 0)
+                yield Line(Instruction.EQ)
+                # Continue loop
+                yield Line(Instruction.BRF, f"_store_loop_{label}")
+                # End the loop, and return the reference to the new list
+                yield Line(label=f"_return_new_list_{label}")
+                # Clean-up
+                yield Line(Instruction.UNLINK)
+                # Replace the pointer with a new pointer
+                yield Line(Instruction.RET)
+            case ListNode():
+                yield Line(label=label)
+                yield Line(Instruction.LINK, 0)
+                # Top of stack in subroutine is:
+                # Length remaining
+                # Current pointer to copy from
+                # Create a stack as described above:
+
+                # Load length
+                yield Line(Instruction.LDL, -2)
+                yield Line(Instruction.LDH, -1)
+                # Copy the length, for later use
+                yield Line(Instruction.LDL, 1)
+                # Check if length == 0
+                yield Line(Instruction.LDC, 0)
+                yield Line(Instruction.EQ)
+                # Jump to end of loop if local length == 0
+                yield Line(Instruction.BRT, f"_return_new_list_{label}")
+                # Set current reference to copy from
+                yield Line(Instruction.LDL, -2)
+                # Update reference to first element
+                # Get reference
+                yield Line(Instruction.LDL, 2)
+                # Get new reference
+                yield Line(Instruction.LDA, 0)
+                # Update reference
+                yield Line(Instruction.STL, 2)
+                yield Line(label=f"_load_loop_{label}")
+                # Recursively load all elements of list
+                # Get reference
+                yield Line(Instruction.LDL, 2)
+                # Get element
+                yield Line(Instruction.LDA, -1)
+                # Update reference
+                yield Line(Instruction.LDL, 2)
+                yield Line(Instruction.LDA, 0)
+                yield Line(Instruction.STL, 2)
+
+                # Decrement length of remaining element
+                # Get length
+                yield Line(Instruction.LDL, 1)
+                # Decrement by 1
+                yield Line(Instruction.LDC, 1)
+                yield Line(Instruction.SUB)
+                # Store it
+                yield Line(Instruction.STL, 1)
+                # Check if need to continue the loop
+                # Get length
+                yield Line(Instruction.LDL, 1)
+                # Length == 0?
+                yield Line(Instruction.LDC, 0)
+                yield Line(Instruction.EQ)
+                # Continue loop
+                yield Line(Instruction.BRF, f"_load_loop_{label}")
+                # At this point all elements of the original list are in order on the stack
+                # Reset the local length
+                # Load reference to copy from
+                yield Line(Instruction.LDL, -2)
+                # # Load length
+                yield Line(Instruction.LDH, -1)
+                # Store the length, for later use
+                yield Line(Instruction.STL, 1)
+                # Create empty reference
+                yield Line(Instruction.LDC, 0)  # Length
+                yield Line(Instruction.LDC, 47806)  # Pointer
+                yield Line(Instruction.STMH, 2)  # Put on stack
+                # Store in RR
+                yield Line(Instruction.STR, "RR")
+                yield Line(Instruction.LDR, "RR")
+                yield Line(label=f"_store_loop_{label}")
+                # Recursively store all elements of list, by prepending
+                yield Line(Instruction.BSR, f"_prepend_element")
+                # Remove prepended element from stack
+                yield Line(Instruction.SWP)
+                yield Line(Instruction.AJS, -1)
+                # Decrement length of remaining element
+                # Get length
+                yield Line(Instruction.LDL, 1)
+                # Decrement by 1
+                yield Line(Instruction.LDC, 1)
+                yield Line(Instruction.SUB)
+                # Store it
+                yield Line(Instruction.STL, 1)
+                # Check if need to continue the loop
+                # Get length
+                yield Line(Instruction.LDL, 1)
+                # Length == 0?
+                yield Line(Instruction.LDC, 0)
+                yield Line(Instruction.EQ)
+                # Continue loop
+                yield Line(Instruction.BRF, f"_store_loop_{label}")
+                # End the loop, and return the reference to the new list
+                yield Line(label=f"_return_new_list_{label}")
+                # Clean-up
+                yield Line(Instruction.UNLINK)
+                # Replace the pointer with a new pointer
+                yield Line(Instruction.RET)
+            # Elements of list
+            case _:
+                pass
 
     def visit_Op1Node(self, node: Op1Node, *args, exp_type=None, **kwargs):
         # First recurse into the child
