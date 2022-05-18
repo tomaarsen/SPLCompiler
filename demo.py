@@ -17,6 +17,11 @@ main(){
     println(b[1]);
     println(b.tl[1].hd);
     println(b.tl[0][3]);
+
+    b[0][2] = 8;
+    b[1][0] = 12;
+    b[2][4] = 24;
+    println(b);
 }
 """
 

@@ -577,14 +577,14 @@ class GeneratorYielder(YieldVisitor):
                 get_addr=True,
                 **kwargs,
             )
-            if node.id.id in self.variables["local"]:
-                self.variables["local"][node.id.id] = exp_type.var
-            elif node.id.id in self.variables["arguments"]:
-                self.variables["arguments"][node.id.id] = exp_type.var
-            elif node.id.id in self.variables["global"]:
-                self.variables["global"][node.id.id] = exp_type.var
-            else:
-                raise Exception(f"Variable {node.id.id.text!r} does not exist")
+            # if node.id.id in self.variables["local"]:
+            #     self.variables["local"][node.id.id] = exp_type.var
+            # elif node.id.id in self.variables["arguments"]:
+            #     self.variables["arguments"][node.id.id] = exp_type.var
+            # elif node.id.id in self.variables["global"]:
+            #     self.variables["global"][node.id.id] = exp_type.var
+            # else:
+            #     raise Exception(f"Variable {node.id.id.text!r} does not exist")
             yield Line(Instruction.STA, 0, comment=str(node))
 
         elif node.id.id in self.variables["local"]:
@@ -670,7 +670,9 @@ class GeneratorYielder(YieldVisitor):
                         Instruction.AJS, -1
                     )  # Clear up address of which head was gotten
                     yield Line(Instruction.LDR, "RR")
-                    if exp_type:
+                    # No need to update if we're on the left side of the assignment, i.e.
+                    # if get_addr is True
+                    if exp_type and not get_addr:
                         exp_type.set(exp_type.var.body)
 
                 case Token(type=Type.TL):
@@ -696,8 +698,14 @@ class GeneratorYielder(YieldVisitor):
                     # We now have the address, but we usually want the value instead:
                     if not get_addr or i != len(node.fields):
                         yield Line(Instruction.LDH, -1)
+                    else:
+                        # Otherwise, offset by 1, so we get the address of the value
+                        # That way, it can be updated like x[0] = 1
+                        yield Line(Instruction.LDC, 1)
+                        yield Line(Instruction.SUB)
+
                     # Update the expected type so higher layers in the AST know which type this is
-                    if exp_type:
+                    if exp_type and not get_addr:
                         exp_type.set(exp_type.var.body)
 
                 case _:
