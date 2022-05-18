@@ -6,6 +6,7 @@ from typing import Iterator, List, Tuple
 from compiler.generation.instruction import Instruction
 from compiler.generation.line import Line
 from compiler.generation.std_lib import STD_LIB_LIST
+from compiler.generation.utils import ForCounterVisitor
 from compiler.token import Token
 from compiler.tree import Node
 from compiler.tree.visitor import Variable, YieldVisitor
@@ -16,10 +17,12 @@ from compiler.tree.tree import (  # isort:skip
     CharTypeNode,
     CommaListNode,
     FieldNode,
+    ForNode,
     FunCallNode,
     FunDeclNode,
     FunTypeNode,
     IfElseNode,
+    IndexNode,
     IntTypeNode,
     ListAbbrNode,
     ListNode,
@@ -68,8 +71,11 @@ class GeneratorYielder(YieldVisitor):
         }
         self.if_else_counter = 0
         self.while_counter = 0
+        self.for_counter = 0
         self.functions = []
         self.include_function = set()
+
+        self.for_visitor = ForCounterVisitor()
 
     def types_to_label(self, types: List[TypeNode]) -> str:
         return (
@@ -146,7 +152,8 @@ class GeneratorYielder(YieldVisitor):
         # print(f"Defining {label}")
         yield Line(label=label)
         # Link to conveniently move MP and SP
-        yield Line(Instruction.LINK, len(node.var_decl))
+        n_local_vars = len(node.var_decl) + self.for_visitor.count(node)
+        yield Line(Instruction.LINK, n_local_vars)
         # Set the function arguments, this is the order that they are above the MP
         if node.args:
             self.variables["arguments"] = {
@@ -448,11 +455,11 @@ class GeneratorYielder(YieldVisitor):
             label = node.func.text + self.types_to_label(arg_types)
             yield Line(Instruction.BSR, label, comment=str(node))
 
-            if node.func.text != "print":
-                # Clean up the stack that still has the function call arguments on it
-                if node.args:
-                    yield Line(Instruction.AJS, -len(node.args.items))
+            # Clean up the stack that still has the function call arguments on it
+            if node.args:
+                yield Line(Instruction.AJS, -len(node.args.items))
 
+            if node.func.text != "print":
                 # Place the function return back on the stack
                 yield Line(Instruction.LDR, "RR")
 
@@ -484,6 +491,60 @@ class GeneratorYielder(YieldVisitor):
         for stmt in node.body:
             yield from self.visit(stmt)
         yield Line(label=end_label)
+
+    def visit_ForNode(self, node: ForNode, *args, exp_type=None, **kwargs):
+        # TODO: What if the list is empty?
+        # Get the loop type
+        exp_type = Variable(None)
+        yield from self.visit(node.loop, *args, exp_type=exp_type, **kwargs)
+
+        loop_label = f"ForLoop{self.for_counter}"
+        end_label = f"ForEnd{self.for_counter}"
+        self.for_counter += 1
+
+        # Store the variable as a local variable
+        self.variables["local"][node.id] = exp_type.var.body
+        # yield from self.visit(node.id, *args, **kwargs)
+
+        # Stack: List Pointer 1
+        yield Line(Instruction.LDMH, 0, 2)
+        # Stack: Length, List Pointer 2
+        yield Line(Instruction.LINK, 0, label=loop_label)
+        # Stack: Length, List Pointer 2, MP
+
+        yield Line(Instruction.LDL, -2)  # Length
+        # Stack: Length, List Pointer 2, MP, Length
+        # Skip to end if length is 0
+        yield Line(Instruction.BRF, end_label)
+        # Otherwise, decrement length
+        yield Line(Instruction.LDL, -2)
+        yield Line(Instruction.LDC, 1)
+        yield Line(Instruction.SUB)
+        yield Line(Instruction.STL, -2)
+        # Stack: Length, List Pointer 2, MP
+        yield Line(Instruction.UNLINK)
+        # Stack: Length, List Pointer 2
+        yield Line(Instruction.LDMH, 0, 2)
+        # Stack: Length, Value, List Pointer 2
+        yield Line(Instruction.SWP)
+        # Stack: Length, List Pointer 2, Value
+        index = list(self.variables["local"]).index(node.id)
+        offset = index + 1
+        yield Line(Instruction.STL, offset, comment=str(node))
+        # Stack: Length, List Pointer 2
+
+        # Run loop body:
+        for stmt in node.body:
+            yield from self.visit(stmt, *args, **kwargs)
+
+        # Continue the loop
+        yield Line(Instruction.BRA, loop_label)
+
+        # Unlink and remove the list length and pointer for this for loop
+        yield Line(Instruction.UNLINK, label=end_label)
+        yield Line(Instruction.AJS, -2)
+
+        del self.variables["local"][node.id]
 
     def visit_WhileNode(self, node: WhileNode, *args, **kwargs):
         condition_label = f"WhileCond{self.while_counter}"
@@ -518,14 +579,14 @@ class GeneratorYielder(YieldVisitor):
                 get_addr=True,
                 **kwargs,
             )
-            if node.id.id in self.variables["local"]:
-                self.variables["local"][node.id.id] = exp_type.var
-            elif node.id.id in self.variables["arguments"]:
-                self.variables["arguments"][node.id.id] = exp_type.var
-            elif node.id.id in self.variables["global"]:
-                self.variables["global"][node.id.id] = exp_type.var
-            else:
-                raise Exception(f"Variable {node.id.id.text!r} does not exist")
+            # if node.id.id in self.variables["local"]:
+            #     self.variables["local"][node.id.id] = exp_type.var
+            # elif node.id.id in self.variables["arguments"]:
+            #     self.variables["arguments"][node.id.id] = exp_type.var
+            # elif node.id.id in self.variables["global"]:
+            #     self.variables["global"][node.id.id] = exp_type.var
+            # else:
+            #     raise Exception(f"Variable {node.id.id.text!r} does not exist")
             yield Line(Instruction.STA, 0, comment=str(node))
 
         elif node.id.id in self.variables["local"]:
@@ -611,7 +672,9 @@ class GeneratorYielder(YieldVisitor):
                         Instruction.AJS, -1
                     )  # Clear up address of which head was gotten
                     yield Line(Instruction.LDR, "RR")
-                    if exp_type:
+                    # No need to update if we're on the left side of the assignment, i.e.
+                    # if get_addr is True
+                    if exp_type and not get_addr:
                         exp_type.set(exp_type.var.body)
 
                 case Token(type=Type.TL):
@@ -621,6 +684,31 @@ class GeneratorYielder(YieldVisitor):
                         Instruction.AJS, -1
                     )  # Clear up address of which tail was gotten
                     yield Line(Instruction.LDR, "RR")
+
+                case IndexNode():
+                    # Discard length and take only list pointer
+                    yield Line(Instruction.LDH, 0)
+                    # Then load index
+                    yield from self.visit(field.exp, *args, **kwargs)
+                    # Stack: List pointer, index
+                    yield Line(Instruction.BSR, "_index")
+                    self.include_function.add("_index")
+                    yield Line(
+                        Instruction.AJS, -2
+                    )  # Clear up address of which tail was gotten
+                    yield Line(Instruction.LDR, "RR")
+                    # We now have the address, but we usually want the value instead:
+                    if not get_addr or i != len(node.fields):
+                        yield Line(Instruction.LDH, -1)
+                    else:
+                        # Otherwise, offset by 1, so we get the address of the value
+                        # That way, it can be updated like x[0] = 1
+                        yield Line(Instruction.LDC, 1)
+                        yield Line(Instruction.SUB)
+
+                    # Update the expected type so higher layers in the AST know which type this is
+                    if exp_type and not get_addr:
+                        exp_type.set(exp_type.var.body)
 
                 case _:
                     raise NotImplementedError(
@@ -1234,13 +1322,6 @@ class GeneratorYielder(YieldVisitor):
         yield Line(label=end_init_label)
         yield from STD_LIB_LIST["_get_empty_list"]
         yield Line(Instruction.STL, pointer)
-
-        # Compare the left (lower, -3) and current (right, upper, -2)
-        # Skip if lower == upper before looping
-        yield Line(Instruction.LDL, left)
-        yield Line(Instruction.LDL, current)
-        yield Line(Instruction.EQ)
-        yield Line(Instruction.BRT, end_label)
 
         # Loop body: Grab the current
         yield Line(Instruction.LDL, current, label=loop_label)

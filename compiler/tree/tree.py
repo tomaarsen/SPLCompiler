@@ -63,6 +63,13 @@ class WhileNode(Node):
 
 
 @dataclass
+class ForNode(Node):
+    id: Token
+    loop: Node
+    body: List[StmtNode]
+
+
+@dataclass
 class StmtAssNode(Node):
     id: VariableNode
     exp: Node
@@ -71,6 +78,11 @@ class StmtAssNode(Node):
 @dataclass
 class FieldNode(Node):
     fields: List[Token]
+
+
+@dataclass
+class IndexNode(Node):
+    exp: Node
 
 
 @dataclass

@@ -67,6 +67,8 @@ class Scanner:
                 (?P<IF>\bif\b)|
                 (?P<ELSE>\belse\b)|
                 (?P<WHILE>\bwhile\b)|
+                (?P<FOR>\bfor\b)|
+                (?P<IN>\bin\b)|
                 (?P<RETURN>\breturn\b)|
                 (?P<VOID>\bVoid\b)|
                 (?P<INT>\bInt\b)|

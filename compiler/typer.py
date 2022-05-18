@@ -18,8 +18,10 @@ from compiler.error.typer_error import (  # isort:skip
     FunctionRedefinitionError,
     FunctionSignatureTypeError,
     IfConditionUnifyErrorFactory,
+    IndexTypeError,
     ListAbbrError,
     PolymorphicTypeCheckError,
+    RedefinitionOfLoopVariableError,
     RedefinitionOfVariableError,
     TyperException,
     UnaryUnifyErrorFactory,
@@ -44,10 +46,12 @@ from compiler.error.typer_error import (  # isort:skip
 from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
     CharTypeNode,
+    ForNode,
     FunCallNode,
     FunDeclNode,
     FunTypeNode,
     IfElseNode,
+    IndexNode,
     IntTypeNode,
     ListAbbrNode,
     ListNode,
@@ -602,6 +606,45 @@ class Typer:
                 )
                 return transformation_then + transformation_else + trans_condition
 
+            case ForNode():
+
+                # Get expected types for the id and loop, respectively
+                loop_element_type = PolymorphicTypeNode.fresh()
+                loop_type = ListNode(loop_element_type)
+
+                # Type check the loop
+                trans_loop = self.type_node(
+                    tree.loop, var_context, fun_context, loop_type, error_factory
+                )
+                # If the variable already exists, throw an exception
+                if tree.id.text in var_context:
+                    RedefinitionOfLoopVariableError(self.program, tree)
+                    return []
+                # Set the id type, and place it in the variable context
+                var_context[tree.id.text] = loop_element_type
+                var_context = self.apply_trans_context(trans_loop, var_context)
+                fun_context = self.apply_trans_context(trans_loop, fun_context)
+                # Type check the id
+                trans_id = self.type_node(
+                    tree.id, var_context, fun_context, loop_element_type, error_factory
+                )
+                # Update the contexts again
+                var_context = self.apply_trans_context(trans_id, var_context)
+                fun_context = self.apply_trans_context(trans_id, fun_context)
+
+                trans_body = []
+                for expression in tree.body:
+                    trans = self.type_node(
+                        expression, var_context, fun_context, exp_type, error_factory
+                    )
+                    var_context = self.apply_trans_context(trans, var_context)
+                    fun_context = self.apply_trans_context(trans, fun_context)
+                    trans_body += trans
+
+                # Delete the id again from the variable context
+                del var_context[tree.id.text]
+                return trans_body
+
             case WhileNode():
                 condition = tree.cond
                 body = tree.body
@@ -744,8 +787,8 @@ class Typer:
                 variable_type = var_context[tree.id.text]
                 trans = []
                 for field in tree.field.fields:
-                    match field.type:
-                        case Type.FST | Type.SND:
+                    match field:
+                        case Token(type=Type.FST) | Token(type=Type.SND):
                             left = PolymorphicTypeNode.fresh()
                             right = PolymorphicTypeNode.fresh()
                             var_exp_type = TupleNode(
@@ -765,7 +808,7 @@ class Typer:
                             picked = left if field.type == Type.FST else right
                             variable_type = self.apply_trans(picked, sub)
 
-                        case Type.HD | Type.TL:
+                        case Token(type=Type.HD) | Token(type=Type.TL) | IndexNode():
                             element = PolymorphicTypeNode.fresh()
                             var_exp_type = ListNode(element)
                             sub = self.unify(
@@ -778,7 +821,19 @@ class Typer:
                             trans += sub
 
                             # For next iteration
-                            picked = var_exp_type if field.type == Type.TL else element
+                            if isinstance(field, IndexNode):
+                                picked = element
+                                trans += self.type_node(
+                                    field.exp,
+                                    var_context,
+                                    fun_context,
+                                    IntTypeNode(),
+                                    IndexTypeError(field),
+                                )
+                            else:
+                                picked = (
+                                    element if field.type == Type.HD else var_exp_type
+                                )
                             variable_type = self.apply_trans(picked, sub)
 
                         case _:

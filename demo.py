@@ -12,11 +12,16 @@ program = open_file("data/global_vars.spl")
 
 program = r"""
 main(){
-    var a = 3 : 5 : 2 : 6 : [];
-    println([a.hd..a.tl.hd]);
-    println([a.tl.hd..a.tl.tl.hd]);
-    println([a.tl.tl.hd..a.tl.tl.tl.hd]);
-    return;
+    var b = [1..5] : [6..10] : [11..15] : [];
+    println(b);
+    println(b[1]);
+    println(b.tl[1].hd);
+    println(b.tl[0][3]);
+
+    b[0][2] = 8;
+    b[1][0] = 12;
+    b[2][4] = 24;
+    println(b);
 }
 """
 
@@ -29,6 +34,9 @@ tree = parser.parse(tokens)
 typer = Typer(program)
 annotree = typer.type(tree)
 
+print("=" * 25)
+print("Program:")
+print("=" * 25)
 print(tree)
 # '''
 # pprint(tree)
@@ -45,12 +53,12 @@ with open(tempfile_path, "w") as f:
     f.write(ssm_code)
 out = subprocess.check_output(
     ["java", "-jar", "ssm.jar", "--cli", "--file", tempfile_path.name],
-    # ["java", "-jar", "ssm.jar", "--file", tempfile_path.name],
+    # ["java", "-jar", "ssm.jar", "--guidelay", "1", "--file", tempfile_path.name],
     cwd="ssm",
 )
 print(out.decode())
 # print("(0 is False, -1 is True)")
 # 0 is False
 # -1 is True
-
+# '''
 # TODO: Disallow people making print or isEmpty as functions

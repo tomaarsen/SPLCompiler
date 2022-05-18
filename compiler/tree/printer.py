@@ -10,10 +10,12 @@ from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
     CharTypeNode,
     CommaListNode,
+    ForNode,
     FunCallNode,
     FunDeclNode,
     FunTypeNode,
     IfElseNode,
+    IndexNode,
     IntTypeNode,
     ListNode,
     Node,
@@ -51,6 +53,7 @@ RIGHT_ATTACHED_TOKENS = {
 
 
 class PrintingInfo(Enum):
+    NOSPACE = auto()
     SPACE = auto()
     NEWLINE = auto()
     # INDENT = auto()
@@ -74,6 +77,9 @@ class Printer(YieldVisitor):
                 program += "\n"
             elif token == PrintingInfo.SPACE:
                 last_token = token
+            elif token == PrintingInfo.NOSPACE:
+                while program and program[-1] == " ":
+                    program = program[:-1]
             else:
                 # Modify depth before this token
                 if token.type == Type.RCB:  # }
@@ -160,6 +166,12 @@ class Printer(YieldVisitor):
     ) -> Iterator[Token]:
         yield node.token
 
+    def visit_IndexNode(self, node: IndexNode, **kwargs) -> Iterator[Token]:
+        yield PrintingInfo.NOSPACE
+        yield Token("[", Type.LSB)
+        yield from self.visit(node.exp)
+        yield Token("]", Type.RSB)
+
     def visit_ListNode(self, node: ListNode, **kwargs) -> Iterator[Token]:
         yield Token("[", Type.LSB)
         if node.body:
@@ -189,11 +201,14 @@ class Printer(YieldVisitor):
     def visit_Op1Node(self, node: Op1Node, **kwargs) -> Iterator[Token]:
         if isinstance(node.operand, Op2Node):
             yield node.operator
+            yield PrintingInfo.NOSPACE
             yield Token("(", Type.LRB)
             yield from self.visit(node.operand)
             yield Token(")", Type.RRB)
         else:
-            yield from self.visit_children(node)
+            yield node.operator
+            yield PrintingInfo.NOSPACE
+            yield from self.visit(node.operand)
 
     def visit_TupleNode(self, node: TupleNode, **kwargs) -> Iterator[Token]:
         yield Token("(", Type.LRB)
@@ -231,6 +246,16 @@ class Printer(YieldVisitor):
         yield Token("(", Type.LRB)
         yield from self.visit(node.cond)
         yield Token(")", Type.RRB)
+        yield Token("{", Type.LCB)
+        for stmt in node.body:
+            yield from self.visit(stmt)
+        yield Token("}", Type.RCB)
+
+    def visit_ForNode(self, node: ForNode, **kwargs) -> Iterator[Token]:
+        yield Token("for", Type.FOR)
+        yield from self.visit(node.id)
+        yield Token("in", Type.IN)
+        yield from self.visit(node.loop)
         yield Token("{", Type.LCB)
         for stmt in node.body:
             yield from self.visit(stmt)

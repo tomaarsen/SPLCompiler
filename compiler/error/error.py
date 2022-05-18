@@ -59,6 +59,10 @@ class CompilerError:
                 return "a statement"
             case NT.ActArgs:
                 return "a function-call"
+            case NT.ListAbbr:
+                return "a list abbreviation"
+            case NT.For:
+                return "a for loop"
             case _:
                 return ""
 

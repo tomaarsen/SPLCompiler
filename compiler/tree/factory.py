@@ -10,10 +10,12 @@ from compiler.tree.tree import (  # isort:skip
     CharTypeNode,
     CommaListNode,
     FieldNode,
+    ForNode,
     FunCallNode,
     FunDeclNode,
     FunTypeNode,
     IfElseNode,
+    IndexNode,
     IntTypeNode,
     ListAbbrNode,
     ListNode,
@@ -97,6 +99,18 @@ class FunDeclFactory(NodeFactory):
 class FieldFactory(NodeFactory):
     def build(self):
         return FieldNode(self.c, span=self.span)
+
+
+class IndexFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            case [
+                Token(type=Type.LSB),
+                _ as exp,
+                Token(type=Type.RSB),
+            ]:
+                return IndexNode(exp, span=self.span)
+        raise Exception()
 
 
 class CommaFactory(NodeFactory):
@@ -256,6 +270,22 @@ class WhileFactory(NodeFactory):
             else:
                 break
         return WhileNode(cond, body, span=self.span)
+
+
+class ForFactory(NodeFactory):
+    def build(self):
+        match self.c:
+            case [
+                Token(type=Type.FOR),
+                Token(type=Type.ID) as _id,
+                Token(type=Type.IN),
+                _ as loop,
+                Token(type=Type.LCB),
+                *stmt,
+                Token(type=Type.RCB),
+            ]:
+                return ForNode(_id, loop, stmt, span=self.span)
+        raise Exception()
 
 
 class TypeFactory(NodeFactory):

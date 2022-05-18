@@ -8,9 +8,11 @@ from compiler.util import Span
 from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
     CommaListNode,
+    ForNode,
     FunCallNode,
     FunDeclNode,
     IfElseNode,
+    IndexNode,
     ListAbbrNode,
     Node,
     Op1Node,
@@ -224,6 +226,15 @@ class ListAbbrError(UnificationError):
         return self.create_error(before, self.bound.span)
 
 
+@dataclass
+class IndexTypeError(UnificationError):
+    index: IndexNode
+
+    def __str__(self) -> str:
+        before = f"Cannot match type {str(self.type_two)!r} with expected type {str(self.type_one)!r} for list indexing on {self.index.span.lines_str}."
+        return self.create_error(before, self.index.exp.span)
+
+
 # Errors that occur within the type_node function of the Typer
 @dataclass
 class TypeNodeError:
@@ -318,6 +329,15 @@ class RedefinitionOfVariableError(TypeNodeError):
     def __str__(self) -> str:
         before = f"Redefinition of the variable {self.var_decl.id.text!r} to {str(self.var_decl.exp)!r} is not allowed on line {self.var_decl.span.start_ln}."
         return self.create_error(before, self.var_decl.span)
+
+
+@dataclass
+class RedefinitionOfLoopVariableError(TypeNodeError):
+    for_loop: ForNode
+
+    def __str__(self) -> str:
+        before = f"Redefinition of the variable {self.for_loop.id.text!r} as a loop variable is not allowed on line {self.for_loop.span.start_ln}."
+        return self.create_error(before, self.for_loop.id.span)
 
 
 @dataclass

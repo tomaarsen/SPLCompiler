@@ -285,4 +285,32 @@ STD_LIB_LIST = {
         Line(Instruction.UNLINK),
         Line(Instruction.RET),
     ],
+    # Stack: List pointer, index
+    # Returns the address of the correct link, not the value!
+    "_index": [
+        Line(label="_index"),
+        # Create space to perform computations
+        Line(Instruction.LINK, 0),
+        # Stack: List pointer, index, MP
+        # -3 is pointer, -2 is index
+        Line(Instruction.LDL, -2, label="_index_loop"),
+        # Skip to the end if 0
+        Line(Instruction.BRF, "_index_end"),
+        # Load pointer and "skip" to the next link
+        Line(Instruction.LDL, -3),
+        Line(Instruction.LDH, 0),
+        Line(Instruction.STL, -3),
+        # Reduce index
+        Line(Instruction.LDL, -2),
+        Line(Instruction.LDC, 1),
+        Line(Instruction.SUB),
+        Line(Instruction.STL, -2),
+        # Continue the loop
+        Line(Instruction.BRA, "_index_loop"),
+        # At the end, return the pointer
+        Line(Instruction.LDL, -3, label="_index_end"),
+        Line(Instruction.STR, "RR"),
+        Line(Instruction.UNLINK),
+        Line(Instruction.RET),
+    ],
 }
