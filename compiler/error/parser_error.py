@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import List
 
 from compiler.error.error import CompilerError, CompilerException
-from compiler.grammar_parser import NT
 from compiler.token import Token
 from compiler.type import Type
 
@@ -49,7 +48,7 @@ class OpenedWrongBracketError(BracketMismatchError):
 
 @dataclass
 class ParseError(CompilerError):
-    nt: NT
+    nt: str
     expected: List
     got: Token
 

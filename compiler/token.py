@@ -16,6 +16,9 @@ class Token:
         if not isinstance(self.type, Type):
             self.type = Type.to_type(self.type)
 
+    def match(self, other_type: Type) -> bool:
+        return self.type == other_type
+
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, Token):
             return False

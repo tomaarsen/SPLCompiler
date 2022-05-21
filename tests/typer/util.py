@@ -1,4 +1,4 @@
-from compiler.parser import Parser
+from compiler.parser.parser import Parser
 from compiler.scanner import Scanner
 from compiler.tree.tree import Node
 from compiler.typer import Typer

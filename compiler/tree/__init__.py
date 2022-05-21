@@ -1,4 +1,4 @@
-from compiler.tree.factory import (  # isort:skip
+from compiler.parser.factory import (  # isort:skip
     BasicFactory,
     BasicTypeFactory,
     ColonFactory,

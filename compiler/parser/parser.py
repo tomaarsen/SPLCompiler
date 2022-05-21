@@ -1,14 +1,17 @@
+import os
 from dataclasses import dataclass
 from typing import List
 
 from compiler.error.communicator import Communicator
 from compiler.error.typer_error import GlobalFunctionCallError
-from compiler.grammar import ALLOW_EMPTY, Grammar
-from compiler.grammar_parser import NT
+from compiler.parser.factory import DefaultFactory
 from compiler.token import Token
 from compiler.tree.visitor import Boolean, NodeTransformer, NodeVisitor
 from compiler.type import Type
 from compiler.util import Span
+from parser_generator.generator import NT
+from parser_generator.grammar import Grammar
+from parser_generator.parser import GrammarParser
 
 from compiler.error.warning import (  # isort:skip
     DeadCodeRemovalWarning,
@@ -25,7 +28,32 @@ from compiler.tree.tree import (  # isort:skip
     StmtNode,
     WhileNode,
 )
-
+from compiler.parser.factory import (  # isort:skip
+    BasicFactory,
+    BasicTypeFactory,
+    ColonFactory,
+    CommaFactory,
+    DefaultFactory,
+    ExpFactory,
+    ExpPrimeFactory,
+    FieldFactory,
+    ForFactory,
+    FunCallFactory,
+    FunDeclFactory,
+    FunTypeFactory,
+    IndexFactory,
+    ListAbbrFactory,
+    RetTypeFactory,
+    IfElseFactory,
+    ReturnFactory,
+    SPLFactory,
+    StmtAssFactory,
+    StmtFactory,
+    TypeFactory,
+    UnaryFactory,
+    VarDeclFactory,
+    WhileFactory,
+)
 from compiler.error.parser_error import (  # isort:skip
     ClosedWrongBracketError,
     OpenedWrongBracketError,
@@ -33,6 +61,30 @@ from compiler.error.parser_error import (  # isort:skip
     ParserException,
     UnclosedBracketError,
     UnopenedBracketError,
+)
+
+
+# Allow a non-terminal of this type to be raised as
+# an exception, but only if the production was at least partially matched
+ALLOW_ERROR_NONEMPTY = (
+    "Return",
+    "IfElse",
+    "While",
+    "For",
+    "StmtAss",
+    "ListAbbr",
+)
+
+# Allow a non-terminal of this type to be raised as
+# an exception, even if none of the production was matched
+ALLOW_ERROR_EMPTY = (
+    "VarDecl",
+    "FunDecl",
+    "RetType",
+    "FunType",
+    "FArgs",
+    "Stmt",
+    "ActArgs",
 )
 
 
@@ -57,17 +109,120 @@ class Parser:
         # At this stage we should no longer have bracket errors
         Communicator.communicate(ParserException)
 
-        grammar = Grammar(tokens)
-        tree = grammar.parse(nt=NT.SPL)
+        # Set up grammar using parser generator
+        terminal_mapping = {
+            "(": Type.LRB,
+            ")": Type.RRB,
+            "{": Type.LCB,
+            "}": Type.RCB,
+            "[": Type.LSB,
+            "]": Type.RSB,
+            ";": Type.SEMICOLON,
+            "::": Type.DOUBLE_COLON,
+            "->": Type.ARROW,
+            ",": Type.COMMA,
+            "..": Type.DDOT,
+            "+": Type.PLUS,
+            "-": Type.MINUS,
+            "*": Type.STAR,
+            "/": Type.SLASH,
+            "^": Type.POWER,
+            "%": Type.PERCENT,
+            "==": Type.DEQUALS,
+            "<=": Type.LEQ,
+            ">=": Type.GEQ,
+            "<": Type.LT,
+            ">": Type.GT,
+            "!=": Type.NEQ,
+            "=": Type.EQ,
+            "&&": Type.AND,
+            "||": Type.OR,
+            ":": Type.COLON,
+            "!": Type.NOT,
+            ".hd": Type.HD,
+            ".tl": Type.TL,
+            ".fst": Type.FST,
+            ".snd": Type.SND,
+            "if": Type.IF,
+            "else": Type.ELSE,
+            "while": Type.WHILE,
+            "for": Type.FOR,
+            "in": Type.IN,
+            "return": Type.RETURN,
+            "Void": Type.VOID,
+            "Int": Type.INT,
+            "Bool": Type.BOOL,
+            "Char": Type.CHAR,
+            "False": Type.FALSE,
+            "True": Type.TRUE,
+            "var": Type.VAR,
+            "id": Type.ID,
+            "int": Type.DIGIT,
+            "char": Type.CHARACTER,
+            " ": Type.SPACE,
+        }
+        # Get mappings of non-terminals to functions to generate nodes
+        non_terminal_factory_mapping = {
+            "SPL": SPLFactory().build,
+            "VarDecl": VarDeclFactory().build,
+            "FunDecl": FunDeclFactory().build,
+            "RetType": RetTypeFactory().build,
+            "FunType": FunTypeFactory().build,
+            "Type": TypeFactory().build,
+            "BasicType": BasicTypeFactory().build,
+            "FArgs": CommaFactory().build,
+            "Stmt": StmtFactory().build,
+            "StmtAss": StmtAssFactory().build,
+            "IfElse": IfElseFactory().build,
+            "While": WhileFactory().build,
+            "For": ForFactory().build,
+            "Return": ReturnFactory().build,
+            "Exp": ExpFactory().build,
+            "Or'": ExpPrimeFactory().build,
+            "And": ExpFactory().build,
+            "And'": ExpPrimeFactory().build,
+            "Eq": ExpFactory().build,
+            "Eq'": ExpPrimeFactory().build,
+            "Leq": ExpFactory().build,
+            "Leq'": ExpPrimeFactory().build,
+            "Sum": ExpFactory().build,
+            "Sum'": ExpPrimeFactory().build,
+            "Fact": ExpFactory().build,
+            "Fact'": ExpPrimeFactory().build,
+            "Colon": ColonFactory().build,
+            "Unary": UnaryFactory().build,
+            "Basic": BasicFactory().build,
+            "Field": FieldFactory().build,
+            "Index": IndexFactory().build,
+            "ListAbbr": ListAbbrFactory().build,
+            "FunCall": FunCallFactory().build,
+            "ActArgs": CommaFactory().build,
+        }
+        default_factory = DefaultFactory().build
+        error_non_terminals = (*ALLOW_ERROR_NONEMPTY, *ALLOW_ERROR_EMPTY)
+        grammar_file = os.path.join(os.path.dirname(__file__), "grammar.txt")
+        grammar = Grammar(
+            "",
+            grammar_file,
+            terminal_mapping,
+            start_non_terminal="SPL",
+            non_terminal_factory_mapping=non_terminal_factory_mapping,
+            non_terminal_default_factory=default_factory,
+            error_non_terminals=error_non_terminals,
+        )
+        output = grammar.parse(tokens)
+        tree = output["tree"]
+        done = output["done"]
+        potential_errors = output["potential_errors"]
         # If the tokens were not parsed in full, look at the most likely errors
         # Remove everything that didn't reach the end, and then take the last potential error
-        if not grammar.done:
-            max_end = max(error.end for error in grammar.potential_errors)
+        if not done:
+            max_end = max(error.end for error in potential_errors)
             potential_errors = [
                 error
-                for error in grammar.potential_errors
+                for error in potential_errors
                 if error.end == max_end
-                and (error.end > error.start or error.nt in ALLOW_EMPTY)
+                and (error.end > error.start or error.nt in ALLOW_ERROR_EMPTY)
             ]
             # Extract the ParseErrorSpan instance
             error = potential_errors[-1]
@@ -82,7 +237,7 @@ class Parser:
             sameline = False
             # Get a span of the error tokens, if possible
             if error_tokens:
-                error_tokens_span = error_tokens[0].span and error_tokens[-1].span
+                error_tokens_span = error_tokens[0].span & error_tokens[-1].span
                 if got and got.span.start_ln == error_tokens_span.end_ln:
                     sameline = True
             elif got:

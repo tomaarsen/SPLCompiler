@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 
 from compiler.error.communicator import Communicator, ErrorRaiser
-from compiler.grammar_parser import NT
 from compiler.util import Span
 
 
@@ -37,34 +36,36 @@ class CompilerError:
     @property
     def str_nt(self) -> str:
         match self.nt:
-            case NT.Return:
+            case "Return":
                 return "a return statement"
-            case NT.IfElse:
+            case "IfElse":
                 return "an if-else statement"
-            case NT.While:
+            case "While":
                 return "a while loop"
-            case NT.StmtAss:
+            case "StmtAss":
                 return "an assignment"
-            case NT.VarDecl:
+            case "VarDecl":
                 return "a variable declaration"
-            case NT.FunDecl:
+            case "FunDecl":
                 return "a function declaration"
-            case NT.RetType:
+            case "RetType":
                 return "a return type"
-            case NT.FunType:
+            case "FunType":
                 return "a function type"
-            case NT.FArgs:
+            case "FArgs":
                 return "function arguments"
-            case NT.Stmt:
+            case "Stmt":
                 return "a statement"
-            case NT.ActArgs:
+            case "ActArgs":
                 return "a function-call"
-            case NT.ListAbbr:
+            case "ListAbbr":
                 return "a list abbreviation"
-            case NT.For:
+            case "For":
                 return "a for loop"
             case _:
-                return ""
+                raise Exception(
+                    f"Attempted to print out {self.nt!r} as extended string, but no such format exists."
+                )
 
 
 # General compiler errors from which we cannot recover

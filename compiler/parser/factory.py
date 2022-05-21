@@ -37,47 +37,43 @@ from compiler.tree.tree import (  # isort:skip
 
 @dataclass
 class NodeFactory:
-    c: List[Node | Token] = field(kw_only=True, default_factory=list)
+    children: List[Node | Token] = field(kw_only=True, default_factory=list)
 
     def __len__(self):
-        return len(self.c)
+        return len(self.children)
 
     def __bool__(self) -> bool:
         return True
 
-    def add_children(self, children: List[Node] | Node) -> None:
-        try:
-            self.c.extend(children)
-        except TypeError:
-            self.c.append(children)
-
     @property
     def span(self):
-        if len(self.c) == 0:
+        if len(self.children) == 0:
             return Span(0, (0, 0))
-        if len(self.c) == 1:
-            return self.c[0].span
-        return self.c[0].span & self.c[-1].span
+        if len(self.children) == 1:
+            return self.children[0].span
+        return self.children[0].span & self.children[-1].span
 
-    def build(self):
-        raise NotImplementedError()
+    def build(self, children):
+        self.children = children
 
 
 class VarDeclFactory(NodeFactory):
-    def build(self):
-        assert len(self.c) == 5  # nosec
+    def build(self, children):
+        super().build(children)
+        assert len(children) == 5  # nosec
 
-        return VarDeclNode(self.c[0], self.c[1], self.c[3], span=self.span)
+        return VarDeclNode(children[0], children[1], children[3], span=self.span)
 
 
 class FunDeclFactory(NodeFactory):
-    def build(self):
-        func = self.c[0]
+    def build(self, children):
+        super().build(children)
+        func = children[0]
         args = None
         fun_type = None
         var_decl = []
         stmt = []
-        for child in self.c:
+        for child in children:
             match child:
                 case CommaListNode():
                     args = child
@@ -97,13 +93,15 @@ class FunDeclFactory(NodeFactory):
 
 
 class FieldFactory(NodeFactory):
-    def build(self):
-        return FieldNode(self.c, span=self.span)
+    def build(self, children):
+        super().build(children)
+        return FieldNode(children, span=self.span)
 
 
 class IndexFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [
                 Token(type=Type.LSB),
                 _ as exp,
@@ -114,33 +112,36 @@ class IndexFactory(NodeFactory):
 
 
 class CommaFactory(NodeFactory):
-    def build(self):
-        items = [self.c[0]] + [_id for comma, _id in self.c[1:]]
+    def build(self, children):
+        super().build(children)
+        items = [children[0]] + [_id for comma, _id in children[1:]]
         span = items[0].span & items[-1].span
         return CommaListNode(items, span=span)
 
 
 class ExpFactory(NodeFactory):
-    def build(self):
-        if len(self.c) == 2:
-            node = self.c[1]
-            node.assign_left(self.c[0])
+    def build(self, children):
+        super().build(children)
+        if len(children) == 2:
+            node = children[1]
+            node.assign_left(children[0])
             return node
-        elif len(self.c) == 1:
-            return self.c[0]
+        elif len(children) == 1:
+            return children[0]
         raise Exception()
 
 
 class ExpPrimeFactory(NodeFactory):
-    def build(self):
-        if len(self.c) == 2:
+    def build(self, children):
+        super().build(children)
+        if len(children) == 2:
             return Op2Node(
-                left=None, operator=self.c[0], right=self.c[1], span=self.span
+                left=None, operator=children[0], right=children[1], span=self.span
             )
-        if len(self.c) == 3:
-            op2 = self.c[2]
+        if len(children) == 3:
+            op2 = children[2]
             inner = Op2Node(
-                left=None, operator=self.c[0], right=self.c[1], span=self.span
+                left=None, operator=children[0], right=children[1], span=self.span
             )
             op2.assign_left(inner)
             return op2
@@ -148,8 +149,9 @@ class ExpPrimeFactory(NodeFactory):
 
 
 class ColonFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [_ as basic]:
                 return basic
             case [_ as left, Token(type=Type.COLON) as operator, _ as right]:
@@ -158,8 +160,9 @@ class ColonFactory(NodeFactory):
 
 
 class UnaryFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             # ( ( '!' | '-' ) Unary )
             case [_ as operator, _ as operand]:
                 return Op1Node(operator, operand, span=self.span)
@@ -170,8 +173,9 @@ class UnaryFactory(NodeFactory):
 
 
 class StmtAssFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [
                 Token(type=Type.ID) as _id,
                 _ as field,
@@ -193,8 +197,9 @@ class StmtAssFactory(NodeFactory):
 
 
 class BasicFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             # Tuple ( left , right )
             case [
                 Token(type=Type.LRB),
@@ -203,23 +208,24 @@ class BasicFactory(NodeFactory):
                 _,
                 Token(type=Type.RRB),
             ]:
-                return TupleNode(self.c[1], self.c[3], span=self.span)
+                return TupleNode(children[1], children[3], span=self.span)
             # Bracket ( exp )
             case [Token(type=Type.LRB), _, Token(type=Type.RRB)]:
-                return self.c[1]
+                return children[1]
             # Empty list [ ]
             case [Token(type=Type.LSB), Token(type=Type.RSB)]:
                 return ListNode(None, span=self.span)
             case [Token(type=Type.ID) as _id, FieldNode() as field]:
                 return VariableNode(_id, field, span=self.span)
             case [_]:
-                return self.c[0]
+                return children[0]
         raise Exception()
 
 
 class FunCallFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [
                 Token(type=Type.ID) as func,
                 Token(type=Type.LRB),
@@ -237,18 +243,19 @@ class FunCallFactory(NodeFactory):
 
 
 class IfElseFactory(NodeFactory):
-    def build(self):
+    def build(self, children):
+        super().build(children)
         # 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ]
-        cond = self.c[2]
+        cond = children[2]
         body = []
-        for i in range(5, len(self.c)):
-            node = self.c[i]
+        for i in range(5, len(children)):
+            node = children[i]
             if isinstance(node, StmtNode):
                 body.append(node)
             else:
                 break
         else_body = []
-        match self.c[i + 1 :]:
+        match children[i + 1 :]:
             case [
                 Token(type=Type.ELSE),
                 Token(type=Type.LCB),
@@ -261,10 +268,11 @@ class IfElseFactory(NodeFactory):
 
 
 class WhileFactory(NodeFactory):
-    def build(self):
-        cond = self.c[2]
+    def build(self, children):
+        super().build(children)
+        cond = children[2]
         body = []
-        for node in self.c[5:]:
+        for node in children[5:]:
             if isinstance(node, StmtNode):
                 body.append(node)
             else:
@@ -273,8 +281,9 @@ class WhileFactory(NodeFactory):
 
 
 class ForFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [
                 Token(type=Type.FOR),
                 Token(type=Type.ID) as _id,
@@ -292,16 +301,17 @@ class TypeFactory(NodeFactory):
 
     POLY_CACHE = {}
 
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [Token()]:
                 # Fill the POLY_CACHE with a mapping to poly types,
                 # make a new Polymorphic type node if no cached poly node exists for this token
                 return TypeFactory.POLY_CACHE.setdefault(
-                    self.c[0].text, PolymorphicTypeNode(self.c[0], span=self.span)
+                    children[0].text, PolymorphicTypeNode(children[0], span=self.span)
                 )
             case [IntTypeNode() | BoolTypeNode() | CharTypeNode()]:
-                return self.c[0]
+                return children[0]
             case [Token(type=Type.LSB), _ as _type, Token(type=Type.RSB)]:
                 return ListNode(_type, span=self.span)
             case [
@@ -320,9 +330,10 @@ class TypeFactory(NodeFactory):
 
 
 class BasicTypeFactory(NodeFactory):
-    def build(self):
-        assert len(self.c) == 1  # nosec
-        match self.c[0]:
+    def build(self, children):
+        super().build(children)
+        assert len(children) == 1  # nosec
+        match children[0]:
             case Token(type=Type.INT):
                 return IntTypeNode(span=self.span)
             case Token(type=Type.BOOL):
@@ -333,44 +344,50 @@ class BasicTypeFactory(NodeFactory):
 
 
 class SPLFactory(NodeFactory):
-    def build(self):
-        if len(self.c) == 1 and isinstance(self.c[0], SPLNode):
-            return self.c[0]
-        return SPLNode(self.c, span=self.span)
+    def build(self, children):
+        super().build(children)
+        if len(children) == 1 and isinstance(children[0], SPLNode):
+            return children[0]
+        return SPLNode(children, span=self.span)
 
 
 class FunTypeFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [*types, Token(type=Type.ARROW), _ as ret_type]:
                 return FunTypeNode(types, ret_type, span=self.span)
         raise Exception()
 
 
 class RetTypeFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [Token(type=Type.VOID)]:
                 return VoidTypeNode(span=self.span)
             case [_]:
-                return self.c[0]
+                return children[0]
         raise Exception()
 
 
 class StmtFactory(NodeFactory):
-    def build(self):
-        return StmtNode(self.c[0], span=self.span)
+    def build(self, children):
+        super().build(children)
+        return StmtNode(children[0], span=self.span)
 
 
 class SingleFactory(NodeFactory):
-    def build(self):
-        assert len(self.c) == 1  # nosec
-        return self.c[0]
+    def build(self, children):
+        super().build(children)
+        assert len(children) == 1  # nosec
+        return children[0]
 
 
 class ReturnFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [Token(type=Type.RETURN), _ as body, Token(type=Type.SEMICOLON)]:
                 return ReturnNode(body, span=self.span)
             case [Token(type=Type.RETURN), Token(type=Type.SEMICOLON)]:
@@ -379,8 +396,9 @@ class ReturnFactory(NodeFactory):
 
 
 class ListAbbrFactory(NodeFactory):
-    def build(self):
-        match self.c:
+    def build(self, children):
+        super().build(children)
+        match children:
             case [
                 Token(type=Type.LSB),
                 _ as lower,
@@ -393,7 +411,8 @@ class ListAbbrFactory(NodeFactory):
 
 
 class DefaultFactory(NodeFactory):
-    def build(self):
-        if len(self.c) == 1:
-            return self.c[0]
-        return self.c
+    def build(self, children):
+        super().build(children)
+        if len(children) == 1:
+            return children[0]
+        return children
