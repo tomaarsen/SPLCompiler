@@ -4,7 +4,7 @@ import pytest
 
 from compiler.error.parser_error import ParserException
 from compiler.parser.parser import Parser
-from compiler.scanner import Scanner
+from compiler.scanner.scanner import Scanner
 from compiler.tree.tree import SPLNode
 from compiler.util import Span
 from tests.test_util import open_file

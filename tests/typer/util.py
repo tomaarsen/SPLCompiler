@@ -1,7 +1,7 @@
 from compiler.parser.parser import Parser
-from compiler.scanner import Scanner
+from compiler.scanner.scanner import Scanner
 from compiler.tree.tree import Node
-from compiler.typer import Typer
+from compiler.typer.typer import Typer
 from tests.test_util import open_file
 
 
