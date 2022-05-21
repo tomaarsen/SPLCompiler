@@ -2,13 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from prolog_test_compiler.type import Type
+from example_parser.type import Type
 
 
 @dataclass
 class Token:
     text: str
     type: Type = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.type, Type):
+            self.type = Type.to_type(self.type)
 
     def match(self, other_type: Type) -> bool:
         return self.type == other_type

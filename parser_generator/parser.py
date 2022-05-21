@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from pprint import pprint
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, TypeVar
 
-from compiler.type import Type
 from parser_generator.generator import Opt, Or, Plus, Quantifier, Star
 from parser_generator.type_vars import NT, L, N, T
 
@@ -70,7 +69,6 @@ class GrammarParser:
         for tok_type in tok_types:
             if self.current and self.current.match(tok_type):
                 try:
-                    # print("matched", self.current)
                     return self.current
                 finally:
                     self.i += 1
@@ -90,7 +88,7 @@ class GrammarParser:
         initial = self.i
 
         if production is None:
-            production = [nt]
+            production = self.grammar[nt]
 
         factory = self.non_terminal_factory_mapping.get(
             nt, self.non_terminal_default_factory
@@ -100,12 +98,7 @@ class GrammarParser:
             for error in self.potential_errors:
                 if error.active:
                     if error.end < self.i:
-                        # if error.nt == "Stmt":
-                        #     print(self.i, i, nt, production)
                         error.end = self.i
-                        # if error.nt == "Stmt":
-                        #     breakpoint()
-                        # print(error, error.remaining)
                         if (
                             len(error.remaining) == 1
                             and isinstance(error.remaining[0], Or)
@@ -127,7 +120,6 @@ class GrammarParser:
                             break
                         self.reset(initial)
                     else:
-                        # breakpoint()
                         # If no alternative resulted in anything
                         return None
 
@@ -149,8 +141,6 @@ class GrammarParser:
                         self.add_children(arguments, match)
 
                 case obj if obj in self.leaves:
-                    # if segment == Type.SEMICOLON:
-                    #     breakpoint()
                     match = self.match_type(segment)
                     if match is not None:
                         self.add_children(arguments, match)

@@ -346,8 +346,6 @@ class BasicTypeFactory(NodeFactory):
 class SPLFactory(NodeFactory):
     def build(self, children):
         super().build(children)
-        if len(children) == 1 and isinstance(children[0], SPLNode):
-            return children[0]
         return SPLNode(children, span=self.span)
 
 

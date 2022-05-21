@@ -1,6 +1,5 @@
-sentence    ::=  stat_part
-stat_part   ::=  statement | ( stat_part statement )
-statement   ::=  'id' '=' expression ';'
+sentence    ::=  ( statement ( '\n' | '\r' )+ )*
+statement   ::=  'id' '<-' '$' '(' expression ')' ';'
 expression  ::=  operand expression'
 expression' ::=  [ operator operand expression' ]
 operand     ::=  'id' | 'digit'
