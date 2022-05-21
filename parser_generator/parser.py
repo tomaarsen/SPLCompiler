@@ -72,7 +72,6 @@ class GrammarParser:
                     return self.current
                 finally:
                     self.i += 1
-                break
         return None
 
     def reset(self, initial) -> None:
