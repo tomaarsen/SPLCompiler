@@ -11,17 +11,32 @@ from tests.test_util import open_file
 program = open_file("data/global_vars.spl")
 
 program = r"""
-main(){
-    var b = [1..5] : [6..10] : [11..15] : [];
-    println(b);
-    println(b[1]);
-    println(b.tl[1].hd);
-    println(b.tl[0][3]);
+cond_print(x){
+    var a = 12;
+    if (x < a){
+        if (x > 5){
+            print(x);
+            print(" is larger than 5, but smaller than ");
+            println(a);
+        }
+        else{
+            print(x);
+            print(" is smaller or equal to 5, and smaller than ");
+            println(a);
+        }
+    }
+    else{
+        print(x);
+        print(" is smaller or equal to ");
+        println(a);
+    }
+}
 
-    b[0][2] = 8;
-    b[1][0] = 12;
-    b[2][4] = 24;
-    println(b);
+main(){
+    cond_print(12);
+    cond_print(10);
+    cond_print(4);
+    cond_print(24);
 }
 """
 
@@ -48,15 +63,8 @@ print("=" * 25)
 print("Program execution output:")
 print("=" * 25)
 
-tempfile_path = Path("ssm", "temp.ssm")
-with open(tempfile_path, "w") as f:
-    f.write(ssm_code)
-out = subprocess.check_output(
-    ["java", "-jar", "ssm.jar", "--cli", "--file", tempfile_path.name],
-    # ["java", "-jar", "ssm.jar", "--guidelay", "1", "--file", tempfile_path.name],
-    cwd="ssm",
-)
-print(out.decode())
+out = generator.run(ssm_code, gui=False)
+print(out)
 # print("(0 is False, -1 is True)")
 # 0 is False
 # -1 is True

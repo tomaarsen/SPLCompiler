@@ -1,4 +1,6 @@
+import subprocess  # nosec
 from dataclasses import dataclass, field
+from pathlib import Path
 from pprint import pprint
 from re import U
 from typing import Iterator, List, Tuple
@@ -54,6 +56,21 @@ class Generator:
             str(line) for line in self.generator_yielder.visit(self.tree)
         )
         return ssm_code
+
+    def run(self, ssm_code: str, gui: bool = False) -> str:
+        tempfile_path = Path("ssm", "temp.ssm")
+        with open(tempfile_path, "w") as f:
+            f.write(ssm_code)
+        params = (
+            ["java", "-jar", "ssm.jar", "--guidelay", "1", "--file", tempfile_path.name]
+            if gui
+            else ["java", "-jar", "ssm.jar", "--cli", "--file", tempfile_path.name]
+        )
+        out = subprocess.check_output(  # nosec
+            params,
+            cwd="ssm",
+        ).decode()
+        return "".join(out.rsplit("\r\nmachine halted\r\n", 1))
 
 
 def set_variable(var: Variable, value):
@@ -692,6 +709,7 @@ class GeneratorYielder(YieldVisitor):
                             -1 if field.type == Type.FST else 0,
                             comment=str(field),
                         )
+
                 case Token(type=Type.HD):
                     # SP points to the variable on which we are applying the .hd/.tl
                     yield Line(Instruction.BSR, "_head")
@@ -704,6 +722,10 @@ class GeneratorYielder(YieldVisitor):
                     # if get_addr is True
                     if exp_type and not get_addr:
                         exp_type.set(exp_type.var.body)
+                    # If we're assigning, then for the last iteration we want the address
+                    # instead of the value. In all other cases, get the value still
+                    if not get_addr or i != len(node.fields):
+                        yield Line(Instruction.LDA, 0)
 
                 case Token(type=Type.TL):
                     yield Line(Instruction.BSR, "_tail")

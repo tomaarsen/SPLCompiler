@@ -277,8 +277,9 @@ STD_LIB_LIST = {
         Line(Instruction.LDL, -2),
         # Get next*
         Line(Instruction.LDA, 0),
-        # Yield value
-        Line(Instruction.LDA, -1),
+        # Yield address that stores value
+        Line(Instruction.LDC, -1),
+        Line(Instruction.ADD),
         # Store in RR
         Line(Instruction.STR, "RR"),
         # Clean-up
