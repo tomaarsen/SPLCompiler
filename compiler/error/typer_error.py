@@ -134,15 +134,6 @@ class FunCallUnifyErrorFactory(UnificationError):
 
 
 @dataclass
-class CharacterToBoolErrorFactory(UnificationError):
-    fun_call: FunCallNode
-
-    def __str__(self) -> str:
-        before = f"Unable to convert type {str(self.type_two)!r} to type {str(BoolTypeNode())!r} in the function call to {str(self.fun_call.func)!r} on {self.fun_call.args.span.lines_str}."
-        return self.create_error(before, self.fun_call.args.span)
-
-
-@dataclass
 class FieldUnifyErrorFactory(UnificationError):
     var: VariableNode
 

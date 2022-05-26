@@ -197,10 +197,9 @@ class GeneratorYielder(YieldVisitor):
         yield Line(Instruction.LINK, 0)
         yield Line(Instruction.LDL, -2)  # Load argument
         match var_type:
-            case IntTypeNode() | CharTypeNode():
+            case IntTypeNode():
                 # No changes needed
                 yield from []
-
             case PolymorphicTypeNode() | ListNode(body=None):
                 # Polymorphic type node must be the empty list
                 yield Line(Instruction.LDC, 0)
@@ -213,8 +212,8 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.LDR, "RR")
                 yield Line(Instruction.NOT)
 
-            case TupleNode():
-                # Always true, since a tuple cannot be empty in SPL
+            case TupleNode() | CharTypeNode():
+                # Always true, since a tuples and characters cannot be empty in SPL
                 yield Line(Instruction.LDC, -1)
 
             case _:
