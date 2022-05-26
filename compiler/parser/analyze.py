@@ -112,9 +112,9 @@ class ReturnTransformer(NodeTransformer):
         return node
 
     def visit_Token(
-        self, node: Token, reachable: Boolean, in_loop=False, **kwargs
+        self, node: Token, reachable: Boolean = None, in_loop=False, **kwargs
     ) -> Token:
-        if node.type == Type.CONTINUE and not in_loop:
+        if node.type in (Type.CONTINUE, Type.BREAK) and not in_loop:
             IllegalContinueBreakError(self.program, node)
         return node
 

@@ -19,6 +19,7 @@ Stmt      ::= IfElse
             | ( FunCall ';' )
             | Return
             | ( 'continue' ';' )
+            | ( 'break' ';' )
 StmtAss   ::= 'id' [ Field ] '=' Exp ';'
 IfElse    ::= 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ]
 For       ::= 'for' 'id' 'in' Exp '{' Stmt* '}'

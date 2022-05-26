@@ -156,3 +156,37 @@ def test_UnclosedBracketError():
         and "'{'" in str(excinfo.value)
         and "-> 1. " in str(excinfo.value)
     )
+
+
+def test_continue():
+    program = """
+    main(){
+        Int x = 12;
+        continue;
+        print(x);
+    }
+    """
+    scanner = Scanner(program)
+    tokens = scanner.scan()
+
+    parser = Parser(program)
+    with pytest.raises(ParserException) as excinfo:
+        parser.parse(tokens)
+    assert "'continue'" in str(excinfo.value) and "-> 4. " in str(excinfo.value)
+
+
+def test_break():
+    program = """
+    main(){
+        Int x = 12;
+        break;
+        print(x);
+    }
+    """
+    scanner = Scanner(program)
+    tokens = scanner.scan()
+
+    parser = Parser(program)
+    with pytest.raises(ParserException) as excinfo:
+        parser.parse(tokens)
+    assert "'break'" in str(excinfo.value) and "-> 4. " in str(excinfo.value)

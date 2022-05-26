@@ -78,6 +78,7 @@ class Scanner:
                 (?P<TRUE>\bTrue\b)|
                 (?P<VAR>\bvar\b)|
                 (?P<CONTINUE>)\bcontinue\b|
+                (?P<BREAK>)\bbreak\b|
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
                 (?P<STRING>)\"(?:[ -~]*)\"|

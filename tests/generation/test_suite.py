@@ -116,3 +116,32 @@ def test_continue():
     expected = "< 2\n< 2\n3\n4\n5\n\n> 10\n> 10\n10\n9\n8\n7\n"
     output = execute(program)
     assert output.splitlines() == expected.splitlines()
+
+
+def test_break():
+    program = r"""
+    main(){
+        int x = 13;
+
+        for i in [1..5]{
+            if (i > 3){
+                println("> 3");
+                break;
+            }
+            println(i);
+        }
+
+        print('\n');
+
+        while (x > 7){
+            x = x - 1;
+            if (x < 10){
+                println("< 10");
+                break;
+            }
+            println(x);
+        }
+    }"""
+    expected = "1\n2\n3\n> 3\n\n12\n11\n10\n< 10\n"
+    output = execute(program)
+    assert output.splitlines() == expected.splitlines()

@@ -135,7 +135,7 @@ class Typer:
     ) -> Node:
         match tree:
 
-            case Token(type=Type.CONTINUE):
+            case Token(type=Type.CONTINUE) | Token(type=Type.BREAK):
                 return []
 
             case Token(type=Type.DIGIT):

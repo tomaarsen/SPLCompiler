@@ -544,7 +544,8 @@ class GeneratorYielder(YieldVisitor):
         yield from self.visit(node.loop, *args, exp_type=exp_type, **kwargs)
 
         loop_label = f"ForLoop{self.for_counter}"
-        end_label = f"ForEnd{self.for_counter}"
+        end_label = f"ForEndLink{self.for_counter}"
+        true_end_label = f"ForEnd{self.for_counter}"
 
         # Store the variable as a local variable
         self.variables["local"][node.id] = exp_type.var.body
@@ -586,7 +587,7 @@ class GeneratorYielder(YieldVisitor):
 
         # Unlink and remove the list length and pointer for this for loop
         yield Line(Instruction.UNLINK, label=end_label)
-        yield Line(Instruction.AJS, -2)
+        yield Line(Instruction.AJS, -2, label=true_end_label)
 
         self.for_counter += 1
         del self.variables["local"][node.id]
@@ -1484,6 +1485,13 @@ class GeneratorYielder(YieldVisitor):
                     label = f"ForLoop{self.for_counter}"
                 elif loop_type == "while":
                     label = f"WhileCond{self.while_counter}"
+                yield Line(Instruction.BRA, label)
+
+            case Token(type=Type.BREAK):
+                if loop_type == "for":
+                    label = f"ForEnd{self.for_counter}"
+                elif loop_type == "while":
+                    label = f"WhileEnd{self.while_counter}"
                 yield Line(Instruction.BRA, label)
 
             case _:

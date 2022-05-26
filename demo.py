@@ -11,32 +11,27 @@ from tests.test_util import open_file
 program = open_file("data/global_vars.spl")
 
 program = r"""
-cond_print(x){
-    var a = 12;
-    if (x < a){
-        if (x > 5){
-            print(x);
-            print(" is larger than 5, but smaller than ");
-            println(a);
-        }
-        else{
-            print(x);
-            print(" is smaller or equal to 5, and smaller than ");
-            println(a);
-        }
-    }
-    else{
-        print(x);
-        print(" is smaller or equal to ");
-        println(a);
-    }
-}
-
 main(){
-    cond_print(12);
-    cond_print(10);
-    cond_print(4);
-    cond_print(24);
+    int x = 13;
+
+    for i in [1..5]{
+        if (i > 3){
+            println("> 3");
+            break;
+        }
+        println(i);
+    }
+
+    print('\n');
+
+    while (x > 7){
+        x = x - 1;
+        if (x < 10){
+            println("< 10");
+            break;
+        }
+        println(x);
+    }
 }
 """
 

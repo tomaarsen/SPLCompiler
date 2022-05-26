@@ -52,6 +52,7 @@ class Type(Enum):
     TRUE = "True"
     VAR = "var"
     CONTINUE = "continue"
+    BREAK = "break"
     ID = auto()
     DIGIT = auto()
     CHARACTER = auto()

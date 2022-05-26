@@ -225,8 +225,9 @@ class Printer(YieldVisitor):
 
     def visit_StmtNode(self, node: StmtNode, **kwargs) -> Iterator[Token]:
         yield from self.visit(node.stmt)
-        if isinstance(node.stmt, FunCallNode):
-            yield Token(";", Type.SEMICOLON)
+        match node.stmt:
+            case FunCallNode() | Token(type=Type.CONTINUE) | Token(type=Type.BREAK):
+                yield Token(";", Type.SEMICOLON)
 
     def visit_FunTypeNode(self, node: FunTypeNode, **kwargs) -> Iterator[Token]:
         for _type in node.types:
