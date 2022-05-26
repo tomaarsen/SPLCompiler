@@ -350,6 +350,15 @@ class GlobalFunctionCallError(TypeNodeError):
 
 
 @dataclass
+class IllegalContinueBreakError(TypeNodeError):
+    token: Token
+
+    def __str__(self) -> str:
+        before = f"'{self.token.text}' may only occur within a while or for-loop."
+        return self.create_error(before, self.token.span)
+
+
+@dataclass
 class VoidAssignmentError(TypeNodeError):
     var_decl: VarDeclNode
 

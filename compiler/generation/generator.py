@@ -518,14 +518,14 @@ class GeneratorYielder(YieldVisitor):
         end_label = f"IfEnd{self.if_else_counter}"
         self.if_else_counter += 1
         # Condition
-        yield from self.visit(node.cond)
+        yield from self.visit(node.cond, *args, **kwargs)
         if node.else_body:
             # Jump over the else body, if the condition is true
             yield Line(Instruction.BRT, then_label)
             # Execute the else branch
             yield Line(label=else_label)
             for stmt in node.else_body:
-                yield from self.visit(stmt)
+                yield from self.visit(stmt, *args, **kwargs)
             # Jump over body
             yield Line(Instruction.BRA, end_label)
         else:
@@ -534,7 +534,7 @@ class GeneratorYielder(YieldVisitor):
 
         yield Line(label=then_label)
         for stmt in node.body:
-            yield from self.visit(stmt)
+            yield from self.visit(stmt, *args, **kwargs)
         yield Line(label=end_label)
 
     def visit_ForNode(self, node: ForNode, *args, exp_type=None, **kwargs):
@@ -545,7 +545,6 @@ class GeneratorYielder(YieldVisitor):
 
         loop_label = f"ForLoop{self.for_counter}"
         end_label = f"ForEnd{self.for_counter}"
-        self.for_counter += 1
 
         # Store the variable as a local variable
         self.variables["local"][node.id] = exp_type.var.body
@@ -580,7 +579,7 @@ class GeneratorYielder(YieldVisitor):
 
         # Run loop body:
         for stmt in node.body:
-            yield from self.visit(stmt, *args, **kwargs)
+            yield from self.visit(stmt, *args, loop_type="for", **kwargs)
 
         # Continue the loop
         yield Line(Instruction.BRA, loop_label)
@@ -589,26 +588,27 @@ class GeneratorYielder(YieldVisitor):
         yield Line(Instruction.UNLINK, label=end_label)
         yield Line(Instruction.AJS, -2)
 
+        self.for_counter += 1
         del self.variables["local"][node.id]
 
     def visit_WhileNode(self, node: WhileNode, *args, **kwargs):
         condition_label = f"WhileCond{self.while_counter}"
         body_label = f"WhileBody{self.while_counter}"
         end_label = f"WhileEnd{self.while_counter}"
-        self.while_counter += 1
 
         # Condition
         yield Line(label=condition_label)
-        yield from self.visit(node.cond)
+        yield from self.visit(node.cond, *args, **kwargs)
         # Jump over while body if condition is false
         yield Line(Instruction.BRF, end_label)
         # While body
         yield Line(label=body_label)
         for stmt in node.body:
-            yield from self.visit(stmt)
+            yield from self.visit(stmt, *args, loop_type="while", **kwargs)
         # Jump back to condition
         yield Line(Instruction.BRA, condition_label)
         yield Line(label=end_label)
+        self.while_counter += 1
 
     def visit_StmtAssNode(self, node: StmtAssNode, *args, exp_type=None, **kwargs):
         exp_type = Variable(None)
@@ -1420,7 +1420,7 @@ class GeneratorYielder(YieldVisitor):
 
         set_variable(exp_type, ListNode(left_exp_type.var))
 
-    def visit_Token(self, node: Token, *args, exp_type=None, **kwargs):
+    def visit_Token(self, node: Token, *args, exp_type=None, loop_type="", **kwargs):
         match node:
             case Token(type=Type.TRUE):
                 # True is encoded as -1
@@ -1478,6 +1478,13 @@ class GeneratorYielder(YieldVisitor):
                 character = character.encode().decode("unicode_escape")
                 set_variable(exp_type, CharTypeNode())
                 yield Line(Instruction.LDC, ord(character), comment=str(node))
+
+            case Token(type=Type.CONTINUE):
+                if loop_type == "for":
+                    label = f"ForLoop{self.for_counter}"
+                elif loop_type == "while":
+                    label = f"WhileCond{self.while_counter}"
+                yield Line(Instruction.BRA, label)
 
             case _:
                 raise NotImplementedError(repr(node))

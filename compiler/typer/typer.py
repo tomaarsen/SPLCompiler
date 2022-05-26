@@ -135,12 +135,16 @@ class Typer:
     ) -> Node:
         match tree:
 
+            case Token(type=Type.CONTINUE):
+                return []
+
             case Token(type=Type.DIGIT):
                 # If tree is e.g. `12`:
                 return self.unify(exp_type, IntTypeNode(span=tree.span), error_factory)
 
             case Token(type=Type.TRUE) | Token(type=Type.FALSE):
                 return self.unify(exp_type, BoolTypeNode(span=tree.span), error_factory)
+
             case Token(type=Type.CHARACTER):
                 return self.unify(exp_type, CharTypeNode(span=tree.span), error_factory)
 

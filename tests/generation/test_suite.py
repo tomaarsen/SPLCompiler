@@ -57,19 +57,19 @@ def test_if_else():
         if (x < a){
             if (x > 5){
                 print(x);
-                println("x is larger than 5, but smaller than a");
-                print(a);
+                print(" is larger than 5, but smaller than ");
+                println(a);
             }
             else{
                 print(x);
-                println("x is smaller or equal to 5, and smaller than a");
-                print(a);
+                print(" is smaller or equal to 5, and smaller than ");
+                println(a);
             }
         }
         else{
             print(x);
-            println(" is greater or equal to ");
-            print(a);
+            print(" is greater or equal to ");
+            println(a);
         }
     }
 
@@ -80,3 +80,39 @@ def test_if_else():
         cond_print(24);
     }
     """
+    expected = """\
+12 is greater or equal to 12
+10 is larger than 5, but smaller than 12
+4 is smaller or equal to 5, and smaller than 12
+24 is greater or equal to 12"""
+    output = execute(program)
+    assert output.splitlines() == expected.splitlines()
+
+
+def test_continue():
+    program = r"""
+    main(){
+        int x = 13;
+
+        for i in [1..5]{
+            if (i <= 2){
+                println("< 2");
+                continue;
+            }
+            println(i);
+        }
+
+        print('\n');
+
+        while (x > 7){
+            x = x - 1;
+            if (x > 10){
+                println("> 10");
+                continue;
+            }
+            println(x);
+        }
+    }"""
+    expected = "< 2\n< 2\n3\n4\n5\n\n> 10\n> 10\n10\n9\n8\n7\n"
+    output = execute(program)
+    assert output.splitlines() == expected.splitlines()
