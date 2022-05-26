@@ -99,6 +99,10 @@ class Typer:
             "isEmpty": FunTypeNode(
                 [ListNode(PolymorphicTypeNode.fresh())], BoolTypeNode()
             ),
+            "get_Int": FunTypeNode([], IntTypeNode()),
+            "get_Chr": FunTypeNode([], CharTypeNode()),
+            "get_Str": FunTypeNode([], ListNode(CharTypeNode())),
+            "exit": FunTypeNode([], ListNode(VoidTypeNode())),
             "length": FunTypeNode(
                 [ListNode(PolymorphicTypeNode.fresh())], IntTypeNode()
             ),
@@ -138,7 +142,6 @@ class Typer:
 
             case Token(type=Type.TRUE) | Token(type=Type.FALSE):
                 return self.unify(exp_type, BoolTypeNode(span=tree.span), error_factory)
-
             case Token(type=Type.CHARACTER):
                 return self.unify(exp_type, CharTypeNode(span=tree.span), error_factory)
 

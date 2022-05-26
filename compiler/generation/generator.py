@@ -446,13 +446,42 @@ class GeneratorYielder(YieldVisitor):
         if node.func.text == "isEmpty":
             self.include_function.add("_is_empty")
             yield Line(Instruction.BSR, "_is_empty")
+            yield Line(Instruction.AJS, -1)
             yield Line(Instruction.LDR, "RR")
             set_variable(exp_type, node.type.ret_type)
         elif node.func.text == "length":
             self.include_function.add("_length")
             yield Line(Instruction.BSR, "_length")
+            yield Line(Instruction.AJS, -1)
             yield Line(Instruction.LDR, "RR")
             set_variable(exp_type, node.type.ret_type)
+        elif node.func.text == "get_Int":
+            yield Line(Instruction.TRAP, 10)
+            set_variable(exp_type, node.type.ret_type)
+        elif node.func.text == "get_Chr":
+            yield Line(Instruction.TRAP, 11)
+            set_variable(exp_type, node.type.ret_type)
+        elif node.func.text == "get_Str":
+            self.functions.append({"name": "_ListAbbr", "type": []})
+            self.include_function |= {
+                "_get_Str",
+                "_prepend_element",
+                "_index",
+                "_length",
+                "_reverse_List_Char",
+            }
+            # Get the input
+            yield Line(Instruction.BSR, "_get_Str")
+            yield Line(Instruction.AJS, -1)
+            yield Line(Instruction.LDR, "RR")
+            # Reverse the list
+            yield Line(Instruction.BSR, "_reverse_List_Char")
+            yield Line(Instruction.AJS, -1)
+            yield Line(Instruction.LDR, "RR")
+
+            set_variable(exp_type, node.type.ret_type)
+        elif node.func.text == "exit":
+            yield Line(Instruction.HALT)
         elif node.func.text == "println":
             self.functions.append({"name": "print", "type": arg_types})
             label = "print" + self.types_to_label(arg_types)
