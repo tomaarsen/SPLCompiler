@@ -79,3 +79,10 @@ class InsertedReturnWarning(Warning):
     def __str__(self) -> str:
         before = f"Added an empty return statement at the end of function {str(self.function.id)!r}."
         return self.create_message(self.function.id.span, before)
+
+
+@dataclass
+class NoMainFunctionWarning(Warning):
+    def __str__(self) -> str:
+        before = "No main function found. The given program will not execute."
+        return self.create_message(Span(-1, (0, -1)), before)

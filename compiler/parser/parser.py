@@ -17,6 +17,7 @@ from parser_generator.parser import GrammarParser
 from compiler.error.warning import (  # isort:skip
     DeadCodeRemovalWarning,
     InsertedReturnWarning,
+    NoMainFunctionWarning,
 )
 
 from compiler.tree.tree import (  # isort:skip
@@ -270,6 +271,9 @@ class Parser:
         transformer = AnalyzeTransformer(self.og_program)
         transformer.visit(tree)
 
+        # Ensure that there is a main function, else give a warning
+        self.check_main_function(tree.body)
+
         # Ensure that global variable declarations do not call functions
         # transformer = GlobalVisitor(self.og_program)
         # transformer.visit(tree)
@@ -277,6 +281,13 @@ class Parser:
         Communicator.communicate(ParserException)
 
         return tree
+
+    def check_main_function(self, body):
+        for decl in body:
+            if isinstance(decl, FunDeclNode) and decl.id.text == "main":
+                return
+        # At this point we have not found a main function
+        NoMainFunctionWarning(self.og_program)
 
     def match_parentheses(self, tokens: List[Token]) -> None:
         right_to_left = {
