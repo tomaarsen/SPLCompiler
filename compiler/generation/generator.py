@@ -134,7 +134,8 @@ class GeneratorYielder(YieldVisitor):
         fun_decls = {
             node.id.text: node for node in node.body if isinstance(node, FunDeclNode)
         }
-        yield from self.visit(fun_decls["main"], *args, **kwargs)
+        if "main" in fun_decls:
+            yield from self.visit(fun_decls["main"], *args, **kwargs)
         yield Line(Instruction.HALT)
 
         implemented = {"main"}
