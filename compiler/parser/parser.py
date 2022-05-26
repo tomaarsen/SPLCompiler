@@ -159,6 +159,7 @@ class Parser:
             "id": Type.ID,
             "int": Type.DIGIT,
             "char": Type.CHARACTER,
+            "continue": Type.CONTINUE,
             " ": Type.SPACE,
         }
         # Get mappings of non-terminals to functions to generate nodes

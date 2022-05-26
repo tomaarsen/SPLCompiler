@@ -51,6 +51,7 @@ class Type(Enum):
     FALSE = "False"
     TRUE = "True"
     VAR = "var"
+    CONTINUE = "continue"
     ID = auto()
     DIGIT = auto()
     CHARACTER = auto()

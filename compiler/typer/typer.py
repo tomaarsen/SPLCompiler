@@ -142,7 +142,6 @@ class Typer:
 
             case Token(type=Type.TRUE) | Token(type=Type.FALSE):
                 return self.unify(exp_type, BoolTypeNode(span=tree.span), error_factory)
-
             case Token(type=Type.CHARACTER):
                 return self.unify(exp_type, CharTypeNode(span=tree.span), error_factory)
 
