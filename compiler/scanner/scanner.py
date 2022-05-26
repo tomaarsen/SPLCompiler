@@ -82,6 +82,7 @@ class Scanner:
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
                 (?P<STRING>)\"(?:[ -~]*)\"|
+                (?P<STRING_LONELY_ERROR>)\"|
                 (?P<CHARACTER_SLASH_ERROR>\'\\\')|
                 (?P<CHARACTER>)\'(?:\\a|\\b|\\n|\\r|\\t|\\\\|[ -~])\'|
                 (?P<QUOTE_EMPTY_ERROR>\'\')|
@@ -126,6 +127,8 @@ class Scanner:
                     LonelyQuoteError(self.og_program, span)
                 case "QUOTE_EMPTY_ERROR":
                     EmptyQuoteError(self.og_program, span)
+                case "STRING_LONELY_ERROR":
+                    LonelyQuoteError(self.og_program, span)
                 case "CHARACTER_SLASH_ERROR":
                     # TODO
                     raise Exception("Cannot use '\\'")
