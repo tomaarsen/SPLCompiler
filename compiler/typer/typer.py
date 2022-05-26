@@ -99,6 +99,10 @@ class Typer:
             "isEmpty": FunTypeNode(
                 [ListNode(PolymorphicTypeNode.fresh())], BoolTypeNode()
             ),
+            "get_Int": FunTypeNode([], IntTypeNode()),
+            "get_Chr": FunTypeNode([], CharTypeNode()),
+            "get_Str": FunTypeNode([], ListNode(CharTypeNode())),
+            "exit": FunTypeNode([], ListNode(VoidTypeNode())),
             "length": FunTypeNode(
                 [ListNode(PolymorphicTypeNode.fresh())], IntTypeNode()
             ),
