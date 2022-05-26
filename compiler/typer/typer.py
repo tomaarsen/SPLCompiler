@@ -560,10 +560,10 @@ class Typer:
                     return []
 
                 # Place in tree & global context
-                tree.type = expr_exp_type
                 var_context[tree.id.text] = expr_exp_type
                 var_context = self.apply_trans_context(trans, var_context)
                 fun_context = self.apply_trans_context(trans, fun_context)
+                tree.type = var_context[tree.id.text]
 
                 return trans
 
