@@ -68,7 +68,7 @@ def test_if_else():
         }
         else{
             print(x);
-            println(" is smaller or equal to ");
+            println(" is greater or equal to ");
             print(a);
         }
     }
