@@ -34,6 +34,7 @@ class Type(Enum):
     NOT = "!"
     QUOTE_EMPTY_ERROR = "''"
     QUOTE_LONELY_ERROR = "'"
+    STRING_LONELY_ERROR = '"'
     HD = ".hd"
     TL = ".tl"
     FST = ".fst"

@@ -37,9 +37,12 @@ LEFT_ATTACHED_TOKENS = {
     Type.LSB,  # [
     Type.NOT,  # !
     Type.DDOT,  # ..
+    Type.STRING,  # Useful for printing strings without additional spaces
+    Type.COLON,
 }
 
 RIGHT_ATTACHED_TOKENS = {
+    Type.COLON,
     Type.RRB,  # )
     Type.RSB,  # ]
     Type.COMMA,
@@ -179,24 +182,38 @@ class Printer(YieldVisitor):
         yield Token("]", Type.RSB)
 
     def visit_Op2Node(
-        self, node: Op2Node, previous_precedence: int = None, **kwargs
+        self, node: Op2Node, previous_precedence: int = None, first=True, **kwargs
     ) -> Iterator[Token]:
-        precedence = operator_precedence[node.operator.type]
-        if previous_precedence and (
-            precedence > previous_precedence
-            and node.operator.type not in right_associative
-            or precedence <= previous_precedence
-            and node.operator.type in right_associative
-        ):
-            yield Token("(", Type.LRB)
-            yield from self.visit(node.left, previous_precedence=precedence)
-            yield node.operator
-            yield from self.visit(node.right, previous_precedence=precedence)
-            yield Token(")", Type.RRB)
-        else:
-            yield from self.visit(node.left, previous_precedence=precedence)
-            yield node.operator
-            yield from self.visit(node.right, previous_precedence=precedence)
+
+        match node.left:
+            case Token(type=Type.CHARACTER):
+                if first:
+                    yield Token('"', Type.STRING)
+                yield Token(node.left.text[1:-1], Type.STRING)
+                if not isinstance(node.right, ListNode):
+                    yield from self.visit(node.right, first=False, **kwargs)
+                if first:
+                    # As opposed to STRING, STRING_LONELY_ERROR is not left attached
+                    # which allows a space after the string is over
+                    yield Token('"', Type.STRING_LONELY_ERROR)
+
+            case _:
+                precedence = operator_precedence[node.operator.type]
+                if previous_precedence and (
+                    precedence > previous_precedence
+                    and node.operator.type not in right_associative
+                    or precedence <= previous_precedence
+                    and node.operator.type in right_associative
+                ):
+                    yield Token("(", Type.LRB)
+                    yield from self.visit(node.left, previous_precedence=precedence)
+                    yield node.operator
+                    yield from self.visit(node.right, previous_precedence=precedence)
+                    yield Token(")", Type.RRB)
+                else:
+                    yield from self.visit(node.left, previous_precedence=precedence)
+                    yield node.operator
+                    yield from self.visit(node.right, previous_precedence=precedence)
 
     def visit_Op1Node(self, node: Op1Node, **kwargs) -> Iterator[Token]:
         if isinstance(node.operand, Op2Node):
