@@ -4,7 +4,7 @@ from typing import List
 
 from compiler.error.communicator import Communicator
 from compiler.error.typer_error import GlobalFunctionCallError
-from compiler.parser.analyze import ReturnTransformer
+from compiler.parser.analyze import AnalyzeTransformer
 from compiler.parser.factory import DefaultFactory
 from compiler.token import Token
 from compiler.tree.visitor import Boolean, NodeTransformer, NodeVisitor
@@ -161,6 +161,7 @@ class Parser:
             "int": Type.DIGIT,
             "char": Type.CHARACTER,
             "continue": Type.CONTINUE,
+            "string": Type.STRING,
             "break": Type.BREAK,
             " ": Type.SPACE,
         }
@@ -266,7 +267,7 @@ class Parser:
             return tree
 
         # Prune tree to remove statements after `return`, and throw warning if there are any
-        transformer = ReturnTransformer(self.og_program)
+        transformer = AnalyzeTransformer(self.og_program)
         transformer.visit(tree)
 
         # Ensure that global variable declarations do not call functions

@@ -129,20 +129,6 @@ class Scanner:
                 case "CHARACTER_SLASH_ERROR":
                     # TODO
                     raise Exception("Cannot use '\\'")
-                case "STRING":
-                    # Strip off " at the start and end
-                    string = match.group()[1:-1]
-                    if string:
-                        # Remove duplicate escaping, i.e. '\\n' -> '\n'
-                        string = string.encode().decode("unicode_escape")
-                        for char in string:
-                            # TODO: Should these have different spans?
-                            tokens.append(Token(f"'{char}'", Type.CHARACTER, span))
-                            tokens.append(Token(":", Type.COLON, span))
-                        tokens.append(Token("[", Type.LSB, span))
-                        tokens.append(Token("]", Type.RSB, span))
-
-                    continue
 
             tokens.append(Token(match[0], match.lastgroup, span))
         return tokens

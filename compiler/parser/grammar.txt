@@ -39,7 +39,16 @@ Sum'      ::= ( '+' | '-' ) Fact [ Sum' ]
 Fact      ::= Unary [ Fact' ]
 Fact'     ::= ( '*' | '/' | '%' ) Unary [ Fact' ]
 Unary     ::= ( ( '!' | '-' ) Unary ) | Basic
-Basic     ::= ( '(' Exp [ ',' Exp ] ')' ) | 'int' | 'char' | 'False' | 'True' | FunCall | ( '[' ']' ) | ListAbbr | ( 'id' [ Field ] )
+Basic     ::= ( '(' Exp [ ',' Exp ] ')' )
+            | 'int'
+            | 'char'
+            | 'string'
+            | 'False'
+            | 'True'
+            | FunCall
+            | ( '[' ']' )
+            | ListAbbr
+            | ( 'id' [ Field ] )
 ListAbbr  ::= '[' Exp '..' Exp ']'
 Field     ::= ( '.hd' | '.tl' | '.fst' | '.snd' | Index )+
 Index     ::= '[' Exp ']'

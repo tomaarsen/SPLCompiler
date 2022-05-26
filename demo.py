@@ -12,26 +12,8 @@ program = open_file("data/global_vars.spl")
 
 program = r"""
 main(){
-    int x = 13;
-
-    for i in [1..5]{
-        if (i > 3){
-            println("> 3");
-            break;
-        }
-        println(i);
-    }
-
-    print('\n');
-
-    while (x > 7){
-        x = x - 1;
-        if (x < 10){
-            println("< 10");
-            break;
-        }
-        println(x);
-    }
+    Var a = "hello\nthere";
+    print(a);
 }
 """
 

@@ -21,6 +21,8 @@ from compiler.tree.tree import (  # isort:skip
     FunCallNode,
     FunDeclNode,
     IfElseNode,
+    ListNode,
+    Op2Node,
     ReturnNode,
     StmtNode,
     WhileNode,
@@ -28,14 +30,16 @@ from compiler.tree.tree import (  # isort:skip
 
 
 @dataclass
-class ReturnTransformer(NodeTransformer):
+class AnalyzeTransformer(NodeTransformer):
     program: str
     """
     Perform two steps:
     1. Delete unreachable dead code after a return statement.
     2. Insert an ReturnNode after every function that does not end every branch with a return.
 
-    Additionally, verify that all uses of `continue` occur inside of a for or while loop
+    Additionally, verify that all uses of `continue` and `break` occur inside of a for or while loop.
+
+    Lastly, expand Strings into Op2Nodes of characters being added together
     """
 
     def traverse_statements(
@@ -51,6 +55,9 @@ class ReturnTransformer(NodeTransformer):
 
     def visit_FunDeclNode(self, node: FunDeclNode, **kwargs) -> FunDeclNode:
         reachable = Boolean(True)
+
+        for var_decl in node.var_decl:
+            self.visit_children(var_decl, None, **kwargs)
 
         self.traverse_statements(node.stmt, reachable, **kwargs)
 
@@ -116,6 +123,16 @@ class ReturnTransformer(NodeTransformer):
     ) -> Token:
         if node.type in (Type.CONTINUE, Type.BREAK) and not in_loop:
             IllegalContinueBreakError(self.program, node)
+        if node.type == Type.STRING:
+            # Strip off " at the start and end
+            string = node.text[1:-1]
+            # Remove duplicate escaping, i.e. '\\n' -> '\n'
+            string = string.encode().decode("unicode_escape")
+            right = ListNode(None, span=node.span)
+            for char in string[::-1]:
+                left = Token(f"'{char}'", Type.CHARACTER, span=node.span)
+                right = Op2Node(left, Token(":", Type.COLON, span=node.span), right)
+            return right
         return node
 
 

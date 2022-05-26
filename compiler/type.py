@@ -56,6 +56,7 @@ class Type(Enum):
     ID = auto()
     DIGIT = auto()
     CHARACTER = auto()
+    STRING = auto()
     SPACE = " "
     ERROR = auto()
 
