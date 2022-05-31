@@ -1,49 +1,50 @@
-import os
-import subprocess
-import tempfile
-from pathlib import Path
-from pprint import pprint
-
-from compiler import Parser, Scanner, Typer
-from compiler.generation.generator import Generator
+from compiler import Generator, Parser, Scanner, Typer
+from compiler.typer.typer import Typer
 from tests.test_util import open_file
 
-program = open_file("data/global_vars.spl")
+# Load a program string
+program = open_file("data/given/valid/bool.spl")
 
-program = r"""
+program = """
+xor(a, b) :: Bool Bool -> Bool {
+	return (a || b) && !(a && b);
+}
+
 main(){
-    Var a = "hello\nthere";
-    print(a);
+    var left = True;
+    var right = False;
+    print(xor(left, right));
+    return;
 }
 """
 
+# Perform scanning on the input program
 scanner = Scanner(program)
 tokens = scanner.scan()
 
+# Perform parsing on the scanned tokens
 parser = Parser(program)
 tree = parser.parse(tokens)
 
+# Perform typing on the AST
 typer = Typer(program)
-annotree = typer.type(tree)
+typer.type(tree)
 
+# Print out the typed tree
 print("=" * 25)
 print("Program:")
 print("=" * 25)
 print(tree)
-# '''
-# pprint(tree)
 
+# Generate the SSM Code
 generator = Generator(tree)
 ssm_code = generator.generate()
-# print(ssm_code)
+
+# Execute the SSM Code
+out = generator.run(ssm_code, gui=False)
+
+# Print out the final output
 print("=" * 25)
 print("Program execution output:")
 print("=" * 25)
-
-out = generator.run(ssm_code, gui=False)
 print(out)
-# print("(0 is False, -1 is True)")
-# 0 is False
-# -1 is True
-# '''
-# TODO: Disallow people making print or isEmpty as functions
