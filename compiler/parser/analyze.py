@@ -94,7 +94,8 @@ class AnalyzeTransformer(NodeTransformer):
         # Code after a for loop is always assumed to be reachable,
         # as we assume that the loop can be empty from the get-go.
         # So, we only traverse statements to potentially delete dead code after a return statement.
-        self.traverse_statements(node.body, reachable, in_loop=True, **kwargs)
+        kwargs["in_loop"] = True
+        self.traverse_statements(node.body, reachable, **kwargs)
         reachable.set(True)
         return node
 
@@ -104,7 +105,8 @@ class AnalyzeTransformer(NodeTransformer):
         # Code after a while statement is always assumed to be reachable,
         # as we assume that the condition can be False from the get-go.
         # So, we only traverse statements to potentially delete dead code after a return statement.
-        self.traverse_statements(node.body, reachable, in_loop=True, **kwargs)
+        kwargs["in_loop"] = True
+        self.traverse_statements(node.body, reachable, **kwargs)
         reachable.set(True)
         return node
 

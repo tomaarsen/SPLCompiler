@@ -547,6 +547,7 @@ class GeneratorYielder(YieldVisitor):
         loop_label = f"ForLoop{self.for_counter}"
         end_label = f"ForEndLink{self.for_counter}"
         true_end_label = f"ForEnd{self.for_counter}"
+        self.for_counter += 1
 
         # Store the variable as a local variable
         self.variables["local"][node.id] = exp_type.var.body
@@ -581,7 +582,8 @@ class GeneratorYielder(YieldVisitor):
 
         # Run loop body:
         for stmt in node.body:
-            yield from self.visit(stmt, *args, loop_type="for", **kwargs)
+            kwargs["loop_type"] = "for"
+            yield from self.visit(stmt, *args, **kwargs)
 
         # Continue the loop
         yield Line(Instruction.BRA, loop_label)
@@ -590,13 +592,13 @@ class GeneratorYielder(YieldVisitor):
         yield Line(Instruction.UNLINK, label=end_label)
         yield Line(Instruction.AJS, -2, label=true_end_label)
 
-        self.for_counter += 1
         del self.variables["local"][node.id]
 
     def visit_WhileNode(self, node: WhileNode, *args, **kwargs):
         condition_label = f"WhileCond{self.while_counter}"
         body_label = f"WhileBody{self.while_counter}"
         end_label = f"WhileEnd{self.while_counter}"
+        self.while_counter += 1
 
         # Condition
         yield Line(label=condition_label)
@@ -606,11 +608,11 @@ class GeneratorYielder(YieldVisitor):
         # While body
         yield Line(label=body_label)
         for stmt in node.body:
-            yield from self.visit(stmt, *args, loop_type="while", **kwargs)
+            kwargs["loop_type"] = "while"
+            yield from self.visit(stmt, *args, **kwargs)
         # Jump back to condition
         yield Line(Instruction.BRA, condition_label)
         yield Line(label=end_label)
-        self.while_counter += 1
 
     def visit_StmtAssNode(self, node: StmtAssNode, *args, exp_type=None, **kwargs):
         exp_type = Variable(None)
@@ -1483,16 +1485,16 @@ class GeneratorYielder(YieldVisitor):
 
             case Token(type=Type.CONTINUE):
                 if loop_type == "for":
-                    label = f"ForLoop{self.for_counter}"
+                    label = f"ForLoop{self.for_counter - 1}"
                 elif loop_type == "while":
-                    label = f"WhileCond{self.while_counter}"
+                    label = f"WhileCond{self.while_counter - 1}"
                 yield Line(Instruction.BRA, label)
 
             case Token(type=Type.BREAK):
                 if loop_type == "for":
-                    label = f"ForEnd{self.for_counter}"
+                    label = f"ForEnd{self.for_counter - 1}"
                 elif loop_type == "while":
-                    label = f"WhileEnd{self.while_counter}"
+                    label = f"WhileEnd{self.while_counter - 1}"
                 yield Line(Instruction.BRA, label)
 
             case _:
