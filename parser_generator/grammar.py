@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pprint import pprint
 from typing import Any, Callable, Dict, Iterable, List, Optional, TypeVar
 
@@ -18,7 +20,7 @@ class Grammar:
         # allow_error_empty: Iterable[NT] = None,
         # allow_error_nonempty: Iterable[NT] = None,
         error_non_terminals: Iterable[NT] = None,
-    ) -> GrammarParser:
+    ) -> Grammar:
         """
         Args:
             grammar_str (str): String depicting a Grammar file, mutually exclusive with
