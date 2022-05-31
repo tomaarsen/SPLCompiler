@@ -205,7 +205,6 @@ class GeneratorYielder(YieldVisitor):
 
         else:
             # Global variable definition
-            yield Line(Instruction.STH, comment=str(node))
             self.variables["global"][node.id] = exp_type.var
 
     def bool(self, var_types: TypeNode) -> Iterator[Line]:
@@ -661,8 +660,7 @@ class GeneratorYielder(YieldVisitor):
 
             # Load heap address, and then store the value there
             yield Line(Instruction.LDR, "R5", comment="Load Global Pointer (GP)")
-            yield Line(Instruction.LDA, offset, comment="Load Heap address")
-            yield Line(Instruction.STA, 0, comment=str(node))
+            yield Line(Instruction.STA, offset, comment=str(node))
             self.variables["global"][node.id.id] = exp_type.var
 
         else:
@@ -1462,8 +1460,7 @@ class GeneratorYielder(YieldVisitor):
                     yield Line(
                         Instruction.LDR, "R5", comment="Load Global Pointer (GP)"
                     )
-                    yield Line(Instruction.LDA, offset, comment="Load Heap address")
-                    yield Line(Instruction.LDH, 0, comment="Load Heap value")
+                    yield Line(Instruction.LDA, offset, comment=str(node))
 
                 else:
                     # TODO: Implement a backup error saying that there is no such variable,
