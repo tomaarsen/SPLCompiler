@@ -64,14 +64,9 @@ class Communicator:
                 final_line += f"   {padding}{i}. {line}"
             final_error_lines.append(final_line)
 
-        message = (
-            class_name
-            # __class__.__name__
-            + ": "
-            + before
-            + "\n"
-            + "\n".join(final_error_lines)
-        )
+        message = f"{class_name}: {before}"
+        if final_error_lines:
+            message += "\n" + "\n".join(final_error_lines)
         if after:
             message += "\n" + after
         return message
@@ -90,7 +85,7 @@ class Communicator:
                 omitting_multiple_warnings = len(WarningRaiser.WARNINGS) - 10 > 1
                 warnings += f"Showing 10 warnings, omitting {len(WarningRaiser.WARNINGS)-10} warning{'s' if omitting_multiple_warnings else ''}..."
             WarningRaiser.WARNINGS.clear()
-            print(warnings)
+            print(warnings, end="")
 
         errors = "".join(["\n\n" + str(error) for error in ErrorRaiser.ERRORS[:10]])
         if errors:
