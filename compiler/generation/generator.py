@@ -471,7 +471,6 @@ class GeneratorYielder(YieldVisitor):
             }
             # Get the input
             yield Line(Instruction.BSR, "_get_Str")
-            yield Line(Instruction.AJS, -1)
             yield Line(Instruction.LDR, "RR")
             # Reverse the list
             yield Line(Instruction.BSR, "_reverse_List_Char")
@@ -1118,8 +1117,13 @@ class GeneratorYielder(YieldVisitor):
         # Assumes the variable to be copied is on top of the stack
 
         label = "_deep_copy" + self.types_to_label([node])
+
+        # Clear RR
+        yield Line(Instruction.LDC, 0)
+        yield Line(Instruction.STR, "RR")
         match node:
             case ListNode(body=ListNode()):
+
                 yield Line(label=label)
                 yield Line(Instruction.LINK, 0)
                 # Top of stack in subroutine is:
@@ -1224,6 +1228,23 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.BRF, f"_store_loop_{label}")
                 # End the loop, and return the reference to the new list
                 yield Line(label=f"_return_new_list_{label}")
+
+                # If RR is empty, create a new empty list, otherwise return the RR
+                yield Line(Instruction.LDR, "RR")
+                yield Line(Instruction.LDC, 0)
+                yield Line(Instruction.EQ)
+                yield Line(Instruction.BRT, f"_return_empty_{label}")
+                # Clean-up
+                yield Line(Instruction.UNLINK)
+                # Replace the pointer with a new pointer
+                yield Line(Instruction.RET)
+
+                yield Line(label=f"_return_empty_{label}")
+                yield Line(Instruction.LDC, 0)  # Length
+                yield Line(Instruction.LDC, 0xBABE)  # Pointer
+                yield Line(Instruction.STMH, 2)  # Put on stack
+                yield Line(Instruction.STR, "RR")
+
                 # Clean-up
                 yield Line(Instruction.UNLINK)
                 # Replace the pointer with a new pointer
@@ -1321,6 +1342,22 @@ class GeneratorYielder(YieldVisitor):
                 yield Line(Instruction.BRF, f"_store_loop_{label}")
                 # End the loop, and return the reference to the new list
                 yield Line(label=f"_return_new_list_{label}")
+
+                # If RR is empty, create a new empty list, otherwise return the RR
+                yield Line(Instruction.LDR, "RR")
+                yield Line(Instruction.LDC, 0)
+                yield Line(Instruction.EQ)
+                yield Line(Instruction.BRT, f"_return_empty_{label}")
+                # Clean-up
+                yield Line(Instruction.UNLINK)
+                # Replace the pointer with a new pointer
+                yield Line(Instruction.RET)
+
+                yield Line(label=f"_return_empty_{label}")
+                yield Line(Instruction.LDC, 0)  # Length
+                yield Line(Instruction.LDC, 0xBABE)  # Pointer
+                yield Line(Instruction.STMH, 2)  # Put on stack
+                yield Line(Instruction.STR, "RR")
                 # Clean-up
                 yield Line(Instruction.UNLINK)
                 # Replace the pointer with a new pointer
