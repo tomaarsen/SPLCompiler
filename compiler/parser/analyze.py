@@ -69,11 +69,20 @@ class AnalyzeTransformer(NodeTransformer):
             node.stmt.append(StmtNode(ReturnNode(None, span=span), span=span))
             InsertedReturnWarning(self.program, node)
 
+        # Traverse to the other children too, but not for reachability analysis
+        self.visit(node.id, reachable, **kwargs)
+        if node.args:
+            self.visit(node.args, reachable, **kwargs)
+        if node.type:
+            self.visit(node.type, reachable, **kwargs)
+
         return node
 
     def visit_IfElseNode(
         self, node: IfElseNode, reachable: Boolean, **kwargs
     ) -> StmtNode:
+        # Traverse to condition too, but not for reachability analysis
+        self.visit(node.cond, reachable, **kwargs)
         if reachable:
             # Traverse the "then" branch to see if that side is reachable
             self.traverse_statements(node.body, reachable, **kwargs)
@@ -95,6 +104,8 @@ class AnalyzeTransformer(NodeTransformer):
         # as we assume that the loop can be empty from the get-go.
         # So, we only traverse statements to potentially delete dead code after a return statement.
         kwargs["in_loop"] = True
+        self.visit(node.id, reachable, **kwargs)
+        self.visit(node.loop, reachable, **kwargs)
         self.traverse_statements(node.body, reachable, **kwargs)
         reachable.set(True)
         return node
@@ -106,6 +117,9 @@ class AnalyzeTransformer(NodeTransformer):
         # as we assume that the condition can be False from the get-go.
         # So, we only traverse statements to potentially delete dead code after a return statement.
         kwargs["in_loop"] = True
+        self.visit(
+            node.cond, reachable, **kwargs
+        )  # Traverse to condition too, but not for reachability analysis
         self.traverse_statements(node.body, reachable, **kwargs)
         reachable.set(True)
         return node
