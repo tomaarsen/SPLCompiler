@@ -81,7 +81,7 @@ class Scanner:
                 (?P<BREAK>)\bbreak\b|
                 (?P<ID>\b[a-zA-Z]\w*)|
                 (?P<DIGIT>\d+\b)|
-                (?P<STRING>)\"(?:[ -~]*)\"|
+                (?P<STRING>)\"(?:[ -~]*?)\"|
                 (?P<STRING_LONELY_ERROR>)\"|
                 (?P<CHARACTER_SLASH_ERROR>\'\\\')|
                 (?P<CHARACTER>)\'(?:\\a|\\b|\\n|\\r|\\t|\\\\|[ -~])\'|
