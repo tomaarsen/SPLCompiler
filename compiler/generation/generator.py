@@ -1,5 +1,6 @@
 import subprocess  # nosec
 from dataclasses import dataclass, field
+from itertools import groupby
 from pathlib import Path
 from pprint import pprint
 from re import U
@@ -729,12 +730,63 @@ class GeneratorYielder(YieldVisitor):
                         yield Line(Instruction.LDA, 0)
 
                 case Token(type=Type.TL):
-                    yield Line(Instruction.BSR, "_tail")
-                    self.include_function.add("_tail")
-                    yield Line(
-                        Instruction.AJS, -1
-                    )  # Clear up address of which tail was gotten
-                    yield Line(Instruction.LDR, "RR")
+                    # We are assigning
+                    if get_addr and i == len(node.fields):
+                        yield Line(Instruction.LINK, 0)
+                        # Load new value:
+                        yield Line(Instruction.LDL, -2)
+                        yield Line(Instruction.LDA, 0)
+
+                        # Load address to replace value
+                        yield Line(Instruction.LDL, -1)
+                        yield Line(Instruction.LDA, 0)
+
+                        # Set new value:
+                        yield Line(Instruction.STA, 0)
+
+                        # At this point, the value has been set, and we need to update the length of the list we are assigning to
+                        length_of_remaining_list = [
+                            sum(
+                                1 if isinstance(x, Token) and x.text == ".tl" else 0
+                                for x in group
+                            )
+                            for _, group in groupby(node.fields)
+                        ][-1]
+                        # Compute new length:
+                        yield Line(Instruction.LDL, -2)
+                        yield Line(Instruction.LDA, -1)
+                        yield Line(Instruction.LDC, length_of_remaining_list)
+                        yield Line(Instruction.ADD)
+
+                        # Start to assign length
+                        yield Line(Instruction.LDL, -3)
+                        # Based on the number of heads, we need to iterate through the nested lists
+                        num_of_heads = sum(
+                            [
+                                1
+                                if isinstance(field, Token) and field.text == ".hd"
+                                else 0
+                                for field in node.fields
+                            ]
+                        )
+                        for _ in range(0, num_of_heads):
+                            yield Line(Instruction.LDA, 0)
+                            yield Line(Instruction.LDA, -1)
+                        # Set the length
+                        yield Line(Instruction.STA, -1)
+                        # Clean-up
+                        yield Line(Instruction.UNLINK)
+                        yield Line(Instruction.AJS, -1)
+
+                        if exp_type:
+                            exp_type.set(exp_type.var.body)
+                    else:
+                        yield Line(Instruction.BSR, "_tail")
+                        self.include_function.add("_tail")
+                        yield Line(
+                            Instruction.AJS, -1
+                        )  # Clear up address of which tail was gotten
+                        yield Line(Instruction.LDR, "RR")
 
                 case IndexNode():
                     # Discard length and take only list pointer
