@@ -1,5 +1,4 @@
 from compiler import Generator, Parser, Scanner, Typer
-from compiler.typer.typer import Typer
 from tests.test_util import open_file
 
 # Load a program string,
