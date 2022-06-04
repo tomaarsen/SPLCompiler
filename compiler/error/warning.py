@@ -86,3 +86,12 @@ class NoMainFunctionWarning(Warning):
     def __str__(self) -> str:
         before = "No main function found. The given program will not execute."
         return self.create_message(Span(-1, (0, -1)), before)
+
+
+@dataclass
+class MainCallWarning(Warning):
+    function: FunCallNode
+
+    def __str__(self) -> str:
+        before = "The function 'main' should not be called."
+        return self.create_message(self.function.span, before)

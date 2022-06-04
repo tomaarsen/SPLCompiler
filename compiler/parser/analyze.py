@@ -14,6 +14,7 @@ from compiler.error.typer_error import (  # isort:skip
 from compiler.error.warning import (  # isort:skip
     DeadCodeRemovalWarning,
     InsertedReturnWarning,
+    MainCallWarning,
 )
 
 from compiler.tree.tree import (  # isort:skip
@@ -36,6 +37,7 @@ class AnalyzeTransformer(NodeTransformer):
     Perform two steps:
     1. Delete unreachable dead code after a return statement.
     2. Insert an ReturnNode after every function that does not end every branch with a return.
+    3. Give a warning if the main function is called.
 
     Additionally, verify that all uses of `continue` and `break` occur inside of a for or while loop.
 
@@ -52,6 +54,11 @@ class AnalyzeTransformer(NodeTransformer):
                     DeadCodeRemovalWarning(self.program, stmts[i - 1], stmts[i:])
                     del stmts[i:]
                 break
+
+    def visit_FunCallNode(self, node: FunCallNode, **kwargs) -> FunCallNode:
+        if isinstance(node.func, Token) and node.func.text == "main":
+            MainCallWarning(self.program, node)
+        return node
 
     def visit_FunDeclNode(self, node: FunDeclNode, **kwargs) -> FunDeclNode:
         reachable = Boolean(True)
