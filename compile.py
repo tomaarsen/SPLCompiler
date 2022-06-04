@@ -2,19 +2,12 @@ from compiler import Generator, Parser, Scanner, Typer
 from compiler.typer.typer import Typer
 from tests.test_util import open_file
 
-# Load a program string
+# Load a program string,
 program = open_file("data/given/valid/bool.spl")
-
-program = """
-xor(a, b) :: Bool Bool -> Bool {
-	return (a || b) && !(a && b);
-}
-
+# or define a program manually
+program = r"""
 main(){
-    var left = True;
-    var right = False;
-    print(xor(left, right));
-    return;
+
 }
 """
 
