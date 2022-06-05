@@ -55,9 +55,12 @@ class AnalyzeTransformer(NodeTransformer):
                     del stmts[i:]
                 break
 
-    def visit_FunCallNode(self, node: FunCallNode, **kwargs) -> FunCallNode:
+    def visit_FunCallNode(
+        self, node: FunCallNode, reachable: Boolean, **kwargs
+    ) -> FunCallNode:
         if isinstance(node.func, Token) and node.func.text == "main":
             MainCallWarning(self.program, node)
+        self.visit_children(node, reachable, **kwargs)
         return node
 
     def visit_FunDeclNode(self, node: FunDeclNode, **kwargs) -> FunDeclNode:

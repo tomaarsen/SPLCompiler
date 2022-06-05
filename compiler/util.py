@@ -37,6 +37,10 @@ class Span:
             return f"lines [{self.start_ln}-{self.end_ln}]"
         return f"line [{self.start_ln}]"
 
+    @classmethod
+    def default(cls):
+        return cls(-1, (0, -1))
+
     def __init__(self, line_no: int | Tuple[int, int], span: Tuple[int, int]) -> None:
         if isinstance(line_no, int):
             self.ln = (line_no, line_no)

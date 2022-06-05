@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import KW_ONLY, dataclass, field
 
 from compiler.error.communicator import Communicator, ErrorRaiser
 from compiler.util import Span
@@ -68,11 +68,17 @@ class CompilerError:
                 )
 
 
+@dataclass
 class UnrecoverableError(CompilerError):
+    error_message: str
+    _: KW_ONLY
+    program: str = field(default="")
+    span: Span = field(default_factory=Span.default)
+
     def __str__(self) -> str:
         return self.error_message
 
     # Add the error to the list, and immediately raise it
     def __post_init__(self) -> None:
         ErrorRaiser.ERRORS.append(self)
-        Communicator.communicate(self.stage)
+        Communicator.communicate(CompilerException)

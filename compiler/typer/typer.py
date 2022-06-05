@@ -874,7 +874,7 @@ class Typer:
 
                 return trans
 
-        UnrecoverableError(f"Node had no handler\n\n{tree}", TyperException)
+        UnrecoverableError(f"Node had no handler: {tree!r}")
 
     def apply_trans(
         self, node: TypeNode, trans: List[Tuple[PolymorphicTypeNode, TypeNode]]
