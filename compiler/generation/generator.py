@@ -12,7 +12,7 @@ from compiler.generation.std_lib import STD_LIB_LIST
 from compiler.generation.utils import ForCounterVisitor
 from compiler.token import Token
 from compiler.tree import Node
-from compiler.tree.visitor import Variable, YieldVisitor
+from compiler.tree.visitor import NodeYielder, Variable
 from compiler.type import Type
 
 from compiler.tree.tree import (  # isort:skip
@@ -79,7 +79,7 @@ def set_variable(var: Variable, value):
         var.set(value)
 
 
-class GeneratorYielder(YieldVisitor):
+class GeneratorYielder(NodeYielder):
     def __init__(self) -> None:
         super().__init__()
         self.variables = {

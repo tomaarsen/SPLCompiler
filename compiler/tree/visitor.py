@@ -60,7 +60,7 @@ class NodeTransformer(NodeVisitor):
         return node
 
 
-class YieldVisitor(NodeVisitor):
+class NodeYielder(NodeVisitor):
     """
     For yielding values from nodes in our AST
     """

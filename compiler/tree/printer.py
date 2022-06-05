@@ -2,7 +2,7 @@ from enum import Enum, auto
 from typing import Iterator
 
 from compiler.token import Token
-from compiler.tree.visitor import YieldVisitor
+from compiler.tree.visitor import NodeYielder
 from compiler.type import Type
 from compiler.util import operator_precedence, right_associative
 
@@ -66,7 +66,7 @@ class PrintingInfo(Enum):
 INDENT = " " * 4
 
 
-class Printer(YieldVisitor):
+class Printer(NodeYielder):
     def __init__(self) -> None:
         super().__init__()
         self.program = []
