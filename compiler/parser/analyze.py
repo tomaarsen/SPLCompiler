@@ -48,7 +48,7 @@ class AnalyzeTransformer(NodeTransformer):
         self, stmts: List[StmtNode], reachable: Boolean, **kwargs
     ) -> None:
         for i, stmt in enumerate(stmts, start=1):
-            self.visit_children(stmt, reachable=reachable, **kwargs)
+            self.visit_children(stmt, reachable, **kwargs)
             if not reachable:
                 if stmts[i:]:
                     DeadCodeRemovalWarning(self.program, stmts[i - 1], stmts[i:])
@@ -56,7 +56,7 @@ class AnalyzeTransformer(NodeTransformer):
                 break
 
     def visit_FunCallNode(
-        self, node: FunCallNode, reachable: Boolean, **kwargs
+        self, node: FunCallNode, reachable: Boolean = None, **kwargs
     ) -> FunCallNode:
         if isinstance(node.func, Token) and node.func.text == "main":
             MainCallWarning(self.program, node)
