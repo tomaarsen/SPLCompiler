@@ -68,18 +68,11 @@ class CompilerError:
                 )
 
 
-# General compiler errors from which we cannot recover
-@dataclass
-class CompilerStringError:
-    error_message: str
-    stage: CompilerException
+class UnrecoverableError(CompilerError):
+    def __str__(self) -> str:
+        return self.error_message
 
     # Add the error to the list, and immediately raise it
     def __post_init__(self) -> None:
         ErrorRaiser.ERRORS.append(self)
         Communicator.communicate(self.stage)
-
-
-class UnrecoverableError(CompilerError):
-    def __str__(self) -> str:
-        return self.error_message
