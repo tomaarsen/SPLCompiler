@@ -1,6 +1,7 @@
 
-# Use the Java image, for SSM tests
-image: openjdk
+# Official language image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/python/tags/
+image: python:latest
 
 # Change pip's cache directory to be inside the project directory since we can
 # only cache local items.
@@ -14,9 +15,6 @@ cache:
     - venv/
 
 before_script:
-  # Try to install Python on the java image
-  - apt-get update
-  - apt-get install -y --no-install-recommends python3.9
   - python --version  # For debugging
   - pip install virtualenv
   - virtualenv venv
@@ -32,7 +30,7 @@ test:
   script:
     - pip install -r requirements-dev.txt
     - python -m pytest --version # For debugging
-    - python -m pytest
+    - python -m pytest --ignore .\tests\generation\
   rules:
       # Only run test when commit is made to main branch
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
