@@ -1,6 +1,6 @@
 
 # Use the Java image, for SSM tests
-image: openjdk:alpine
+image: openjdk
 
 # Change pip's cache directory to be inside the project directory since we can
 # only cache local items.
