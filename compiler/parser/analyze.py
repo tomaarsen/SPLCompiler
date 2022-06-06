@@ -157,7 +157,9 @@ class AnalyzeTransformer(NodeTransformer):
             right = ListNode(None, span=node.span)
             for char in string[::-1]:
                 left = Token(f"'{char}'", Type.CHARACTER, span=node.span)
-                right = Op2Node(left, Token(":", Type.COLON, span=node.span), right)
+                right = Op2Node(
+                    left, Token(":", Type.COLON, span=node.span), right, span=node.span
+                )
             return right
         return node
 

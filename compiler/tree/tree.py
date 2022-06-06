@@ -11,7 +11,9 @@ from compiler.util import Span
 
 @dataclass
 class Node:
-    span: Span = field(repr=False, kw_only=True, compare=False, default=None)
+    span: Span = field(
+        repr=False, kw_only=True, compare=False, default_factory=Span.default
+    )
 
     def __str__(self) -> str:
         from compiler.tree.printer import Printer

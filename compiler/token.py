@@ -10,7 +10,7 @@ from compiler.util import Span
 class Token:
     text: str
     type: Type = field(repr=False)
-    span: Span = field(repr=False, default_factory=lambda: Span(-1, (0, -1)))
+    span: Span = field(repr=False, default_factory=Span.default)
 
     def __post_init__(self) -> None:
         if not isinstance(self.type, Type):
