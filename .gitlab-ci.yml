@@ -1,7 +1,6 @@
 
-# Official language image. Look for the different tagged releases at:
-# https://hub.docker.com/r/library/python/tags/
-image: python:latest
+# Use the Java image, for SSM tests
+image: openjdk:alpine
 
 # Change pip's cache directory to be inside the project directory since we can
 # only cache local items.
@@ -15,6 +14,9 @@ cache:
     - venv/
 
 before_script:
+  # Try to install Python on the java image
+  - apt-get update
+  - apt-get install -y --no-install-recommends python3.9
   - python --version  # For debugging
   - pip install virtualenv
   - virtualenv venv
@@ -27,10 +29,7 @@ format:
     - python -m black . --check --verbose --diff --color --target-version py310
 
 test:
-  image: openjdk:alpine
   script:
-    - apt-get update
-    - apt-get install -y --no-install-recommends python3.9
     - pip install -r requirements-dev.txt
     - python -m pytest --version # For debugging
     - python -m pytest
