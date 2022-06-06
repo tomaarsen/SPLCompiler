@@ -27,6 +27,7 @@ format:
     - python -m black . --check --verbose --diff --color --target-version py310
 
 test:
+  image: openjdk:alpine
   script:
     - pip install -r requirements-dev.txt
     - python -m pytest --version # For debugging
