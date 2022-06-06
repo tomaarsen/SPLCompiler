@@ -29,6 +29,8 @@ format:
 test:
   image: openjdk:alpine
   script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends python3.9
     - pip install -r requirements-dev.txt
     - python -m pytest --version # For debugging
     - python -m pytest
