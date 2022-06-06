@@ -415,6 +415,11 @@ class GeneratorYielder(NodeYielder):
                 yield Line(Instruction.LDC, 93, comment="Load ']'")
                 yield Line(Instruction.TRAP, 1, comment="Print ']'")
 
+            case None:
+                # NoneType has no printer. May only occur when printing
+                # the head of a polymorphic list.
+                pass
+
             case _:
                 raise NotImplementedError(
                     f"Printing {var_type} hasn't been implemented yet"
