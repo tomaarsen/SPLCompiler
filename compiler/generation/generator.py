@@ -82,6 +82,18 @@ def set_variable(var: Variable, value):
 class GeneratorYielder(NodeYielder):
     def __init__(self) -> None:
         super().__init__()
+        self.built_in_functions = {
+            "isEmpty",
+            "chr",
+            "ord",
+            "bool",
+            "length",
+            "print",
+            "println",
+            "get_Int",
+            "get_Chr",
+            "exit",
+        }
         self.variables = {
             "global": {},
             "arguments": {},
@@ -146,18 +158,20 @@ class GeneratorYielder(NodeYielder):
             types = function["type"]
             label = name + self.types_to_label(types)
             if label not in implemented:
-                if name == "print":
+                if name == "_print":
                     yield from self.print(types)
                 elif name == "_eq":
                     yield from self.eq(types[0])
-                elif name == "bool":
+                elif name == "_bool":
                     yield from self.bool(types)
                 elif name == "_ListAbbr":
                     yield from self.ListAbbr_func()
                 elif name == "_deepcopy":
                     yield from self.deep_copy(types[0])
                 else:
-                    fun_decl = fun_decls[name]
+                    fun_decl = fun_decls[
+                        name
+                    ]  # Remove the preceding underscore form the function name
                     yield from self.visit(fun_decl, *args, types=types, **kwargs)
             implemented.add(label)
 
@@ -210,7 +224,7 @@ class GeneratorYielder(NodeYielder):
 
     def bool(self, var_types: TypeNode) -> Iterator[Line]:
         var_type = var_types[0]
-        label = "bool" + self.types_to_label(var_types)
+        label = "_bool" + self.types_to_label(var_types)
         yield Line(label=label)
         yield Line(Instruction.LINK, 0)
         yield Line(Instruction.LDL, -2)  # Load argument
@@ -246,7 +260,7 @@ class GeneratorYielder(NodeYielder):
     def print(self, var_types: TypeNode) -> Iterator[Line]:
 
         var_type = var_types[0]
-        label = "print" + self.types_to_label(var_types)
+        label = "_print" + self.types_to_label(var_types)
         yield Line(label=label)
         yield Line(Instruction.LINK, 2 if isinstance(var_type, ListNode) else 0)
         yield Line(Instruction.LDL, -2)  # Load argument
@@ -307,9 +321,9 @@ class GeneratorYielder(NodeYielder):
                 # Update list pointer
                 yield Line(Instruction.STL, 2)
                 # Recursively print the value
-                self.functions.append({"name": "print", "type": [var_type.body]})
+                self.functions.append({"name": "_print", "type": [var_type.body]})
                 yield Line(
-                    Instruction.BSR, "print" + self.types_to_label([var_type.body])
+                    Instruction.BSR, "_print" + self.types_to_label([var_type.body])
                 )
                 yield Line(Instruction.AJS, -1)
                 # Decrease length of remaining list
@@ -343,9 +357,9 @@ class GeneratorYielder(NodeYielder):
                     # Update list pointer
                     yield Line(Instruction.STL, 2)
                     # Recursively print the value
-                    self.functions.append({"name": "print", "type": [var_type.body]})
+                    self.functions.append({"name": "_print", "type": [var_type.body]})
                     yield Line(
-                        Instruction.BSR, "print" + self.types_to_label([var_type.body])
+                        Instruction.BSR, "_print" + self.types_to_label([var_type.body])
                     )
                     yield Line(Instruction.AJS, -1)
                     # Decrease length of remaining list
@@ -381,9 +395,9 @@ class GeneratorYielder(NodeYielder):
                 yield Line(Instruction.SWP, comment="Put left on top")
 
                 # Recursively print the left node
-                self.functions.append({"name": "print", "type": [var_type.left]})
+                self.functions.append({"name": "_print", "type": [var_type.left]})
                 yield Line(
-                    Instruction.BSR, "print" + self.types_to_label([var_type.left])
+                    Instruction.BSR, "_print" + self.types_to_label([var_type.left])
                 )
                 yield Line(Instruction.AJS, -1)
 
@@ -396,9 +410,9 @@ class GeneratorYielder(NodeYielder):
                 yield Line(Instruction.TRAP, 1, comment="Print ' '")
 
                 # Recursively print the right node
-                self.functions.append({"name": "print", "type": [var_type.right]})
+                self.functions.append({"name": "_print", "type": [var_type.right]})
                 yield Line(
-                    Instruction.BSR, "print" + self.types_to_label([var_type.right])
+                    Instruction.BSR, "_print" + self.types_to_label([var_type.right])
                 )
                 yield Line(Instruction.AJS, -1)
 
@@ -487,8 +501,8 @@ class GeneratorYielder(NodeYielder):
         elif node.func.text == "exit":
             yield Line(Instruction.HALT)
         elif node.func.text == "println":
-            self.functions.append({"name": "print", "type": arg_types})
-            label = "print" + self.types_to_label(arg_types)
+            self.functions.append({"name": "_print", "type": arg_types})
+            label = "_print" + self.types_to_label(arg_types)
             yield Line(Instruction.BSR, label)
             # print \n
             yield Line(Instruction.LDC, 10)
@@ -498,11 +512,16 @@ class GeneratorYielder(NodeYielder):
         elif node.func.text == "ord" or node.func.text == "chr":
             set_variable(exp_type, node.type.ret_type)
         else:
+            # Create a label
+            label = node.func.text + self.types_to_label(arg_types)
             # Store this function to be implemented
-            self.functions.append({"name": node.func.text, "type": arg_types})
+            if node.func.text in self.built_in_functions:
+                self.functions.append({"name": "_" + node.func.text, "type": arg_types})
+                label = "_" + label
+            else:
+                self.functions.append({"name": node.func.text, "type": arg_types})
 
             # Branch to the function that is being called
-            label = node.func.text + self.types_to_label(arg_types)
             yield Line(Instruction.BSR, label, comment=str(node))
 
             # Clean up the stack that still has the function call arguments on it
@@ -518,9 +537,9 @@ class GeneratorYielder(NodeYielder):
                 set_variable(exp_type, node.type.ret_type)
 
     def visit_IfElseNode(self, node: IfElseNode, *args, **kwargs):
-        then_label = f"Then{self.if_else_counter}"
-        else_label = f"Else{self.if_else_counter}"
-        end_label = f"IfEnd{self.if_else_counter}"
+        then_label = f"_Then{self.if_else_counter}"
+        else_label = f"_Else{self.if_else_counter}"
+        end_label = f"_IfEnd{self.if_else_counter}"
         self.if_else_counter += 1
         # Condition
         yield from self.visit(node.cond, *args, **kwargs)
@@ -548,9 +567,9 @@ class GeneratorYielder(NodeYielder):
         exp_type = Variable(None)
         yield from self.visit(node.loop, *args, exp_type=exp_type, **kwargs)
 
-        loop_label = f"ForLoop{self.for_counter}"
-        end_label = f"ForEndLink{self.for_counter}"
-        true_end_label = f"ForEnd{self.for_counter}"
+        loop_label = f"_ForLoop{self.for_counter}"
+        end_label = f"_ForEndLink{self.for_counter}"
+        true_end_label = f"_ForEnd{self.for_counter}"
         self.for_counter += 1
 
         # Store the variable as a local variable
@@ -599,9 +618,9 @@ class GeneratorYielder(NodeYielder):
         del self.variables["local"][node.id]
 
     def visit_WhileNode(self, node: WhileNode, *args, **kwargs):
-        condition_label = f"WhileCond{self.while_counter}"
-        body_label = f"WhileBody{self.while_counter}"
-        end_label = f"WhileEnd{self.while_counter}"
+        condition_label = f"_WhileCond{self.while_counter}"
+        body_label = f"_WhileBody{self.while_counter}"
+        end_label = f"_WhileEnd{self.while_counter}"
         self.while_counter += 1
 
         # Condition
@@ -1576,16 +1595,16 @@ class GeneratorYielder(NodeYielder):
 
             case Token(type=Type.CONTINUE):
                 if loop_type == "for":
-                    label = f"ForLoop{self.for_counter - 1}"
+                    label = f"_ForLoop{self.for_counter - 1}"
                 elif loop_type == "while":
-                    label = f"WhileCond{self.while_counter - 1}"
+                    label = f"_WhileCond{self.while_counter - 1}"
                 yield Line(Instruction.BRA, label)
 
             case Token(type=Type.BREAK):
                 if loop_type == "for":
-                    label = f"ForEnd{self.for_counter - 1}"
+                    label = f"_ForEnd{self.for_counter - 1}"
                 elif loop_type == "while":
-                    label = f"WhileEnd{self.while_counter - 1}"
+                    label = f"_WhileEnd{self.while_counter - 1}"
                 yield Line(Instruction.BRA, label)
 
             case _:
