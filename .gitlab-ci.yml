@@ -30,7 +30,7 @@ test:
   script:
     - pip install -r requirements-dev.txt
     - python -m pytest --version # For debugging
-    - python -m pytest --ignore .\tests\typer\
+    - python -m pytest
   rules:
       # Only run test when commit is made to main branch
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

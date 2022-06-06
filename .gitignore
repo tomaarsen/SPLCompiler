@@ -117,4 +117,4 @@ dmypy.json
 archived
 .vscode
 .env*
-ssm
+ssm/temp.ssm
