@@ -3,10 +3,10 @@ from typing import List
 
 from compiler.error.communicator import Communicator
 from compiler.token import Token
-from compiler.type import Type
 from compiler.util import Span
 
 from compiler.error.scanner_error import (  # isort:skip
+    CharacterSlashError,
     DanglingMultiLineCommentError,
     EmptyQuoteError,
     LonelyQuoteError,
@@ -19,13 +19,9 @@ from compiler.error.scanner_error import (  # isort:skip
 
 class Scanner:
     def __init__(self, program: str) -> None:
-        # TODO: Potential extension: " for characters too
-        # TODO: Potential extension: While else
-        # TODO: '\*'
-
         self.og_program = program
-        self.preprocessed = None
 
+        # Named regex groups
         self.pattern = re.compile(
             r"""
                 (?P<LRB>\()| # lb = Left Round Bracket
@@ -34,7 +30,6 @@ class Scanner:
                 (?P<RCB>\})| # rcb = Right Curly Bracket
                 (?P<LSB>\[)| # lsb = Left Square Bracket
                 (?P<RSB>\])| # rsb = Right Square Bracket
-                # (?P<COMMENT>\/\/)|
                 (?P<COMMENT_OPEN>\/\*)|
                 (?P<COMMENT_CLOSE>\*\/)|
                 (?P<SEMICOLON>\;)|
@@ -102,8 +97,8 @@ class Scanner:
             List[Token]: A list of Token instances
         """
         # Remove comments first
-        self.preprocessed = self.remove_comments(self.og_program)
-        lines = self.preprocessed.splitlines()
+        preprocessed = self.remove_comments(self.og_program)
+        lines = preprocessed.splitlines()
 
         # Extract the tokens from the lines line by line
         tokens = [
@@ -116,7 +111,19 @@ class Scanner:
         Communicator.communicate(ScannerException)
         return tokens
 
-    def scan_line(self, line: str, line_no) -> List[Token]:
+    def scan_line(self, line: str, line_no: int) -> List[Token]:
+        """Extract the tokens from a single line of the program.
+
+        self.pattern is applied to a given line, and any error tokens are filtered out.
+
+        Args:
+            line (str): A single line of a program.
+            line_no (int): Denoting the current line number, used to display more informative errors.
+
+        Returns:
+            List[Token]: A list of tokens, with any of the error tokens filtered out.
+        """
+
         tokens = []
         matches = self.pattern.finditer(line)
         for match in matches:
@@ -138,8 +145,7 @@ class Scanner:
                 case "STRING_LONELY_ERROR":
                     LonelyQuoteError(self.og_program, span)
                 case "CHARACTER_SLASH_ERROR":
-                    # TODO
-                    raise Exception("Cannot use '\\'")
+                    CharacterSlashError(self.og_program, span)
 
             tokens.append(Token(match[0], match.lastgroup, span))
         return tokens
