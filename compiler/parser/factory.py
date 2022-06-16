@@ -37,6 +37,16 @@ from compiler.tree.tree import (  # isort:skip
 
 @dataclass
 class NodeFactory:
+    """Superclass of Node Factory classes that each implement a `build` function.
+
+    This `build` function gets a list of Node or Token instances as input, and should
+    return a Node. For example, a CommaFactoryNode may get 5 tokens as input to its
+    `build` function: 3 integer Tokens and 2 comma tokens. It should then take the
+    3 integer Tokens to create a minimal CommaListNode.
+
+    Implements some useful functionality, like `__len__` and the `span` property.
+    """
+
     children: List[Node | Token] = field(kw_only=True, default_factory=list)
 
     def __len__(self):
@@ -46,19 +56,33 @@ class NodeFactory:
         return True
 
     @property
-    def span(self):
+    def span(self) -> Span:
+        """Get the span from the start of the first child to the end of the last child.
+
+        Returns:
+            Span: The total span of the children.
+        """
         if len(self.children) == 0:
             return Span(0, (0, 0))
         if len(self.children) == 1:
             return self.children[0].span
         return self.children[0].span & self.children[-1].span
 
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
+        """Given a list of Node or Token instances, produce a Node.
+
+        Args:
+            children (List[Node | Token]): The child instances that should be stored
+                in the Node resulting from this method.
+
+        Returns:
+            Node: The Node containing (some of) the Tokens and Nodes from `children`.
+        """
         self.children = children
 
 
 class VarDeclFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         assert len(children) == 5  # nosec
 
@@ -66,7 +90,7 @@ class VarDeclFactory(NodeFactory):
 
 
 class FunDeclFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         func = children[0]
         args = None
@@ -93,13 +117,13 @@ class FunDeclFactory(NodeFactory):
 
 
 class FieldFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         return FieldNode(children, span=self.span)
 
 
 class IndexFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [
@@ -112,7 +136,7 @@ class IndexFactory(NodeFactory):
 
 
 class CommaFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         items = [children[0]] + [_id for comma, _id in children[1:]]
         span = items[0].span & items[-1].span
@@ -120,7 +144,7 @@ class CommaFactory(NodeFactory):
 
 
 class ExpFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         if len(children) == 2:
             node = children[1]
@@ -132,7 +156,7 @@ class ExpFactory(NodeFactory):
 
 
 class ExpPrimeFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         if len(children) == 2:
             return Op2Node(
@@ -149,7 +173,7 @@ class ExpPrimeFactory(NodeFactory):
 
 
 class ColonFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [_ as basic]:
@@ -160,7 +184,7 @@ class ColonFactory(NodeFactory):
 
 
 class UnaryFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             # ( ( '!' | '-' ) Unary )
@@ -173,7 +197,7 @@ class UnaryFactory(NodeFactory):
 
 
 class StmtAssFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [
@@ -197,7 +221,7 @@ class StmtAssFactory(NodeFactory):
 
 
 class BasicFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             # Tuple ( left , right )
@@ -223,7 +247,7 @@ class BasicFactory(NodeFactory):
 
 
 class FunCallFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [
@@ -243,7 +267,7 @@ class FunCallFactory(NodeFactory):
 
 
 class IfElseFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         # 'if' '(' Exp ')' '{' Stmt* '}' [ 'else' '{' Stmt* '}' ]
         cond = children[2]
@@ -268,7 +292,7 @@ class IfElseFactory(NodeFactory):
 
 
 class WhileFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         cond = children[2]
         body = []
@@ -281,7 +305,7 @@ class WhileFactory(NodeFactory):
 
 
 class ForFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [
@@ -301,7 +325,7 @@ class TypeFactory(NodeFactory):
 
     POLY_CACHE = {}
 
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [Token()]:
@@ -330,7 +354,7 @@ class TypeFactory(NodeFactory):
 
 
 class BasicTypeFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         assert len(children) == 1  # nosec
         match children[0]:
@@ -344,13 +368,13 @@ class BasicTypeFactory(NodeFactory):
 
 
 class SPLFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         return SPLNode(children, span=self.span)
 
 
 class FunTypeFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [*types, Token(type=Type.ARROW), _ as ret_type]:
@@ -359,7 +383,7 @@ class FunTypeFactory(NodeFactory):
 
 
 class RetTypeFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [Token(type=Type.VOID)]:
@@ -370,20 +394,20 @@ class RetTypeFactory(NodeFactory):
 
 
 class StmtFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         return StmtNode(children[0], span=self.span)
 
 
 class SingleFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         assert len(children) == 1  # nosec
         return children[0]
 
 
 class ReturnFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [Token(type=Type.RETURN), _ as body, Token(type=Type.SEMICOLON)]:
@@ -394,7 +418,7 @@ class ReturnFactory(NodeFactory):
 
 
 class ListAbbrFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         match children:
             case [
@@ -409,7 +433,7 @@ class ListAbbrFactory(NodeFactory):
 
 
 class DefaultFactory(NodeFactory):
-    def build(self, children):
+    def build(self, children: List[Node | Token]) -> Node:
         super().build(children)
         if len(children) == 1:
             return children[0]
