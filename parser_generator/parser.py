@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pprint import pprint
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, TypeVar
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from parser_generator.generator import Opt, Or, Plus, Quantifier, Star
 from parser_generator.type_vars import NT, L, N, T
@@ -53,17 +52,7 @@ class GrammarParser:
         accumulated = []
         while tree := func():
             accumulated.append(tree)
-        # if len(accumulated) == 1:
-        #     return accumulated[0]
         return accumulated
-
-    def add(self, value: str) -> True:
-        self.suggestions.add(value)
-        return True
-
-    def remove(self, value: str) -> True:
-        self.suggestions.remove(value)
-        return True
 
     def match_type(self, *tok_types: Tuple[L]) -> bool:
         for tok_type in tok_types:
@@ -84,10 +73,16 @@ class GrammarParser:
             arguments.append(children)
 
     def parse(self, production=None, nt: Optional[NT] = None) -> N:
-        initial = self.i
+        """Try to match the production to self.tokens[self.i:].
 
-        if production is None:
-            production = self.grammar[nt]
+        Args:
+            production (_type_, optional): The production to match. If the production is None, 'nt' will be used as a starting production.
+            nt (Optional[NT], optional): Starting non-terminal. Used to determine which node type to use and any possible error type.
+
+        Returns:
+            N: The matched tree.
+        """
+        initial = self.i
 
         factory = self.non_terminal_factory_mapping.get(
             nt, self.non_terminal_default_factory
