@@ -12,7 +12,7 @@ from compiler.generation.std_lib import STD_LIB_LIST
 from compiler.generation.utils import ForCounterVisitor
 from compiler.token import Token
 from compiler.tree import Node
-from compiler.tree.visitor import NodeYielder, Variable
+from compiler.tree.visitor import Boolean, NodeYielder, Variable
 from compiler.type import Type
 
 from compiler.tree.tree import (  # isort:skip
@@ -645,10 +645,12 @@ class GeneratorYielder(NodeYielder):
         # And then we can STMA
         if node.id.field and node.id.field.fields:
 
+            still_store = Boolean(True)
             yield from self.visit(
                 node.id,
                 *args,
                 get_addr=True,
+                still_store=still_store,
                 **kwargs,
             )
             # if node.id.id in self.variables["local"]:
@@ -659,7 +661,8 @@ class GeneratorYielder(NodeYielder):
             #     self.variables["global"][node.id.id] = exp_type.var
             # else:
             #     raise Exception(f"Variable {node.id.id.text!r} does not exist")
-            yield Line(Instruction.STA, 0, comment=str(node))
+            if still_store.var:
+                yield Line(Instruction.STA, 0, comment=str(node))
 
         elif node.id.id in self.variables["local"]:
             # Local variables are positive relative to MP, starting from 1
@@ -704,6 +707,7 @@ class GeneratorYielder(NodeYielder):
         *args,
         get_addr=False,
         exp_type=None,
+        still_store=None,
         **kwargs,
     ):
         # If get_addr is True, then for the *last* field we want to put the address instead of the
@@ -800,10 +804,16 @@ class GeneratorYielder(NodeYielder):
                         yield Line(Instruction.STA, -1)
                         # Clean-up
                         yield Line(Instruction.UNLINK)
-                        yield Line(Instruction.AJS, -1)
+                        # Clean up both the value we assigned, and the list we assigned it to
+                        yield Line(Instruction.AJS, -2)
 
                         if exp_type:
                             exp_type.set(exp_type.var.body)
+                        # We do not want e.g. StmtAssNode from assigning after this point,
+                        # as we have already handled that now, here.
+                        if still_store is not None:
+                            still_store.set(False)
+
                     else:
                         yield Line(Instruction.BSR, "_tail")
                         self.include_function.add("_tail")
