@@ -60,6 +60,7 @@ class Type(Enum):
     STRING = auto()
     SPACE = " "
     ERROR = auto()
+    CHARACTER_SLASH_ERROR = auto()
 
     def to_type(type_str: str):
         return Type[type_str]

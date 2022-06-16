@@ -6,8 +6,8 @@ class ScannerException(CompilerException):
 
 
 class ScannerError(CompilerError):
-    def create_error(self, before: str):
-        return super().create_error(before, class_name="ScannerError")
+    def create_error(self, before: str, after=""):
+        return super().create_error(before, class_name="ScannerError", after=after)
 
 
 class UnmatchableTokenError(ScannerError):
@@ -35,6 +35,14 @@ class DanglingMultiLineCommentError(ScannerError):
 class LonelyQuoteError(ScannerError):
     def __str__(self) -> str:
         return self.create_error(f"Found lonely quote on {self.span.lines_str}.")
+
+
+class CharacterSlashError(ScannerError):
+    def __str__(self) -> str:
+        return self.create_error(
+            f"Cannot use single slash as a character on {self.span.lines_str}. Use '\\\\' instead.",
+            "The single slash is escaping the quote.",
+        )
 
 
 class EmptyQuoteError(ScannerError):
