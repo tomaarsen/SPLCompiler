@@ -93,11 +93,19 @@ class Scanner:
             flags=re.X,
         )
 
-    def scan(self) -> list[Token]:
+    def scan(self) -> List[Token]:
+        """Extract the list of tokens from the program passed to `Scanner(program)`.
+
+        Alternatively, Scanner errors may be raised if relevant, i.e. on illegal tokens.
+
+        Returns:
+            List[Token]: A list of Token instances
+        """
         # Remove comments first
         self.preprocessed = self.remove_comments(self.og_program)
         lines = self.preprocessed.splitlines()
 
+        # Extract the tokens from the lines line by line
         tokens = [
             token
             for line_no, line in enumerate(lines, start=1)
@@ -137,6 +145,21 @@ class Scanner:
         return tokens
 
     def remove_comments(self, program: str) -> str:
+        """Replace all commented out code in the program with spaces.
+
+        Find all occurrences of comment start (/*, //) and comment end (*/, \n) tokens,
+        and iterate over them. For every token, track if we now start, end, or continue to be
+        in a comment. When the comment ends, we track the spans of the comment, and then replace
+        all non-newline tokens with spaces.
+
+        We replace with spaces to preserve the location information of the uncommented code.
+
+        Args:
+            program (str): The input program as a string.
+
+        Returns:
+            str: The program with comments replaced by spaces.
+        """
         poi_pattern = re.compile(r"//|/\*|\*/|\n")
         comment_spans = []
         start_line = -1
@@ -161,9 +184,11 @@ class Scanner:
                         comment_spans.append((start_line, match.start()))
                         start_line = -1
 
+        # To close off the final line comment in a program that does not end with a newline
         if start_line >= 0:
             comment_spans.append((start_line, len(program)))
 
+        # Replace spans with spaces
         for start, end in comment_spans[::-1]:
             separator = re.sub("[^\r\n]", " ", program[start:end])
             program = program[:start] + separator + program[end:]
