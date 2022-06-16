@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pprint import pprint
-from typing import Any, Callable, Dict, Iterable, List, Optional, TypeVar
+from typing import Callable, Dict, Iterable, List, Optional
 
 from parser_generator.generator import GrammarGenerator
 from parser_generator.parser import GrammarParser
@@ -59,7 +58,9 @@ class Grammar:
 
     def parse(self, tokens):
         self.parser.set_tokens(tokens)
-        tree = self.parser.parse(nt=self.start_non_terminal)
+        tree = self.parser.parse(
+            self.grammar[self.start_non_terminal], self.start_non_terminal
+        )
 
         output = {
             "tree": tree,

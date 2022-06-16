@@ -1,34 +1,22 @@
 import os
-from dataclasses import dataclass
 from typing import List
 
 from compiler.error.communicator import Communicator
-from compiler.error.typer_error import GlobalFunctionCallError
 from compiler.parser.analyze import AnalyzeTransformer
 from compiler.parser.factory import DefaultFactory
 from compiler.token import Token
-from compiler.tree.visitor import Boolean, NodeTransformer, NodeVisitor
 from compiler.type import Type
 from compiler.util import Span
-from parser_generator.generator import NT
 from parser_generator.grammar import Grammar
-from parser_generator.parser import GrammarParser
 
 from compiler.error.warning import (  # isort:skip
-    DeadCodeRemovalWarning,
-    InsertedReturnWarning,
     NoMainFunctionWarning,
 )
 
 from compiler.tree.tree import (  # isort:skip
-    FunCallNode,
     FunDeclNode,
-    IfElseNode,
     PolymorphicTypeNode,
-    ReturnNode,
     SPLNode,
-    StmtNode,
-    WhileNode,
 )
 from compiler.parser.factory import (  # isort:skip
     BasicFactory,
@@ -274,17 +262,21 @@ class Parser:
         # Ensure that there is a main function, else give a warning
         self.check_main_function(tree.body)
 
-        # Ensure that global variable declarations do not call functions
-        # transformer = GlobalVisitor(self.og_program)
-        # transformer.visit(tree)
-
         Communicator.communicate(ParserException)
 
         return tree
 
-    def check_main_function(self, body):
+    def check_main_function(self, body: List[FunDeclNode]) -> None:
+        """Verify that at least 1 main function is declared.
+
+        NoMainFunctionWarning in initialized if a function declaration named 'main' cannot be found.
+
+        Args:
+            body (List[FunDeclNode]): A list containing all function declarations.
+        """
+
         for decl in body:
-            if isinstance(decl, FunDeclNode) and decl.id.text == "main":
+            if decl.id.text == "main":
                 return
         # At this point we have not found a main function
         NoMainFunctionWarning(self.og_program)
