@@ -98,14 +98,14 @@ class Parser:
         PolymorphicTypeNode.reset()
 
     def parse(self, tokens: List[Token]) -> SPLNode:
-        """
-        Conceptual algorithm (bottom-up):
-        Step 1: Group tokens that must co-occur, that define scopes
-                With other words, '(' and ')', '{' and '}', '[' and ']'.
-                This leads to an "unfinished" AST.
-        (optional)
-        Step 1.1: Verify contents of these groups: Between '[' and ']' may only
-                be nothing or `Type`.
+        """Given a list of Tokens from the scanner, apply the grammar from `grammar.txt`
+        to produce an Abstract Syntax Tree.
+
+        Args:
+            tokens (List[Token]): A list of tokens, produced by `Scanner(program).scan()`
+
+        Returns:
+            SPLNode: The root of the AST.
         """
         tokens = self.match_parentheses(tokens)
         # At this stage we should no longer have bracket errors
@@ -290,6 +290,14 @@ class Parser:
         NoMainFunctionWarning(self.og_program)
 
     def match_parentheses(self, tokens: List[Token]) -> None:
+        """Perform an analysis to throw detailed bracket exceptions.
+
+        Including UnopenedBracketError, OpenedWrongBracketError, ClosedWrongBracketError,
+        and UnclosedBracketError.
+
+        Args:
+            tokens (List[Token]): The scanned tokens after the scanner.
+        """
         right_to_left = {
             Type.RCB: Type.LCB,
             Type.RRB: Type.LRB,
@@ -343,19 +351,7 @@ class Parser:
 
                     if queue[-1].type == right_to_left[token.type]:
                         # If all is well, grab the last opened bracket from the queue,
-                        # add this token as a closing tag, and add it the BracketTree
-                        # as a child to the Tree higher in the queue
-                        open_token = queue.pop()
-                        # Replace `token` with one that knows its Open
-                        # Replace `open_token` with one that knows its Close
-                        # open_bracket_token = BracketToken.from_token(open_token)
-                        # close_bracket_token = BracketToken.from_token(token)
-
-                        # close_bracket_token.open = open_bracket_token
-                        # open_bracket_token.close = close_bracket_token
-
-                        # tokens[i] = close_bracket_token
-                        # tokens[tokens.index(open_token)] = open_bracket_token
+                        queue.pop()
 
         # If queue is not empty, then there's an opening bracket that we did not close
         for token in queue:
