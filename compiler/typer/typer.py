@@ -1,6 +1,5 @@
 import copy
 from collections import defaultdict
-from pprint import pprint
 from typing import Dict, List, Tuple
 
 from compiler.error.communicator import Communicator
@@ -71,10 +70,6 @@ from compiler.tree.tree import (  # isort:skip
 )
 
 
-def get_fresh_type() -> TypeNode:
-    return PolymorphicTypeNode.fresh()
-
-
 class Typer:
     def __init__(self, program: str) -> None:
         self.program = program
@@ -83,8 +78,22 @@ class Typer:
         # Keeps track of the current function that is checked
         self.current_function = None
 
-    def type(self, tree: Node):
-        ft = get_fresh_type()
+        # Create an instance of our transformation application transformer to use in self.apply_trans
+        self.sub_transformer = SubstitutionTransformer()
+
+    def type(self, tree: Node) -> Node:
+        """Add type information to the parsed AST from `Parser(program).parse(tokens)`.
+
+        Uses the M-algorithm behind the scenes.
+
+        Args:
+            tree (Node): The input AST (potentially) without type information.
+
+        Returns:
+            Node: The output AST with type information applied.
+        """
+        # Store variables and functions in a context as a mapping of variable/function names
+        # to the TypeNodes
         var_context = {}
         fun_context = {
             "print": FunTypeNode(
@@ -109,14 +118,19 @@ class Typer:
             "chr": FunTypeNode([IntTypeNode()], CharTypeNode()),
             "bool": FunTypeNode([PolymorphicTypeNode.fresh()], BoolTypeNode()),
         }
+        # Apply the recursive `type_node` function.
         trans = self.type_node(
-            tree, var_context, fun_context, ft, DefaultUnifyErrorFactory
+            tree,
+            var_context,
+            fun_context,
+            PolymorphicTypeNode.fresh(),
+            DefaultUnifyErrorFactory,
         )
+        # Apply the final transformations on the tree
         self.apply_trans(tree, trans)
-        # TODO: ErrorRaiser.ERRORS = ErrorRaiser.ERRORS[:5]
 
         # Make sure that all function calls have been taken care of by function declarations
-        for fun_name, fun_calls in self.fun_calls.items():
+        for _fun_name, fun_calls in self.fun_calls.items():
             # The function with name, fun_name, can be called multiple times
             for fun_call in fun_calls:
                 fun_call_node = fun_call[0]
@@ -132,35 +146,47 @@ class Typer:
         fun_context: Dict[str, TypeNode],
         exp_type: TypeNode,
         error_factory: UnificationError,
-    ) -> Node:
+    ) -> List[Tuple[PolymorphicTypeNode, TypeNode]]:
+        """Our variant of the M-function in the M-algorithm. Recursively adds typing information to `tree`.
+
+        Args:
+            tree (Node): A Node in the AST tree.
+            var_context (Dict[str, TypeNode]): The variables defined in this context.
+            fun_context (Dict[str, TypeNode]): The functions defined.
+            exp_type (TypeNode): The expected type for `tree`.
+            error_factory (UnificationError): A detailed error factory that allows errors
+                that are caused very deep in the tree to use information from a bit higher
+                in the tree. For example, if there is an error in an Op2Node (i.e. an expression),
+                then we can throw the exception with information that the expression occurs in the
+                condition of an if-statement, in a specific function.
+
+        Returns:
+            Node: A transformation, i.e. a list of tuples that represent mappings from very general
+                PolymorphicTypeNode instances to more specific TypeNode instances, e.g. IntTypeNode.
+        """
         match tree:
 
             case Token(type=Type.CONTINUE) | Token(type=Type.BREAK):
+                """`continue` and `break` do not require typing"""
                 return []
 
             case Token(type=Type.DIGIT):
-                # If tree is e.g. `12`:
+                """If tree is e.g. `12`, then we unify the expected type with an IntTypeNode"""
                 return self.unify(exp_type, IntTypeNode(span=tree.span), error_factory)
 
             case Token(type=Type.TRUE) | Token(type=Type.FALSE):
+                """If tree is e.g. `True`, then we unify the expected type with a BoolTypeNode"""
                 return self.unify(exp_type, BoolTypeNode(span=tree.span), error_factory)
 
             case Token(type=Type.CHARACTER):
+                """If tree is e.g. `'a'`, then we unify the expected type with a CharTypeNode"""
                 return self.unify(exp_type, CharTypeNode(span=tree.span), error_factory)
 
             case Token(type=Type.ID):
-                # If tree is e.g. `a`:
-                # 1: Look up the environment type for that variable, which is a type scheme (e.g. (Int, b) or something)
-                # 2: Introduce new fresh variables
-                # 3: Substitute alpha with the fresh variables in tau. New version of tau where all variables that
-                #    were universally qualified by our `tree` variable are replaced by a fresh variable.
-
-                # Maybe this is done to remove recursion?
-                # context(x) = forall alpha-> . tau
-                # tau[alpha-> |-> beta->]
-
-                # Note: This is a simplified version, no replacement with fresh variables
-                # TODO: Check if tree.text in context
+                """
+                If tree is a variable, e.g. `a`, then we first verify that the variable was defined,
+                and then we unify the expected type with the known type from the variable context.
+                """
                 if tree.text not in var_context:
                     VariableError(self.program, tree)
                     return []
@@ -169,6 +195,12 @@ class Typer:
                 return self.unify(exp_type, context_type, error_factory)
 
             case SPLNode():
+                """
+                For the root of the AST, we sort the declarations in order to recursively
+                type the variable declarations before the function declarations. Then,
+                we iteratively type each of the declarations and append together the
+                transformations.
+                """
                 transformations = []
                 declarations = [
                     decl for decl in tree.body if isinstance(decl, VarDeclNode)
@@ -178,7 +210,7 @@ class Typer:
                         expression,
                         var_context,
                         fun_context,
-                        get_fresh_type(),
+                        PolymorphicTypeNode.fresh(),
                         error_factory,
                     )
                     var_context = self.apply_trans_context(trans, var_context)
@@ -189,10 +221,10 @@ class Typer:
             case FunDeclNode():
                 # Remember the current function for more precise error messaging
                 self.current_function = tree
-                # fresh_types = [get_fresh_type() for _ in tree.args.items]
-                # context.extend(list(zip(tree.args.items, fresh_types)))
+
+                # Track the given tree type
                 if tree.type:
-                    original_tree_type = copy.copy(tree.type.types)
+                    original_tree_type = copy.deepcopy(tree.type.types)
                 else:
                     original_tree_type = None
 
@@ -202,6 +234,8 @@ class Typer:
                     FunctionRedefinitionError(self.program, tree)
                     return []
 
+                # Add the function arguments to the variable context,
+                # and ensure no duplicate argument names (e.g. func(a, a) {...})
                 fresh_types = []
                 args = set()
                 if tree.args:
@@ -215,6 +249,7 @@ class Typer:
                         fresh_types.append(fresh)
                         args.add(token.text)
 
+                # Add the function type to the function context
                 ret_type = PolymorphicTypeNode.fresh()
                 fun_context[tree.id.text] = FunTypeNode(
                     fresh_types,
@@ -224,6 +259,7 @@ class Typer:
                     else tree.type.span,
                 )
 
+                # Iterate over the variable declarations and type them
                 transformations = []
                 for var_decl in tree.var_decl:
                     trans = self.type_node(
@@ -237,8 +273,8 @@ class Typer:
                     fun_context = self.apply_trans_context(trans, fun_context)
                     transformations += trans
 
+                # Iterate over the statements and type them
                 for stmt in tree.stmt:
-                    # print(context[tree.id.text].ret_type)
                     trans = self.type_node(
                         stmt,
                         var_context,
@@ -248,17 +284,10 @@ class Typer:
                     )
                     var_context = self.apply_trans_context(trans, var_context)
                     fun_context = self.apply_trans_context(trans, fun_context)
-                    # print("-" * 30)
-                    # print(stmt.__class__.__name__)
-                    # pprint(var_context)
-                    # pprint(fun_context)
-                    # breakpoint()
                     transformations += trans
 
+                # Unify the inferred function type with the expected type
                 inferred_type = fun_context[tree.id.text]
-                # transformations += self.unify(
-                #     self.apply_trans(exp_type, transformations), tree.type
-                # )
                 transformations += self.unify(exp_type, inferred_type, error_factory)
 
                 # Compare the inferred type with the developer-supplied type, if any (type checking)
@@ -277,6 +306,7 @@ class Typer:
                     elif token != tree.id.text:
                         del var_context[token]
 
+                # If this function was previously called, then type the function call now
                 if tree.id.text in self.fun_calls:
                     for (
                         fc_tree,
@@ -293,7 +323,7 @@ class Typer:
                         )
                     del self.fun_calls[tree.id.text]
 
-                # If the programmer has specified a type signature:
+                # If the programmer has specified a polymorphic type signature:
                 if original_tree_type:
                     # Loop over the original types specified by the programmer, and the inferred types
                     # Check that there are no inconsistencies,
@@ -324,8 +354,10 @@ class Typer:
                 return transformations
 
             case StmtNode():
-                # Pass expected type down, except with FunCall, as we don't want
-                # FunCall to influence the return value of the function.
+                """
+                Pass expected type down, except with FunCall, as we don't want
+                FunCall to influence the return value of the function.
+                """
                 if isinstance(tree.stmt, FunCallNode):
                     exp_type = PolymorphicTypeNode.fresh()
                 return self.type_node(
@@ -333,6 +365,11 @@ class Typer:
                 )
 
             case ReturnNode():
+                """
+                If we have an expression, then try to type it, and ensure that the returned
+                type is not Void. If there is no expression, then try to unify the expected
+                type with Void.
+                """
                 if tree.exp:
                     trans = self.type_node(
                         tree.exp,
@@ -357,11 +394,14 @@ class Typer:
                 return trans
 
             case StmtAssNode():
+                """
+                Type both the left and right-hand side of the = in the statement assignment.
+                Then, unify both of the types. Also, ensure that we are not assigning to Void.
+                """
                 expr_exp_type = PolymorphicTypeNode.fresh()
                 trans = self.type_node(
                     tree.exp, var_context, fun_context, expr_exp_type, error_factory
                 )
-                # context = self.apply_trans_context(trans, context)
 
                 assignment_exp_type = PolymorphicTypeNode.fresh()
                 trans += self.type_node(
@@ -383,13 +423,13 @@ class Typer:
                     VariableAssignmentUnifyErrorFactory(tree),
                 )
 
-                # TODO: We dont use exp_type. Does that matter?
-                # trans += self.unify(exp_type, VoidTypeNode(None))
-
                 return trans
 
             case TupleNode():
-                # TODO: Should we return these if they occur in trans?
+                """
+                Type the left, type the right, ensure that neither are void, and then unify
+                the expected type with Tuple(left_type, right_type).
+                """
                 left_fresh = PolymorphicTypeNode.fresh()
                 right_fresh = PolymorphicTypeNode.fresh()
 
@@ -422,24 +462,29 @@ class Typer:
                 return trans
 
             case ListNode():
+                """
+                Simply unify with a ListNode with a PolymorphicTypeNode as its list element type.
+                ListNode only has a body in one context: In a type (i.e. [a] -> [a])
+                """
                 if tree.body:
-                    # body_exp_type = PolymorphicTypeNode.fresh()
-                    # trans = self.type_node(tree.body, context, body_exp_type)
-                    # return self.unify(exp_type, ListNode(self.apply_trans(body_exp_type, trans)))
-                    # breakpoint()
-
                     # We only get here if the parser fails
                     UnrecoverableError(
                         f"Error while typing the body of a list node on line [{tree.body.span.start_ln}]."
                     )
-                else:
-                    return self.unify(
-                        exp_type,
-                        ListNode(PolymorphicTypeNode.fresh(), span=tree.span),
-                        error_factory,
-                    )
+                    return []
+                return self.unify(
+                    exp_type,
+                    ListNode(PolymorphicTypeNode.fresh(), span=tree.span),
+                    error_factory,
+                )
 
             case Op2Node():
+                """
+                Depending on the operator used, set the expected type for left, right and the output.
+                For example, for an == we want left and right to be the same Polymorphic type, while
+                the output must be BoolTypeNode. Then, type the left and right sides, ensure
+                that neither are Void, and unify the output type too.
+                """
                 match tree.operator.type:
                     case Type.COLON:
                         left_exp_type = PolymorphicTypeNode.fresh()
@@ -502,6 +547,11 @@ class Typer:
                 return trans
 
             case Op1Node():
+                """
+                Depending on the operator, get the expected operand type and the expected output type.
+                Then, type the operand followed by the output. We don't need to check for Void here,
+                as ! and - already require specific (non-polymorphic) types.
+                """
                 if tree.operator.type == Type.NOT:
                     operand_exp_type = BoolTypeNode(span=tree.operand.span)
                     output_exp_type = BoolTypeNode(span=tree.span)
@@ -530,6 +580,11 @@ class Typer:
                 return trans
 
             case VarDeclNode():
+                """
+                First ensure that the variable was not already declared. Then, determine the expected
+                type for the expression, and type it. Ensure that the type is not Void, and then
+                store the variable in the variable context.
+                """
 
                 if tree.id.text in var_context:
                     RedefinitionOfVariableError(self.program, tree)
@@ -568,6 +623,9 @@ class Typer:
                 return trans
 
             case IfElseNode():
+                """
+                First type the then branch, then the else branch, then the condition.
+                """
                 condition = tree.cond
                 then_branch = tree.body
                 else_branch = tree.else_body
@@ -576,6 +634,7 @@ class Typer:
                 original_var_context = var_context.copy()
                 original_fun_context = fun_context.copy()
 
+                # Type the then-branch
                 transformation_then = []
                 for expression in then_branch:
                     trans = self.type_node(
@@ -591,6 +650,7 @@ class Typer:
 
                 sigma_else = self.apply_trans(original_sigma, transformation_then)
 
+                # Type the else-branch
                 transformation_else = []
                 for expression in else_branch:
                     trans = self.type_node(
@@ -603,6 +663,8 @@ class Typer:
                 trans_context = self.apply_trans_context(
                     transformation_then + transformation_else, original_var_context
                 )
+
+                # Type the condition
                 trans_condition = self.type_node(
                     condition,
                     trans_context,
@@ -613,7 +675,12 @@ class Typer:
                 return transformation_then + transformation_else + trans_condition
 
             case ForNode():
-
+                """
+                Set the expected loop element to be polymorphic, and the expected loop type to be
+                the ListNode with that loop element type as its element type. Then, type both the
+                loop, the new loop variable, and the loop body.
+                Also ensure that the new loop variable was not previously defined.
+                """
                 # Get expected types for the id and loop, respectively
                 loop_element_type = PolymorphicTypeNode.fresh()
                 loop_type = ListNode(loop_element_type)
@@ -622,18 +689,22 @@ class Typer:
                 trans_loop = self.type_node(
                     tree.loop, var_context, fun_context, loop_type, error_factory
                 )
+
                 # If the variable already exists, throw an exception
                 if tree.id.text in var_context:
                     RedefinitionOfLoopVariableError(self.program, tree)
                     return []
+
                 # Set the id type, and place it in the variable context
                 var_context[tree.id.text] = loop_element_type
                 var_context = self.apply_trans_context(trans_loop, var_context)
                 fun_context = self.apply_trans_context(trans_loop, fun_context)
+
                 # Type check the id
                 trans_id = self.type_node(
                     tree.id, var_context, fun_context, loop_element_type, error_factory
                 )
+
                 # Update the contexts again
                 var_context = self.apply_trans_context(trans_id, var_context)
                 fun_context = self.apply_trans_context(trans_id, fun_context)
@@ -652,12 +723,16 @@ class Typer:
                 return trans_body
 
             case WhileNode():
+                """
+                Recursively type the while body, and then the condition.
+                """
                 condition = tree.cond
                 body = tree.body
 
                 original_var_context = var_context.copy()
                 original_fun_context = fun_context.copy()
 
+                # Type the while body
                 transformation_body = []
                 for expression in body:
                     trans = self.type_node(
@@ -673,6 +748,8 @@ class Typer:
                 original_fun_context = self.apply_trans_context(
                     transformation_body, original_fun_context
                 )
+
+                # Type the condition
                 trans_condition = self.type_node(
                     condition,
                     original_var_context,
@@ -684,6 +761,15 @@ class Typer:
                 return trans_condition
 
             case FunCallNode():
+                """
+                If the function that is being called was already defined, then ensure that the
+                right number of arguments were given, and then type and unify the arguments and
+                return values. We copy the function type as to not accidentally update it.
+
+                If the function was not yet defined, then store this "state", i.e. the defined variables,
+                functions, tree and exp_type in `self.fun_calls`. It can then be typed at the end of
+                the function definition, or used to determine that a non-defined function is called.
+                """
 
                 if tree.func.text in fun_context:
                     fun_type = fun_context[tree.func.text]
@@ -714,16 +800,15 @@ class Typer:
                                 call_arg, var_context, fun_context, fresh, error_factory
                             )
                             call_arg_type = self.apply_trans(fresh, trans)
-                            # TODO: Should we also return fresh -> other
                             return_trans += trans
 
-                            # local_trans += self.unify(decl_arg_type, call_arg_type)
                             trans = self.unify(
                                 decl_arg_type,
                                 call_arg_type,
                                 FunCallUnifyErrorFactory(tree),
                                 left_to_right=True,
                             )
+
                             # We cannot use Void as a function call parameter
                             if any(VoidTypeNode() in x[1] for x in trans):
                                 VoidFunCallArgError(self.program, call_arg)
@@ -750,15 +835,6 @@ class Typer:
                     )
                     return_trans += self.unify(exp_type, ret_type, error_factory)
 
-                    # if tree.args.items[0].text == "l":
-                    #     print("FunCall stats:")
-                    #     pprint(var_context)
-                    #     pprint(fun_context)
-                    #     pprint(return_trans)
-                    #     pprint(local_trans)
-                    #     pprint(self.apply_trans_context(return_trans, var_context))
-                    #     pprint(self.apply_trans_context(return_trans, fun_context))
-                    #     breakpoint()
                     return return_trans
 
                 else:
@@ -768,7 +844,14 @@ class Typer:
                     return []
 
             case VariableNode():
-                # transformation is of type: Dict[str, TypeNode]
+                """
+                A VariableNode may contain a field. If not, then we simply recursively type the variable.
+                If it does, then we grab the existing variable, and iterate over the fields. We then
+                apply typing based on the exact field that is used. For example, if a.fst is used, then we
+                unify a with a Tuple of two polymorphic variables, and we set the left of the two
+                polymorphic variables as the new type of a.fst. This method allows for chaining, e.g.
+                a.fst.snd.
+                """
                 if not tree.field:
                     return self.type_node(
                         tree.id, var_context, fun_context, exp_type, error_factory
@@ -836,11 +919,15 @@ class Typer:
                             )
 
                 trans += self.unify(exp_type, variable_type, error_factory)
-                # context = self.apply_trans_context(trans, context)
-                # breakpoint()
                 return trans
 
             case ListAbbrNode():
+                """
+                First, we type the left expression. Then, we verify that the returned type
+                is either an Int or a Char. Then, we type the right side, requiring it to be
+                the same type as the left side. Lastly, we unify the expected type to a ListNode
+                with child type as the element types.
+                """
                 sub_exp_type = PolymorphicTypeNode.fresh()
                 trans = self.type_node(
                     tree.left,
@@ -877,16 +964,37 @@ class Typer:
         UnrecoverableError(f"Node had no handler: {tree!r}")
 
     def apply_trans(
-        self, node: TypeNode, trans: List[Tuple[PolymorphicTypeNode, TypeNode]]
-    ) -> TypeNode:
-        sub_transformer = SubstitutionTransformer()
-        return sub_transformer.visit(node, trans)
+        self, node: Node, trans: List[Tuple[PolymorphicTypeNode, TypeNode]]
+    ) -> Node:
+        """Given a Node and transformations, apply the transformations on the Node.
+
+        For example, if `node` contains a PolymorphicTypeNode as one of its descendents, whose instance
+        corresponds exactly with an instance in one of the transformations, then that PolymorphicTypeNode
+        will be transformed with the new TypeNode. E.g. PolymorphicTypeNode("a") can become IntTypeNode().
+
+        Args:
+            node (Node): The Node on which to apply the type transformations.
+            trans (List[Tuple[PolymorphicTypeNode, TypeNode]]): A list of transformations to apply.
+
+        Returns:
+            Node: `node`, but with the transformations applied.
+        """
+        return self.sub_transformer.visit(node, trans)
 
     def apply_trans_context(
         self,
         trans: List[Tuple[PolymorphicTypeNode, TypeNode]],
         context: Dict[str, TypeNode],
     ) -> Dict[str, TypeNode]:
+        """Apply the given transformations on the context values. Relies on `self.apply_trans`.
+
+        Args:
+            trans (List[Tuple[PolymorphicTypeNode, TypeNode]]): A list of transformations to apply.
+            context (Dict[str, TypeNode]): The var_context or fun_context.
+
+        Returns:
+            Dict[str, TypeNode]: The updated context.
+        """
 
         if trans:
             for var_name, var_type in context.items():
@@ -894,20 +1002,35 @@ class Typer:
 
         return context
 
-    # Type_one is considered to be the expected type
     def unify(
         self,
         type_one: TypeNode,
         type_two: TypeNode,
         error_factory: UnificationError,
         left_to_right: bool = False,
-    ) -> List[Tuple[str, TypeNode]]:
-        # Return a list of tuples, each tuple is a substitution from left to right
+    ) -> List[Tuple[PolymorphicTypeNode, TypeNode]]:
+        """Try to unify `type_one` with `type_two`.
 
+        Args:
+            type_one (TypeNode): The left type. This is generally the expected/desired type.
+            type_two (TypeNode): The right type.
+            error_factory (UnificationError): A factory with a `build` method that can be called to
+                throw an exception, when the two types cannot unify.
+            left_to_right (bool, optional): If set to True, then the return type becomes
+                List[Tuple[PolymorphicTypeNode, TypeNode, bool]]. The last bool is True whenever
+                we are now updating `type_one` to `type_two` and False otherwise, but only if both
+                are Polymorphic. Defaults to False.
+
+        Returns:
+            List[Tuple[PolymorphicTypeNode, TypeNode]]: Our representation of a list of transformations,
+                i.e. a list of tuples representing a mapping of a PolymorphicTypeNode to some other type.
+        """
+
+        # Case 1: The types are the same. No transformation needed for unification.
         if type_one == type_two:
             return []
 
-        # If left is very general, e.g. "a", and right is specific, e.g. "Int", then map "a" to "Int"
+        # Case 2: If left is very general, e.g. "a", and right is specific, e.g. "Int", then map "a" to "Int"
         # NOTE: If type_one in type_two, then we have an error (e.g. we want to go from a -> (a, b), which is recursive)
         # We can abuse this to get a more precise error, but I'm not sure whether that's helpful
         if isinstance(type_one, PolymorphicTypeNode) and type_one not in type_two:
@@ -915,16 +1038,20 @@ class Typer:
                 return [(type_one, type_two, True)]
             return [(type_one, type_two)]
 
+        # Case 3: If right is very general, e.g. "a", and left is specific, e.g. "Int", then map "a" to "Int"
         if isinstance(type_two, PolymorphicTypeNode) and type_two not in type_one:
             if left_to_right:
                 return [(type_two, type_one, False)]
             return [(type_two, type_one)]
 
+        # Case 4: If both types are lists, then recursively unify the types of the list.
         if isinstance(type_one, ListNode) and isinstance(type_two, ListNode):
             return self.unify(
                 type_one.body, type_two.body, error_factory, left_to_right=left_to_right
             )
 
+        # Case 5: If both types are tuples, then recursively unify first the left side, and then
+        # the right side.
         if isinstance(type_one, TupleNode) and isinstance(type_two, TupleNode):
             before = self.unify(
                 type_one.left, type_two.left, error_factory, left_to_right=left_to_right
@@ -942,7 +1069,10 @@ class Typer:
             type_two = self.apply_trans(type_two, after)
             return before + after
 
+        # Case 6: If both types are functions, then first check if both sides have the same
+        # number of arguments, and then try to unify all arguments, as well as the return type
         if isinstance(type_one, FunTypeNode) and isinstance(type_two, FunTypeNode):
+            # Ensure the same number of arguments
             if len(type_one.types) != len(type_two.types):
                 WrongNumberOfArgumentsDeclError(
                     self.program,
@@ -952,11 +1082,7 @@ class Typer:
                 )
                 return []
 
-            # print("Before")
-            # print(type_one)
-            # print(type_two)
-            # print()
-
+            # Try to unify all arguments
             transformations = []
             for i in range(len(type_one.types)):
                 _type_one = type_one.types[i]
@@ -964,32 +1090,29 @@ class Typer:
                 trans = self.unify(
                     _type_one, _type_two, error_factory, left_to_right=left_to_right
                 )
-                # if trans:
-                #     print(trans[0][0], "->", trans[0][1])
                 type_one = self.apply_trans(type_one, trans)
                 type_two = self.apply_trans(type_two, trans)
 
-                # print(f"After index {i}")
-                # print(type_one)
-                # print(type_two)
-                # print()
                 transformations += trans
 
+            # Try to unify the return type
             trans = self.unify(
                 type_one.ret_type,
                 type_two.ret_type,
                 error_factory,
                 left_to_right=left_to_right,
             )
-            # breakpoint()
             type_one = self.apply_trans(type_one, trans)
             type_two = self.apply_trans(type_two, trans)
             transformations += trans
             return transformations
 
+        # If no (correct) error_factory was provided, then just use a default one that simply
+        # states that the two types cannot unify.
         if not isinstance(error_factory, UnificationError):
             error_factory = DefaultUnifyErrorFactory()
 
+        # Use the error factory to produce a detailed and relevant error.
         error_factory.build(
             type_one=type_one,
             type_two=type_two,
@@ -1000,6 +1123,8 @@ class Typer:
 
 
 class SubstitutionTransformer(NodeTransformer):
+    """Apply a transformation on a tree using a visitor pattern"""
+
     def visit_PolymorphicTypeNode(
         self,
         node: PolymorphicTypeNode,
