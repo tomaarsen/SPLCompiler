@@ -29,7 +29,7 @@ class Scanner:
             flags=re.X,
         )
 
-    def scan(self) -> list[Token]:
+    def scan(self) -> List[Token]:
         tokens = []
         matches = self.pattern.finditer(self.og_program)
         for match in matches:
