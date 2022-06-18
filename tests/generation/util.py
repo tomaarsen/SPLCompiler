@@ -15,8 +15,8 @@ def execute(program: str) -> str:
     typer = Typer(program)
     typer.type(tree)
 
-    generator = Generator(tree)
-    ssm_code = generator.generate()
+    generator = Generator(program)
+    ssm_code = generator.generate(tree)
     output = generator.run(ssm_code)
     return output
 

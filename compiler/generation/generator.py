@@ -1,24 +1,26 @@
 import subprocess  # nosec
-from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path
-from pprint import pprint
-from re import U
-from typing import Iterator, List, Tuple
+from typing import Iterator, List
 
+from compiler.error.communicator import Communicator
+from compiler.error.error import UnrecoverableError
+from compiler.error.generator_error import GeneratorException
 from compiler.generation.instruction import Instruction
 from compiler.generation.line import Line
 from compiler.generation.std_lib import STD_LIB_LIST
 from compiler.generation.utils import ForCounterVisitor
 from compiler.token import Token
-from compiler.tree import Node
 from compiler.tree.visitor import Boolean, NodeYielder, Variable
 from compiler.type import Type
+
+from compiler.error.generator_error import (  # isort:skip
+    OverFlowError as CompilerOverFlowError,
+)
 
 from compiler.tree.tree import (  # isort:skip
     BoolTypeNode,
     CharTypeNode,
-    CommaListNode,
     FieldNode,
     ForNode,
     FunCallNode,
@@ -29,14 +31,12 @@ from compiler.tree.tree import (  # isort:skip
     IntTypeNode,
     ListAbbrNode,
     ListNode,
-    Node,
     Op1Node,
     Op2Node,
     PolymorphicTypeNode,
     ReturnNode,
     SPLNode,
     StmtAssNode,
-    StmtNode,
     TupleNode,
     TypeNode,
     VarDeclNode,
@@ -47,18 +47,33 @@ from compiler.tree.tree import (  # isort:skip
 
 
 class Generator:
-    def __init__(self, tree: SPLNode) -> None:
-        self.generator_yielder = GeneratorYielder()
-        # self.tree = self.add_std_lib(tree)
-        self.tree = tree
+    def __init__(self, program: str) -> None:
+        self.generator_yielder = GeneratorYielder(program)
 
-    def generate(self) -> str:
-        ssm_code = "\n".join(
-            str(line) for line in self.generator_yielder.visit(self.tree)
-        )
+    def generate(self, tree: SPLNode) -> str:
+        """Convert the typed AST to SSM code, using a visitor pattern.
+
+        Args:
+            tree (SPLNode): The tree to be converted.
+
+        Returns:
+            str: Returns a string containing SSM instructions, separated by a new line.
+        """
+        ssm_code = "\n".join(str(line) for line in self.generator_yielder.visit(tree))
+        # Raise all errors, if any, that may have accumulated during generation of SSM code.
+        Communicator.communicate(GeneratorException)
         return ssm_code
 
     def run(self, ssm_code: str, gui: bool = False) -> str:
+        """Execute the given SSM code as a subprocess in the Java simulator.
+
+        Args:
+            ssm_code (str): The SSM code to be executed in the Java simulator.
+            gui (bool, optional): Whether to display a GUI. Defaults to False.
+
+        Returns:
+            str: The output of the program if gui is set to False, else the empty string.
+        """
         tempfile_path = Path("ssm", "temp.ssm")
         with open(tempfile_path, "w") as f:
             f.write(ssm_code)
@@ -80,8 +95,9 @@ def set_variable(var: Variable, value):
 
 
 class GeneratorYielder(NodeYielder):
-    def __init__(self) -> None:
+    def __init__(self, program) -> None:
         super().__init__()
+        self.program = program
         self.built_in_functions = {
             "isEmpty",
             "chr",
@@ -119,19 +135,7 @@ class GeneratorYielder(NodeYielder):
         )
 
     def visit_SPLNode(self, node: SPLNode, *args, **kwargs):
-        # yield Line(Instruction.BRA, "main")
-
-        # fun_decls = {}
-        # for node in node.body:
-        #     match node:
-        #         case FunDeclNode():
-        #             fun_decls[node.id.text] = node
-
-        #         case VarDeclNode():
-        #             yield from self.visit(node, *args, **kwargs)
-
         var_decls = [node for node in node.body if isinstance(node, VarDeclNode)]
-
         if var_decls:
             yield Line(Instruction.LINK, len(var_decls))
             yield Line(Instruction.LDR, "MP")
@@ -235,7 +239,6 @@ class GeneratorYielder(NodeYielder):
             case PolymorphicTypeNode() | ListNode(body=None):
                 # Polymorphic type node must be the empty list
                 yield Line(Instruction.LDC, 0)
-
             case ListNode():
                 # Yield not of isEmpty
                 self.include_function.add("_is_empty")
@@ -243,22 +246,18 @@ class GeneratorYielder(NodeYielder):
                 yield Line(Instruction.AJS, -1)
                 yield Line(Instruction.LDR, "RR")
                 yield Line(Instruction.NOT)
-
             case TupleNode() | CharTypeNode():
                 # Always true, since a tuples and characters cannot be empty in SPL
                 yield Line(Instruction.LDC, -1)
-
             case _:
                 raise NotImplementedError(
                     f"bool of {var_type} hasn't been implemented yet"
                 )
-
         yield Line(Instruction.STR, "RR")
         yield Line(Instruction.UNLINK)
         yield Line(Instruction.RET)
 
     def print(self, var_types: TypeNode) -> Iterator[Line]:
-
         var_type = var_types[0]
         label = "_print" + self.types_to_label(var_types)
         yield Line(label=label)
@@ -400,11 +399,9 @@ class GeneratorYielder(NodeYielder):
                     Instruction.BSR, "_print" + self.types_to_label([var_type.left])
                 )
                 yield Line(Instruction.AJS, -1)
-
                 # Print ","
                 yield Line(Instruction.LDC, 44, comment="Load ','")
                 yield Line(Instruction.TRAP, 1, comment="Print ','")
-
                 # Print " "
                 yield Line(Instruction.LDC, 32, comment="Load ' '")
                 yield Line(Instruction.TRAP, 1, comment="Print ' '")
@@ -562,7 +559,6 @@ class GeneratorYielder(NodeYielder):
         yield Line(label=end_label)
 
     def visit_ForNode(self, node: ForNode, *args, exp_type=None, **kwargs):
-        # TODO: What if the list is empty?
         # Get the loop type
         exp_type = Variable(None)
         yield from self.visit(node.loop, *args, exp_type=exp_type, **kwargs)
@@ -644,7 +640,6 @@ class GeneratorYielder(NodeYielder):
         # If there are fields, then we want to get the address of the location to update on the stack
         # And then we can STMA
         if node.id.field and node.id.field.fields:
-
             still_store = Boolean(True)
             yield from self.visit(
                 node.id,
@@ -653,14 +648,6 @@ class GeneratorYielder(NodeYielder):
                 still_store=still_store,
                 **kwargs,
             )
-            # if node.id.id in self.variables["local"]:
-            #     self.variables["local"][node.id.id] = exp_type.var
-            # elif node.id.id in self.variables["arguments"]:
-            #     self.variables["arguments"][node.id.id] = exp_type.var
-            # elif node.id.id in self.variables["global"]:
-            #     self.variables["global"][node.id.id] = exp_type.var
-            # else:
-            #     raise Exception(f"Variable {node.id.id.text!r} does not exist")
             if still_store.var:
                 yield Line(Instruction.STA, 0, comment=str(node))
 
@@ -691,9 +678,7 @@ class GeneratorYielder(NodeYielder):
             self.variables["global"][node.id.id] = exp_type.var
 
         else:
-            # TODO: Implement a backup error saying that there is no such variable,
-            # should never occur.
-            raise Exception(f"Variable {node.id.id.text!r} does not exist")
+            raise UnrecoverableError(f"Variable {node.id.id.text!r} does not exist")
 
     def visit_VariableNode(self, node: VariableNode, *args, exp_type=None, **kwargs):
         # Place the variable on the stack
@@ -712,8 +697,6 @@ class GeneratorYielder(NodeYielder):
     ):
         # If get_addr is True, then for the *last* field we want to put the address instead of the
         # value on the stack.
-        # TODO: Verify that exp_type updating doesn't cause issues here with a.fst = 12;
-
         for i, field in enumerate(node.fields, start=1):
             match field:
                 case Token(type=Type.FST) | Token(type=Type.SND):
@@ -897,10 +880,7 @@ class GeneratorYielder(NodeYielder):
         yield from []
 
     def visit_ListNode(self, node: ListNode, *args, exp_type=None, **kwargs):
-        # TODO: Note the distinction between if node.exp exists (then it's a type)
-        # and if it doesn't (then it's an empty list)
         set_variable(exp_type, node)
-
         yield from STD_LIB_LIST["_get_empty_list"]
 
     def visit_TupleNode(self, node: TupleNode, *args, exp_type=None, **kwargs):
@@ -1201,7 +1181,6 @@ class GeneratorYielder(NodeYielder):
 
     def deep_copy(self, node: ListNode) -> Iterator[Line]:
         # Assumes the variable to be copied is on top of the stack
-
         label = "_deep_copy" + self.types_to_label([node])
 
         # Clear RR
@@ -1209,7 +1188,6 @@ class GeneratorYielder(NodeYielder):
         yield Line(Instruction.STR, "RR")
         match node:
             case ListNode(body=ListNode()):
-
                 yield Line(label=label)
                 yield Line(Instruction.LINK, 0)
                 # Top of stack in subroutine is:
@@ -1586,12 +1564,13 @@ class GeneratorYielder(NodeYielder):
                     yield Line(Instruction.LDA, offset, comment=str(node))
 
                 else:
-                    # TODO: Implement a backup error saying that there is no such variable,
-                    # should never occur.
-                    raise Exception(f"Variable {node.text!r} does not exist")
+                    raise UnrecoverableError(f"Variable {node.text!r} does not exist")
 
             case Token(type=Type.DIGIT):
-                # TODO: Disallow overflow somewhere?
+                integer_value = int(node.text)
+                # Check is off by one (on the safe side) for negative numbers.
+                if integer_value >= 2**31:
+                    CompilerOverFlowError(self.program, node.span, integer_value)
                 set_variable(exp_type, IntTypeNode())
                 yield Line(Instruction.LDC, int(node.text), comment=str(node))
 

@@ -29,8 +29,8 @@ print("=" * 25)
 print(tree)
 
 # Generate the SSM Code
-generator = Generator(tree)
-ssm_code = generator.generate()
+generator = Generator(program)
+ssm_code = generator.generate(tree)
 
 # Execute the SSM Code
 out = generator.run(ssm_code, gui=False)
