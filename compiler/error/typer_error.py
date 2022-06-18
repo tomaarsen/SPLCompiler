@@ -6,18 +6,15 @@ from compiler.token import Token
 from compiler.util import Span
 
 from compiler.tree.tree import (  # isort:skip
-    BoolTypeNode,
     CommaListNode,
     ForNode,
     FunCallNode,
     FunDeclNode,
     IfElseNode,
     IndexNode,
-    ListAbbrNode,
     Node,
     Op1Node,
     Op2Node,
-    PolymorphicTypeNode,
     ReturnNode,
     StmtAssNode,
     TupleNode,
