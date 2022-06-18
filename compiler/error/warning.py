@@ -5,7 +5,6 @@ from compiler.error.communicator import Communicator, WarningRaiser
 from compiler.util import Colors, Span
 
 from compiler.tree.tree import (  # isort:skip
-    FieldNode,
     FunCallNode,
     FunDeclNode,
     IfElseNode,
